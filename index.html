@@ -1099,7 +1099,8 @@ document.getElementById('priUrgent').onclick = ()=>{ selectedPriority = 'urgent'
 
 document.getElementById('fabAdd').onclick = ()=> openSheet(null, null);
 document.getElementById('btnCancel').onclick = closeSheet;
-overlay.onclick = (e)=>{ if(e.target === overlay) closeSheet(); };
+// 移除點擊外部背景關閉表單的行為，避免手機誤觸導致輸入內容遺失
+// 只能透過「取消」或「儲存」按鈕關閉
 
 async function handleSaveOrder(){
   const customer = document.getElementById('fCustomer').value.trim();
