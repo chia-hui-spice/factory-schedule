@@ -185,6 +185,16 @@
   .alert-item .alert-jump{ background:var(--red); color:#fff; border:none; border-radius:6px; padding:6px 10px; font-size:14.5px; font-weight:700; cursor:pointer; flex:0 0 auto; }
   .alert-item.tomorrow .alert-jump{ background:var(--amber); color:var(--amber-ink); }
   .alert-banner{ display:none; flex-direction:column; margin-bottom:12px; }
+  .test-mode-banner{
+    background:rgba(155,126,222,0.16); border:1.5px solid var(--purple); border-radius:10px;
+    padding:12px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; gap:10px;
+    flex-wrap:wrap; font-size:13px; color:var(--ink); line-height:1.5;
+  }
+  .test-mode-banner b{ color:var(--purple); }
+  .test-mode-banner button{
+    background:var(--purple); color:#fff; border:none; border-radius:8px; padding:8px 14px;
+    font-size:12.5px; font-weight:700; cursor:pointer; flex:0 0 auto;
+  }
   .alert-banner.show{ display:flex; }
 
   .report-updated{ font-size:14px; color:var(--ink-dim); font-family:var(--mono); margin-bottom:4px; }
@@ -222,6 +232,21 @@
   .btn-restore{ background:var(--green); color:#0F1B14; }
   .btn-purge{ background:transparent; color:var(--red); border:1px solid var(--red) !important; }
   .trash-empty{ text-align:center; padding:40px 20px; color:var(--ink-dim); font-size:16.5px; }
+
+  .material-item{ background:var(--panel-raised); border:1.5px solid var(--line); border-radius:10px; padding:12px; margin-bottom:10px; cursor:pointer; }
+  .material-item-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+  .material-item-name{ font-size:16px; font-weight:800; color:var(--ink); }
+  .material-item-stock{ font-family:var(--mono); font-size:14px; font-weight:700; color:var(--teal); }
+  .material-item-meta{ font-size:12.5px; color:var(--ink-dim); font-family:var(--mono); }
+
+  .bom-item{ background:var(--panel-raised); border:1.5px solid var(--line); border-radius:10px; padding:12px; margin-bottom:10px; cursor:pointer; }
+  .bom-item-name{ font-size:16px; font-weight:800; color:var(--ink); margin-bottom:6px; }
+  .bom-item-row{ font-size:13px; color:var(--ink-dim); }
+
+  .bom-material-row{ display:flex; gap:8px; align-items:flex-end; margin-bottom:10px; }
+  .bom-material-row .field{ flex:1; margin-bottom:0; }
+  .bom-material-row .field.qty-field{ flex:0 0 100px; }
+  .bom-row-remove{ flex:0 0 40px; height:44px; border-radius:8px; background:var(--panel); border:1px solid var(--red); color:var(--red); font-size:16px; cursor:pointer; }
 
   .ship-opt{
     width:100%; padding:16px; border-radius:10px; border:1.5px solid var(--line); background:var(--panel-raised);
@@ -268,12 +293,17 @@
     </div>
     <button class="bell-btn quick-stat-btn" id="coaQuickBtn" title="需要COA的品項">📄<span class="quick-badge" id="coaQuickCount" style="display:none;">0</span></button>
     <button class="bell-btn quick-stat-btn" id="todayRiskQuickBtn" title="今日3點未出貨的品項">⏰<span class="quick-badge todayrisk-badge" id="todayRiskQuickCount" style="display:none;">0</span></button>
+    <button class="bell-btn" id="bomBtn" title="原料與BOM管理">📦</button>
     <button class="bell-btn" id="signOutBtn" title="登出">👤</button>
     <button class="bell-btn" id="trashBtn" title="查看垃圾桶">🗑️</button>
     <button class="bell-btn" id="reportBtn" title="查看統計報表">📊</button>
     <button class="bell-btn" id="bellBtn" title="開啟出貨提醒通知">🔔</button>
   </div>
   <div class="alert-banner" id="alertBanner"></div>
+  <div id="testModeBanner" class="test-mode-banner" style="display:none;">
+    <div>🧪 <b>測試模式</b>：目前看到的資料跟正式版完全分開，不會影響共用資料</div>
+    <button type="button" id="btnMergeToProd">合併到正式版</button>
+  </div>
   <div class="tabs" id="tabs"></div>
 </header>
 
@@ -576,6 +606,93 @@
   </div>
 </div>
 
+<div class="overlay" id="bomOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>原料與 BOM 管理</h2>
+    <div class="report-updated">生產完成（生產中→標籤印製）時會自動扣除對應原料庫存</div>
+
+    <div class="report-tabs" id="bomTabs">
+      <button type="button" class="report-tab active" data-bom-tab="materials">📦 原料庫存</button>
+      <button type="button" class="report-tab" data-bom-tab="boms">🧾 BOM 設定</button>
+    </div>
+
+    <div class="report-tab-panel" id="bomPanelMaterials">
+      <button type="button" class="add-item-btn" id="btnAddMaterial" style="margin-bottom:12px;">+ 新增原料</button>
+      <div id="materialList"></div>
+    </div>
+
+    <div class="report-tab-panel" id="bomPanelBoms" style="display:none;">
+      <button type="button" class="add-item-btn" id="btnAddBom" style="margin-bottom:12px;">+ 新增 BOM 設定</button>
+      <div id="bomList"></div>
+    </div>
+
+    <div class="sheet-actions" style="margin-top:18px;">
+      <button type="button" class="btn-primary" id="btnCloseBom">關閉</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="materialFormOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 id="materialFormTitle">新增原料</h2>
+    <div class="field">
+      <label>原料名稱</label>
+      <input type="text" id="mfName" placeholder="例如 白胡椒粉">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>單位</label>
+        <input type="text" id="mfUnit" placeholder="例如 kg、g、包">
+      </div>
+      <div class="field">
+        <label>目前庫存量</label>
+        <input type="number" id="mfStock" placeholder="0" step="any">
+      </div>
+    </div>
+    <div class="section-label" style="margin-top:8px;">目前批號資訊（用於自動帶入訂單）</div>
+    <div class="field">
+      <label>原料進貨批號</label>
+      <input type="text" id="mfBatchNo" placeholder="原料進貨批號">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>原料製造日期</label>
+        <input type="date" id="mfMfgDate">
+      </div>
+      <div class="field">
+        <label>原料有效日期</label>
+        <input type="date" id="mfExpDate">
+      </div>
+    </div>
+    <div class="sheet-actions">
+      <button type="button" class="btn-secondary" id="btnCancelMaterial">取消</button>
+      <button type="button" class="btn-primary" id="btnSaveMaterial">儲存</button>
+    </div>
+    <button type="button" class="btn-delete" id="btnDeleteMaterial" style="display:none;">刪除此原料</button>
+  </div>
+</div>
+
+<div class="overlay" id="bomFormOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 id="bomFormTitle">新增 BOM 設定</h2>
+    <div class="field">
+      <label>產品名稱（需與訂單品項的產品名稱完全一致）</label>
+      <input type="text" id="bfProduct" placeholder="例如 炒香料">
+    </div>
+    <div class="section-label" style="margin-top:8px;">所需原料（每 1 單位產品的用量）</div>
+    <div id="bomMaterialRows"></div>
+    <button type="button" class="add-item-btn" id="btnAddBomRow" style="margin-bottom:8px;">+ 新增原料項目</button>
+    <div class="sheet-actions">
+      <button type="button" class="btn-secondary" id="btnCancelBom">取消</button>
+      <button type="button" class="btn-primary" id="btnSaveBom">儲存</button>
+    </div>
+    <button type="button" class="btn-delete" id="btnDeleteBom" style="display:none;">刪除此 BOM 設定</button>
+  </div>
+</div>
+
 <div class="overlay" id="confirmOverlay">
   <div class="sheet" style="padding-bottom:24px;">
     <div class="sheet-handle"></div>
@@ -643,8 +760,14 @@ const db = getFirestore(fbApp);
 const auth = getAuth(fbApp);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ hd: ALLOWED_EMAIL_DOMAIN });
-const ordersDocRef = doc(db, 'appData', 'orders');
-const backupDocRef = doc(db, 'appData', 'backupState');
+const isTestMode = new URLSearchParams(location.search).get('test') === '1';
+const dataPrefix = isTestMode ? 'testData' : 'appData';
+const ordersDocRef = doc(db, dataPrefix, 'orders');
+const backupDocRef = doc(db, dataPrefix, 'backupState');
+const bomDataDocRef = doc(db, dataPrefix, 'bomData');
+// 正式資料的參照（測試模式下用於「合併到正式版」功能）
+const prodOrdersDocRef = doc(db, 'appData', 'orders');
+const prodBomDataDocRef = doc(db, 'appData', 'bomData');
 
 window.addEventListener('error', function(e){
   try{ showToastSafe('發生錯誤：' + e.message); }catch(_){}
@@ -664,6 +787,8 @@ const CHK_LABELS = { c1:'標籤品名核對', c2:'裝箱數量', c3:'包裝密�
 const SHIP_METHOD_LABEL = { today:'🚚 今天寄貨', tomorrow:'📦 明天送貨', pickup:'🙋 客戶自取' };
 
 let orders = []; // [{id, customer, items:[...]}]
+let materials = []; // [{id, name, unit, stock, batchNo, mfgDate, expDate}]
+let boms = []; // [{id, product, rows:[{materialId, qtyPerUnit}]}]
 let currentTab = 'pending';
 let editingOrderId = null; // 目前編輯表單所屬的訂單 id（null = 新訂單）
 let editingItemId = null;  // 目前編輯的品項 id（null = 新品項）
@@ -926,24 +1051,32 @@ function renderList(){
         item.shipMethod = choice;
       }
 
+      const wasInprogress = item.status === 'inprogress';
       item.status = nextStatus;
       if(item.status === 'done') item.completedAt = Date.now();
       if(item.status === 'shipped') item.shippedAt = Date.now();
       saveOrders(); render();
       showToast('已移至「' + STATUS_LABEL[item.status] + '」');
+      if(wasInprogress && item.status === 'labeling'){
+        await deductStockForItem(item);
+      }
     };
   });
   wrap.querySelectorAll('[data-act="back"]').forEach(btn=>{
-    btn.onclick = ()=>{
+    btn.onclick = async ()=>{
       const order = orders.find(o=>o.id === btn.dataset.oid);
       const item = order && order.items.find(i=>i.id === btn.dataset.iid);
       if(!item) return;
       const idx = STATUS.indexOf(item.status);
+      const wasLabeling = item.status === 'labeling';
       item.status = STATUS[idx-1];
       if(item.status !== 'done') delete item.completedAt;
       if(item.status !== 'shipped'){ delete item.shippedAt; delete item.shipMethod; }
       saveOrders(); render();
       showToast('已移至「' + STATUS_LABEL[item.status] + '」');
+      if(wasLabeling && item.status === 'inprogress'){
+        await restoreStockForItem(item);
+      }
     };
   });
   wrap.querySelectorAll('[data-act="edit"]').forEach(btn=>{
@@ -1666,6 +1799,311 @@ async function purgeExpiredTrash(){
 function tick(){ checkShipmentAlerts(); renderList(); }
 setInterval(tick, 60000);
 
+// ---- 測試模式 ----
+if(isTestMode){
+  document.getElementById('testModeBanner').style.display = '';
+  document.querySelector('.subtitle').innerHTML = '<span class="sync-dot"></span>🧪 測試資料・與正式版分開';
+}
+document.getElementById('btnMergeToProd').onclick = async ()=>{
+  const orderCount = orders.reduce((sum,o)=> sum + (o.items||[]).length, 0);
+  const ok = await showConfirm(
+    '測試期間新增的 ' + orders.length + ' 張訂單（共 ' + orderCount + ' 個品項）、' + materials.length + ' 項原料、' + boms.length + ' 筆 BOM 設定，會加進正式版現有的資料裡（不會覆蓋，只會新增）。確定要合併嗎？',
+    '合併到正式版'
+  );
+  if(!ok) return;
+
+  try{
+    const prodOrdersSnap = await getDoc(prodOrdersDocRef);
+    const prodOrders = (prodOrdersSnap.exists() && prodOrdersSnap.data().list) ? prodOrdersSnap.data().list : [];
+    const mergedOrders = prodOrders.concat(orders);
+    await setDoc(prodOrdersDocRef, { list: mergedOrders });
+
+    const prodBomSnap = await getDoc(prodBomDataDocRef);
+    const prodBomData = prodBomSnap.exists() ? prodBomSnap.data() : {};
+    const prodMaterials = prodBomData.materials || [];
+    const prodBoms = prodBomData.boms || [];
+    const mergedMaterials = prodMaterials.concat(materials);
+    const mergedBoms = prodBoms.concat(boms);
+    await setDoc(prodBomDataDocRef, { materials: mergedMaterials, boms: mergedBoms });
+
+    showToast('已合併到正式版！');
+
+    const clearOk = await showConfirm('要不要順便清空測試資料，讓測試環境恢復乾淨？', '清空測試資料？');
+    if(clearOk){
+      orders = []; materials = []; boms = [];
+      await saveOrders();
+      await saveBomData();
+      showToast('測試資料已清空');
+    }
+  }catch(e){
+    console.error(e);
+    showToast('合併失敗，請檢查網路後再試一次');
+  }
+};
+
+// ---- BOM / 原料管理 ----
+function loadBomData(){
+  onSnapshot(bomDataDocRef, (snap)=>{
+    const data = snap.exists() ? snap.data() : {};
+    materials = data.materials || [];
+    boms = data.boms || [];
+    renderMaterialList();
+    renderBomList();
+  }, (err)=>{
+    console.error(err);
+  });
+}
+async function saveBomData(){
+  try{
+    await setDoc(bomDataDocRef, { materials, boms });
+  }catch(e){
+    console.error(e);
+    showToast('儲存失敗，請檢查網路');
+  }
+}
+
+const bomOverlay = document.getElementById('bomOverlay');
+document.getElementById('bomBtn').onclick = ()=>{
+  switchBomTab('materials');
+  renderMaterialList();
+  renderBomList();
+  bomOverlay.classList.add('show');
+};
+document.getElementById('btnCloseBom').onclick = ()=> bomOverlay.classList.remove('show');
+bomOverlay.onclick = (e)=>{ if(e.target === bomOverlay) bomOverlay.classList.remove('show'); };
+
+const BOM_PANELS = { materials:'bomPanelMaterials', boms:'bomPanelBoms' };
+function switchBomTab(key){
+  document.querySelectorAll('#bomTabs .report-tab').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.bomTab === key);
+  });
+  Object.entries(BOM_PANELS).forEach(([k,id])=>{
+    document.getElementById(id).style.display = (k===key) ? '' : 'none';
+  });
+}
+document.querySelectorAll('#bomTabs .report-tab').forEach(btn=>{
+  btn.onclick = ()=> switchBomTab(btn.dataset.bomTab);
+});
+
+// ---- 原料庫存 ----
+function renderMaterialList(){
+  const listEl = document.getElementById('materialList');
+  if(materials.length === 0){
+    listEl.innerHTML = '<div class="ship-list-empty">還沒有任何原料，點上面「+ 新增原料」開始建立</div>';
+    return;
+  }
+  listEl.innerHTML = materials.map(m=>{
+    return '<div class="material-item" data-mid="'+m.id+'">' +
+      '<div class="material-item-top"><div class="material-item-name">'+escapeHtml(m.name)+'</div><div class="material-item-stock">'+ (m.stock ?? 0) +' '+escapeHtml(m.unit||'')+'</div></div>' +
+      '<div class="material-item-meta">批號 '+escapeHtml(m.batchNo||'－')+'　有效期限 '+(m.expDate||'－')+'</div>' +
+    '</div>';
+  }).join('');
+  listEl.querySelectorAll('[data-mid]').forEach(el=>{
+    el.onclick = ()=>{
+      const m = materials.find(x=>x.id===el.dataset.mid);
+      if(m) openMaterialForm(m);
+    };
+  });
+}
+
+let editingMaterialId = null;
+const materialFormOverlay = document.getElementById('materialFormOverlay');
+function openMaterialForm(m){
+  editingMaterialId = m ? m.id : null;
+  document.getElementById('materialFormTitle').textContent = m ? '編輯原料' : '新增原料';
+  document.getElementById('mfName').value = m ? m.name : '';
+  document.getElementById('mfUnit').value = m ? (m.unit||'') : '';
+  document.getElementById('mfStock').value = m ? (m.stock ?? '') : '';
+  document.getElementById('mfBatchNo').value = m ? (m.batchNo||'') : '';
+  document.getElementById('mfMfgDate').value = m ? (m.mfgDate||'') : '';
+  document.getElementById('mfExpDate').value = m ? (m.expDate||'') : '';
+  document.getElementById('btnDeleteMaterial').style.display = m ? 'block' : 'none';
+  materialFormOverlay.classList.add('show');
+}
+document.getElementById('btnAddMaterial').onclick = ()=> openMaterialForm(null);
+document.getElementById('btnCancelMaterial').onclick = ()=> materialFormOverlay.classList.remove('show');
+document.getElementById('btnSaveMaterial').onclick = async ()=>{
+  const name = document.getElementById('mfName').value.trim();
+  const unit = document.getElementById('mfUnit').value.trim();
+  const stock = parseFloat(document.getElementById('mfStock').value);
+  const batchNo = document.getElementById('mfBatchNo').value.trim();
+  const mfgDate = document.getElementById('mfMfgDate').value;
+  const expDate = document.getElementById('mfExpDate').value;
+  if(!name){ showToast('請填寫原料名稱'); return; }
+  if(editingMaterialId){
+    const m = materials.find(x=>x.id===editingMaterialId);
+    if(m) Object.assign(m, { name, unit, stock: isNaN(stock)?0:stock, batchNo, mfgDate, expDate });
+    showToast('已更新原料');
+  }else{
+    materials.push({ id:'m_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), name, unit, stock: isNaN(stock)?0:stock, batchNo, mfgDate, expDate });
+    showToast('已新增原料');
+  }
+  await saveBomData();
+  materialFormOverlay.classList.remove('show');
+  renderMaterialList();
+};
+document.getElementById('btnDeleteMaterial').onclick = async ()=>{
+  if(!editingMaterialId) return;
+  const ok = await showConfirm('這個原料如果有被 BOM 設定使用，相關設定會失效。確定要刪除嗎？', '確定要刪除這個原料嗎？');
+  if(!ok) return;
+  materials = materials.filter(x=>x.id!==editingMaterialId);
+  await saveBomData();
+  materialFormOverlay.classList.remove('show');
+  renderMaterialList();
+  showToast('已刪除原料');
+};
+
+// ---- BOM 設定 ----
+function renderBomList(){
+  const listEl = document.getElementById('bomList');
+  if(boms.length === 0){
+    listEl.innerHTML = '<div class="ship-list-empty">還沒有任何 BOM 設定，點上面「+ 新增 BOM 設定」開始建立</div>';
+    return;
+  }
+  listEl.innerHTML = boms.map(b=>{
+    const rowsHtml = (b.rows||[]).map(r=>{
+      const m = materials.find(x=>x.id===r.materialId);
+      return '<div class="bom-item-row">・ '+escapeHtml(m?m.name:'（原料已刪除）')+'　每單位用量 '+r.qtyPerUnit+' '+escapeHtml(m?m.unit||'':'')+'</div>';
+    }).join('');
+    return '<div class="bom-item" data-bid="'+b.id+'"><div class="bom-item-name">'+escapeHtml(b.product)+'</div>'+rowsHtml+'</div>';
+  }).join('');
+  listEl.querySelectorAll('[data-bid]').forEach(el=>{
+    el.onclick = ()=>{
+      const b = boms.find(x=>x.id===el.dataset.bid);
+      if(b) openBomForm(b);
+    };
+  });
+}
+
+let editingBomId = null;
+let bomRowsState = [];
+const bomFormOverlay = document.getElementById('bomFormOverlay');
+
+function renderBomRows(){
+  const wrap = document.getElementById('bomMaterialRows');
+  if(materials.length === 0){
+    wrap.innerHTML = '<div class="ship-list-empty">請先到「原料庫存」新增至少一項原料</div>';
+    return;
+  }
+  wrap.innerHTML = bomRowsState.map((row, idx)=>{
+    const options = materials.map(m=>'<option value="'+m.id+'"'+(m.id===row.materialId?' selected':'')+'>'+escapeHtml(m.name)+'</option>').join('');
+    return '<div class="bom-material-row" data-idx="'+idx+'">' +
+      '<div class="field"><select class="bomRowMaterial">'+options+'</select></div>' +
+      '<div class="field qty-field"><input type="number" step="any" class="bomRowQty" placeholder="用量" value="'+(row.qtyPerUnit ?? '')+'"></div>' +
+      '<button type="button" class="bom-row-remove" data-remove="'+idx+'">✕</button>' +
+    '</div>';
+  }).join('');
+
+  wrap.querySelectorAll('.bomRowMaterial').forEach((sel, i)=>{
+    sel.onchange = ()=>{ bomRowsState[i].materialId = sel.value; };
+  });
+  wrap.querySelectorAll('.bomRowQty').forEach((inp, i)=>{
+    inp.oninput = ()=>{ bomRowsState[i].qtyPerUnit = parseFloat(inp.value) || 0; };
+  });
+  wrap.querySelectorAll('[data-remove]').forEach(btn=>{
+    btn.onclick = ()=>{
+      bomRowsState.splice(parseInt(btn.dataset.remove,10), 1);
+      renderBomRows();
+    };
+  });
+}
+document.getElementById('btnAddBomRow').onclick = ()=>{
+  if(materials.length === 0){ showToast('請先新增至少一項原料'); return; }
+  bomRowsState.push({ materialId: materials[0].id, qtyPerUnit: 0 });
+  renderBomRows();
+};
+
+function openBomForm(b){
+  editingBomId = b ? b.id : null;
+  document.getElementById('bomFormTitle').textContent = b ? '編輯 BOM 設定' : '新增 BOM 設定';
+  document.getElementById('bfProduct').value = b ? b.product : '';
+  bomRowsState = b ? JSON.parse(JSON.stringify(b.rows||[])) : (materials.length ? [{ materialId: materials[0].id, qtyPerUnit: 0 }] : []);
+  renderBomRows();
+  document.getElementById('btnDeleteBom').style.display = b ? 'block' : 'none';
+  bomFormOverlay.classList.add('show');
+}
+document.getElementById('btnAddBom').onclick = ()=> openBomForm(null);
+document.getElementById('btnCancelBom').onclick = ()=> bomFormOverlay.classList.remove('show');
+document.getElementById('btnSaveBom').onclick = async ()=>{
+  const product = document.getElementById('bfProduct').value.trim();
+  if(!product){ showToast('請填寫產品名稱'); return; }
+  const rows = bomRowsState.filter(r=>r.materialId && r.qtyPerUnit > 0);
+  if(rows.length === 0){ showToast('請至少設定一項原料用量'); return; }
+
+  if(editingBomId){
+    const b = boms.find(x=>x.id===editingBomId);
+    if(b) Object.assign(b, { product, rows });
+    showToast('已更新 BOM 設定');
+  }else{
+    boms.push({ id:'b_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), product, rows });
+    showToast('已新增 BOM 設定');
+  }
+  await saveBomData();
+  bomFormOverlay.classList.remove('show');
+  renderBomList();
+};
+document.getElementById('btnDeleteBom').onclick = async ()=>{
+  if(!editingBomId) return;
+  const ok = await showConfirm('刪除後這個產品就不會再自動帶入批號或扣庫存。', '確定要刪除這個 BOM 設定嗎？');
+  if(!ok) return;
+  boms = boms.filter(x=>x.id!==editingBomId);
+  await saveBomData();
+  bomFormOverlay.classList.remove('show');
+  renderBomList();
+  showToast('已刪除 BOM 設定');
+};
+
+// ---- 自動帶入原料批號（新增品項時，依產品名稱比對 BOM）----
+function autoFillMaterialFromBom(){
+  if(editingItemId) return; // 只在新增品項時自動帶入，避免覆蓋既有資料
+  const product = document.getElementById('fProduct').value.trim();
+  if(!product) return;
+  const bom = boms.find(b=>b.product === product);
+  if(!bom || !bom.rows || bom.rows.length === 0) return;
+  const primary = materials.find(m=>m.id===bom.rows[0].materialId);
+  if(!primary) return;
+  const batchEl = document.getElementById('fMaterialBatchNo');
+  const mfgEl = document.getElementById('fMaterialMfgDate');
+  const expEl = document.getElementById('fMaterialExpDate');
+  if(!batchEl.value) batchEl.value = primary.batchNo || '';
+  if(!mfgEl.value) mfgEl.value = primary.mfgDate || '';
+  if(!expEl.value) expEl.value = primary.expDate || '';
+}
+document.getElementById('fProduct').addEventListener('blur', autoFillMaterialFromBom);
+
+// ---- 生產完成時自動扣庫存 ----
+async function deductStockForItem(item){
+  const bom = boms.find(b=>b.product === item.product);
+  if(!bom || !bom.rows || bom.rows.length === 0) return;
+  const shortages = [];
+  bom.rows.forEach(row=>{
+    const m = materials.find(x=>x.id===row.materialId);
+    if(!m) return;
+    const used = row.qtyPerUnit * (item.qty || 0);
+    m.stock = Math.round(((m.stock||0) - used) * 1000) / 1000;
+    if(m.stock < 0) shortages.push(m.name);
+  });
+  await saveBomData();
+  renderMaterialList();
+  if(shortages.length > 0){
+    showToast('⚠ 原料庫存不足：' + shortages.join('、'));
+  }
+}
+
+async function restoreStockForItem(item){
+  const bom = boms.find(b=>b.product === item.product);
+  if(!bom || !bom.rows || bom.rows.length === 0) return;
+  bom.rows.forEach(row=>{
+    const m = materials.find(x=>x.id===row.materialId);
+    if(!m) return;
+    const used = row.qtyPerUnit * (item.qty || 0);
+    m.stock = Math.round(((m.stock||0) + used) * 1000) / 1000;
+  });
+  await saveBomData();
+  renderMaterialList();
+  showToast('已歸還對應原料庫存');
+}
+
 // ---- 登入驗證 ----
 let appInitialized = false;
 function isAllowedEmail(email){ if(!email) return false; return email.toLowerCase().endsWith('@' + ALLOWED_EMAIL_DOMAIN.toLowerCase()); }
@@ -1702,7 +2140,7 @@ onAuthStateChanged(auth, (user)=>{
     return;
   }
   gate.classList.add('hidden');
-  if(!appInitialized){ appInitialized = true; loadOrders(); loadBackupState(); }
+  if(!appInitialized){ appInitialized = true; loadOrders(); loadBackupState(); loadBomData(); }
 });
 </script>
 </body>
