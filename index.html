@@ -242,6 +242,7 @@
   .ship-list-qty{ font-family:var(--mono); font-size:16.5px; font-weight:700; color:var(--teal); flex:0 0 auto; }
   .ship-list-tag{ font-size:13px; font-weight:700; padding:2px 6px; border-radius:5px; background:var(--panel); border:1px solid var(--line); color:var(--ink-dim); white-space:nowrap; margin-top:4px; display:inline-block; }
   .ship-list-empty{ font-size:15.5px; color:var(--ink-dim); padding:8px 2px 4px 2px; }
+  .ship-filter-bar{ background:var(--panel-raised); border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:12px; }
 </style>
 </head>
 <body>
@@ -523,6 +524,23 @@
       <div id="shipPickupList"></div>
 
       <div class="report-section-title">✅ 已出貨品項清單（全部，最新在前）</div>
+      <div class="ship-filter-bar">
+        <div class="field" style="margin-bottom:8px;">
+          <label>出貨日期</label>
+          <input type="date" id="shipFilterDate">
+        </div>
+        <div class="row2" style="margin-bottom:0;">
+          <div class="field" style="margin-bottom:0;">
+            <label>客戶</label>
+            <input type="text" id="shipFilterCustomer" placeholder="輸入客戶名稱關鍵字">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>原料批號</label>
+            <input type="text" id="shipFilterMaterialBatch" placeholder="輸入原料批號關鍵字">
+          </div>
+        </div>
+        <button type="button" class="split-btn" id="shipFilterClearBtn" style="margin-top:10px;">清除篩選</button>
+      </div>
       <div id="shippedAllList"></div>
     </div>
 
@@ -1349,27 +1367,54 @@ function renderShipLists(){
   document.getElementById('shipPickupList').innerHTML = renderRows(pickupList);
 
   const SHIPPED_ALL_LIMIT = 100;
-  const shippedAll = all
-    .filter(x => x.item.status === 'shipped')
+  const filterDate = document.getElementById('shipFilterDate').value;
+  const filterCustomer = document.getElementById('shipFilterCustomer').value.trim().toLowerCase();
+  const filterMaterialBatch = document.getElementById('shipFilterMaterialBatch').value.trim().toLowerCase();
+
+  let shippedAll = all.filter(x => x.item.status === 'shipped');
+
+  if(filterDate){
+    shippedAll = shippedAll.filter(x => x.item.shippedAt && new Date(x.item.shippedAt).toISOString().slice(0,10) === filterDate);
+  }
+  if(filterCustomer){
+    shippedAll = shippedAll.filter(x => (x.order.customer || '').toLowerCase().includes(filterCustomer));
+  }
+  if(filterMaterialBatch){
+    shippedAll = shippedAll.filter(x => (x.item.materialBatchNo || '').toLowerCase().includes(filterMaterialBatch));
+  }
+
+  const filterActive = !!(filterDate || filterCustomer || filterMaterialBatch);
+  shippedAll = shippedAll
     .sort((a,b)=> (b.item.shippedAt||0) - (a.item.shippedAt||0))
     .slice(0, SHIPPED_ALL_LIMIT);
 
   const shippedAllEl = document.getElementById('shippedAllList');
   if(shippedAll.length === 0){
-    shippedAllEl.innerHTML = '<div class="ship-list-empty">目前還沒有已出貨的品項</div>';
+    shippedAllEl.innerHTML = '<div class="ship-list-empty">' + (filterActive ? '沒有符合篩選條件的品項' : '目前還沒有已出貨的品項') + '</div>';
   }else{
     shippedAllEl.innerHTML = shippedAll.map(x=>{
       const dateStr = x.item.shippedAt ? new Date(x.item.shippedAt).toLocaleDateString('zh-TW') : '';
       const methodTag = x.item.shipMethod ? '<span class="ship-list-tag">' + SHIP_METHOD_LABEL[x.item.shipMethod] + '</span>' : '';
+      const materialTag = x.item.materialBatchNo ? '<span class="ship-list-tag">原料批號 ' + escapeHtml(x.item.materialBatchNo) + '</span>' : '';
       return '<div class="ship-list-row"><div><div class="ship-list-name">' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '</div>' +
         '<div class="ship-list-meta">' + escapeHtml(x.order.orderNo || '') + (x.item.spec ? ' ・ ' + escapeHtml(x.item.spec) : '') + ' ・ 出貨日期 ' + dateStr + '</div>' +
-        methodTag + '</div><div class="ship-list-qty">x' + x.item.qty + '</div></div>';
+        methodTag + materialTag + '</div><div class="ship-list-qty">x' + x.item.qty + '</div></div>';
     }).join('');
-    if(all.filter(x=>x.item.status==='shipped').length > SHIPPED_ALL_LIMIT){
+    if(!filterActive && all.filter(x=>x.item.status==='shipped').length > SHIPPED_ALL_LIMIT){
       shippedAllEl.innerHTML += '<div class="ship-list-empty">僅顯示最近 ' + SHIPPED_ALL_LIMIT + ' 筆</div>';
     }
   }
 }
+
+['shipFilterDate','shipFilterCustomer','shipFilterMaterialBatch'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', renderShipLists);
+});
+document.getElementById('shipFilterClearBtn').onclick = ()=>{
+  document.getElementById('shipFilterDate').value = '';
+  document.getElementById('shipFilterCustomer').value = '';
+  document.getElementById('shipFilterMaterialBatch').value = '';
+  renderShipLists();
+};
 
 const reportOverlay = document.getElementById('reportOverlay');
 const REPORT_PANELS = {
