@@ -529,11 +529,17 @@
           <label>出貨日期</label>
           <input type="date" id="shipFilterDate">
         </div>
-        <div class="row2" style="margin-bottom:0;">
+        <div class="row2" style="margin-bottom:8px;">
           <div class="field" style="margin-bottom:0;">
             <label>客戶</label>
             <input type="text" id="shipFilterCustomer" placeholder="輸入客戶名稱關鍵字">
           </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>產品</label>
+            <input type="text" id="shipFilterProduct" placeholder="輸入產品名稱關鍵字">
+          </div>
+        </div>
+        <div class="row2" style="margin-bottom:0;">
           <div class="field" style="margin-bottom:0;">
             <label>原料批號</label>
             <input type="text" id="shipFilterMaterialBatch" placeholder="輸入原料批號關鍵字">
@@ -1369,6 +1375,7 @@ function renderShipLists(){
   const SHIPPED_ALL_LIMIT = 100;
   const filterDate = document.getElementById('shipFilterDate').value;
   const filterCustomer = document.getElementById('shipFilterCustomer').value.trim().toLowerCase();
+  const filterProduct = document.getElementById('shipFilterProduct').value.trim().toLowerCase();
   const filterMaterialBatch = document.getElementById('shipFilterMaterialBatch').value.trim().toLowerCase();
 
   let shippedAll = all.filter(x => x.item.status === 'shipped');
@@ -1379,11 +1386,14 @@ function renderShipLists(){
   if(filterCustomer){
     shippedAll = shippedAll.filter(x => (x.order.customer || '').toLowerCase().includes(filterCustomer));
   }
+  if(filterProduct){
+    shippedAll = shippedAll.filter(x => (x.item.product || '').toLowerCase().includes(filterProduct));
+  }
   if(filterMaterialBatch){
     shippedAll = shippedAll.filter(x => (x.item.materialBatchNo || '').toLowerCase().includes(filterMaterialBatch));
   }
 
-  const filterActive = !!(filterDate || filterCustomer || filterMaterialBatch);
+  const filterActive = !!(filterDate || filterCustomer || filterProduct || filterMaterialBatch);
   shippedAll = shippedAll
     .sort((a,b)=> (b.item.shippedAt||0) - (a.item.shippedAt||0))
     .slice(0, SHIPPED_ALL_LIMIT);
@@ -1406,12 +1416,13 @@ function renderShipLists(){
   }
 }
 
-['shipFilterDate','shipFilterCustomer','shipFilterMaterialBatch'].forEach(id=>{
+['shipFilterDate','shipFilterCustomer','shipFilterProduct','shipFilterMaterialBatch'].forEach(id=>{
   document.getElementById(id).addEventListener('input', renderShipLists);
 });
 document.getElementById('shipFilterClearBtn').onclick = ()=>{
   document.getElementById('shipFilterDate').value = '';
   document.getElementById('shipFilterCustomer').value = '';
+  document.getElementById('shipFilterProduct').value = '';
   document.getElementById('shipFilterMaterialBatch').value = '';
   renderShipLists();
 };
