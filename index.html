@@ -332,41 +332,6 @@
         <label>產地</label>
         <input type="text" id="fOrigin" placeholder="產地">
       </div>
-      <div class="field">
-        <label>COA <span style="color:var(--red);">*</span></label>
-        <select id="fCoa">
-          <option value="">請選擇</option>
-          <option value="需要(隨貨附)">需要(隨貨附)</option>
-          <option value="需要(Email)">需要(Email)</option>
-          <option value="無">無</option>
-        </select>
-      </div>
-      <div id="coaValuesSection" style="display:none;">
-        <div class="row2">
-          <div class="field">
-            <label>水分</label>
-            <input type="text" id="fCoaMoisture" placeholder="例如 5.2%">
-          </div>
-          <div class="field">
-            <label>水活性</label>
-            <input type="text" id="fCoaWaterActivity" placeholder="例如 0.45">
-          </div>
-        </div>
-        <div class="row2">
-          <div class="field">
-            <label>總生菌數</label>
-            <input type="text" id="fCoaTotalPlateCount" placeholder="例如 <10 CFU/g">
-          </div>
-          <div class="field">
-            <label>大腸桿菌群</label>
-            <input type="text" id="fCoaColiform" placeholder="例如 陰性">
-          </div>
-        </div>
-        <div class="field">
-          <label>大腸桿菌</label>
-          <input type="text" id="fCoaEcoli" placeholder="例如 陰性">
-        </div>
-      </div>
 
       <div id="stageHintBatch" class="stage-hint">🔒 訂單進入「生產中」後才會開放填寫生產批號、包材批號等欄位</div>
       <div id="sectionBatch">
@@ -414,6 +379,42 @@
       <div class="field">
         <label>備註 / 包裝注意事項</label>
         <textarea id="fNote" placeholder="例如：全廠請務必儘速提供正確批號，以利標籤連動"></textarea>
+      </div>
+
+      <div class="field">
+        <label>COA <span style="color:var(--red);">*</span></label>
+        <select id="fCoa">
+          <option value="">請選擇</option>
+          <option value="需要(隨貨附)">需要(隨貨附)</option>
+          <option value="需要(Email)">需要(Email)</option>
+          <option value="無">無</option>
+        </select>
+      </div>
+      <div id="coaValuesSection" style="display:none;">
+        <div class="row2">
+          <div class="field">
+            <label>水分</label>
+            <input type="text" id="fCoaMoisture" placeholder="例如 5.2%">
+          </div>
+          <div class="field">
+            <label>水活性</label>
+            <input type="text" id="fCoaWaterActivity" placeholder="例如 0.45">
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>總生菌數</label>
+            <input type="text" id="fCoaTotalPlateCount" placeholder="例如 <10 CFU/g">
+          </div>
+          <div class="field">
+            <label>大腸桿菌群</label>
+            <input type="text" id="fCoaColiform" placeholder="例如 陰性">
+          </div>
+        </div>
+        <div class="field">
+          <label>大腸桿菌</label>
+          <input type="text" id="fCoaEcoli" placeholder="例如 陰性">
+        </div>
       </div>
 
       <div id="stageHintChecklist" class="stage-hint">🔒 訂單進入「已完成」後才會開放出貨前檢查與放行確認</div>
