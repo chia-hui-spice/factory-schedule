@@ -188,6 +188,14 @@
   .alert-banner.show{ display:flex; }
 
   .report-updated{ font-size:11px; color:var(--ink-dim); font-family:var(--mono); margin-bottom:4px; }
+  .report-tabs{ display:flex; gap:6px; margin:14px 0 4px 0; overflow-x:auto; }
+  .report-tab{
+    flex:1; min-width:78px; padding:9px 8px; border-radius:8px; border:1.5px solid var(--line);
+    background:var(--panel-raised); color:var(--ink-dim); font-size:12px; font-weight:700; cursor:pointer;
+    font-family:var(--sans); white-space:nowrap;
+  }
+  .report-tab.active{ border-color:var(--amber); color:var(--amber); background:rgba(242,183,5,0.1); }
+  .report-tab-panel{ min-height:120px; }
   .report-section-title{ font-size:11px; font-weight:800; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.6px; margin:18px 0 10px 0; }
   .report-section-title:first-of-type{ margin-top:6px; }
   .stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
@@ -464,51 +472,66 @@
     <h2>統計報表</h2>
     <div class="report-updated" id="reportUpdated"></div>
 
-    <div class="report-section-title">出貨警示（點卡片看明細）</div>
-    <div class="stat-grid">
-      <div class="stat-card danger clickable" data-detail="overdue"><div class="stat-num" id="statOverdue">0</div><div class="stat-label">已逾期未出貨</div></div>
-      <div class="stat-card danger clickable" data-detail="today"><div class="stat-num" id="statToday">0</div><div class="stat-label">今日應出貨</div></div>
-      <div class="stat-card amber clickable" data-detail="tomorrow"><div class="stat-num" id="statTomorrow">0</div><div class="stat-label">明日應出貨</div></div>
-      <div class="stat-card clickable" data-detail="urgent"><div class="stat-num" id="statUrgent">0</div><div class="stat-label">急件進行中</div></div>
-      <div class="stat-card blue clickable" data-detail="coa"><div class="stat-num" id="statCoa">0</div><div class="stat-label">需要COA</div></div>
-    </div>
-    <div id="statDetailPanel" style="display:none;">
-      <div class="report-section-title" id="statDetailTitle"></div>
-      <div id="statDetailList"></div>
+    <div class="report-tabs" id="reportTabs">
+      <button type="button" class="report-tab active" data-report-tab="alerts">⚠ 警示</button>
+      <button type="button" class="report-tab" data-report-tab="progress">📈 生產進度</button>
+      <button type="button" class="report-tab" data-report-tab="shipping">🚚 出貨清單</button>
+      <button type="button" class="report-tab" data-report-tab="backup">💾 備份</button>
     </div>
 
-    <div class="report-section-title">生產進度（品項數）</div>
-    <div class="stat-grid">
-      <div class="stat-card blue"><div class="stat-num" id="statPending">0</div><div class="stat-label">待生產</div></div>
-      <div class="stat-card amber"><div class="stat-num" id="statInprogress">0</div><div class="stat-label">生產中</div></div>
-      <div class="stat-card purple"><div class="stat-num" id="statLabeling">0</div><div class="stat-label">標籤印製</div></div>
-      <div class="stat-card green"><div class="stat-num" id="statDone">0</div><div class="stat-label">已完成</div></div>
-      <div class="stat-card teal"><div class="stat-num" id="statShipped">0</div><div class="stat-label">已出貨</div></div>
-      <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-label">品項總數</div></div>
+    <div class="report-tab-panel" id="reportPanelAlerts">
+      <div class="report-section-title" style="margin-top:0;">出貨警示（點卡片看明細）</div>
+      <div class="stat-grid">
+        <div class="stat-card danger clickable" data-detail="overdue"><div class="stat-num" id="statOverdue">0</div><div class="stat-label">已逾期未出貨</div></div>
+        <div class="stat-card danger clickable" data-detail="today"><div class="stat-num" id="statToday">0</div><div class="stat-label">今日應出貨</div></div>
+        <div class="stat-card amber clickable" data-detail="tomorrow"><div class="stat-num" id="statTomorrow">0</div><div class="stat-label">明日應出貨</div></div>
+        <div class="stat-card clickable" data-detail="urgent"><div class="stat-num" id="statUrgent">0</div><div class="stat-label">急件進行中</div></div>
+        <div class="stat-card blue clickable" data-detail="coa"><div class="stat-num" id="statCoa">0</div><div class="stat-label">需要COA</div></div>
+      </div>
+      <div id="statDetailPanel" style="display:none;">
+        <div class="report-section-title" id="statDetailTitle"></div>
+        <div id="statDetailList"></div>
+      </div>
     </div>
 
-    <div class="report-section-title">出貨量</div>
-    <div class="stat-grid">
-      <div class="stat-card teal"><div class="stat-num" id="statShippedToday">0</div><div class="stat-label">今日出貨</div></div>
-      <div class="stat-card teal"><div class="stat-num" id="statShippedWeek">0</div><div class="stat-label">本週出貨</div></div>
+    <div class="report-tab-panel" id="reportPanelProgress" style="display:none;">
+      <div class="report-section-title" style="margin-top:0;">生產進度（品項數）</div>
+      <div class="stat-grid">
+        <div class="stat-card blue"><div class="stat-num" id="statPending">0</div><div class="stat-label">待生產</div></div>
+        <div class="stat-card amber"><div class="stat-num" id="statInprogress">0</div><div class="stat-label">生產中</div></div>
+        <div class="stat-card purple"><div class="stat-num" id="statLabeling">0</div><div class="stat-label">標籤印製</div></div>
+        <div class="stat-card green"><div class="stat-num" id="statDone">0</div><div class="stat-label">已完成</div></div>
+        <div class="stat-card teal"><div class="stat-num" id="statShipped">0</div><div class="stat-label">已出貨</div></div>
+        <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-label">品項總數</div></div>
+      </div>
+
+      <div class="report-section-title">出貨量</div>
+      <div class="stat-grid">
+        <div class="stat-card teal"><div class="stat-num" id="statShippedToday">0</div><div class="stat-label">今日出貨</div></div>
+        <div class="stat-card teal"><div class="stat-num" id="statShippedWeek">0</div><div class="stat-label">本週出貨</div></div>
+      </div>
     </div>
 
-    <div class="report-section-title">🚚 今日寄貨清單</div>
-    <div id="shipTodayList"></div>
+    <div class="report-tab-panel" id="reportPanelShipping" style="display:none;">
+      <div class="report-section-title" style="margin-top:0;">🚚 今日寄貨清單</div>
+      <div id="shipTodayList"></div>
 
-    <div class="report-section-title">📦 明日送貨清單</div>
-    <div id="shipTomorrowList"></div>
+      <div class="report-section-title">📦 明日送貨清單</div>
+      <div id="shipTomorrowList"></div>
 
-    <div class="report-section-title">🙋 客戶自取清單</div>
-    <div id="shipPickupList"></div>
+      <div class="report-section-title">🙋 客戶自取清單</div>
+      <div id="shipPickupList"></div>
 
-    <div class="report-section-title">✅ 已出貨品項清單（全部，最新在前）</div>
-    <div id="shippedAllList"></div>
+      <div class="report-section-title">✅ 已出貨品項清單（全部，最新在前）</div>
+      <div id="shippedAllList"></div>
+    </div>
 
-    <div class="report-section-title">資料備份</div>
-    <div class="backup-info" id="backupInfo">尚未有備份紀錄</div>
-    <div class="sheet-actions" style="margin-top:0;">
-      <button type="button" class="btn-primary" id="btnExportBackup">📥 匯出 Excel（含垃圾桶）</button>
+    <div class="report-tab-panel" id="reportPanelBackup" style="display:none;">
+      <div class="report-section-title" style="margin-top:0;">資料備份</div>
+      <div class="backup-info" id="backupInfo">尚未有備份紀錄</div>
+      <div class="sheet-actions" style="margin-top:0;">
+        <button type="button" class="btn-primary" id="btnExportBackup">📥 匯出 Excel（含垃圾桶）</button>
+      </div>
     </div>
 
     <div class="sheet-actions" style="margin-top:18px;">
@@ -1349,10 +1372,29 @@ function renderShipLists(){
 }
 
 const reportOverlay = document.getElementById('reportOverlay');
+const REPORT_PANELS = {
+  alerts: 'reportPanelAlerts',
+  progress: 'reportPanelProgress',
+  shipping: 'reportPanelShipping',
+  backup: 'reportPanelBackup'
+};
+function switchReportTab(key){
+  document.querySelectorAll('.report-tab').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.reportTab === key);
+  });
+  Object.entries(REPORT_PANELS).forEach(([k, id])=>{
+    document.getElementById(id).style.display = (k === key) ? '' : 'none';
+  });
+}
+document.querySelectorAll('.report-tab').forEach(btn=>{
+  btn.onclick = ()=> switchReportTab(btn.dataset.reportTab);
+});
+
 document.getElementById('reportBtn').onclick = ()=>{
   renderReport(); renderBackupInfo();
   document.getElementById('statDetailPanel').style.display = 'none';
   currentStatDetailKey = null;
+  switchReportTab('alerts');
   reportOverlay.classList.add('show');
 };
 document.getElementById('btnCloseReport').onclick = ()=> reportOverlay.classList.remove('show');
@@ -1415,6 +1457,7 @@ document.querySelectorAll('.stat-card[data-detail]').forEach(card=>{
 
 function openReportWithDetail(key){
   renderReport(); renderBackupInfo();
+  switchReportTab('alerts');
   reportOverlay.classList.add('show');
   currentStatDetailKey = key;
   document.querySelectorAll('.stat-card[data-detail]').forEach(c=> c.classList.toggle('active-detail', c.dataset.detail === key));
