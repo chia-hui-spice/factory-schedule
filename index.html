@@ -266,6 +266,8 @@
   .ship-list-meta{ font-size:14px; color:var(--ink-dim); margin-top:2px; }
   .ship-list-qty{ font-family:var(--mono); font-size:16.5px; font-weight:700; color:var(--teal); flex:0 0 auto; }
   .ship-list-tag{ font-size:13px; font-weight:700; padding:2px 6px; border-radius:5px; background:var(--panel); border:1px solid var(--line); color:var(--ink-dim); white-space:nowrap; margin-top:4px; display:inline-block; }
+  .receipt-thumb{ width:52px; height:52px; border-radius:8px; object-fit:cover; flex:0 0 52px; border:1px solid var(--line); cursor:pointer; }
+  .receipt-thumb-empty{ display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--ink-dim); background:var(--panel); text-align:center; cursor:default; }
   .ship-list-empty{ font-size:15.5px; color:var(--ink-dim); padding:8px 2px 4px 2px; }
   .ship-filter-bar{ background:var(--panel-raised); border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:12px; }
 </style>
@@ -672,9 +674,26 @@
         <input type="date" id="mrExpDate">
       </div>
     </div>
+    <div class="field">
+      <label>標籤照片 <span style="color:var(--red);">*</span></label>
+      <input type="file" id="mrPhoto" accept="image/*" capture="environment">
+      <div id="mrPhotoPreview" style="margin-top:8px; display:none;">
+        <img id="mrPhotoPreviewImg" style="max-width:100%; border-radius:8px; border:1px solid var(--line);">
+      </div>
+    </div>
     <div class="sheet-actions">
       <button type="button" class="btn-secondary" id="btnCancelReceipt">取消</button>
       <button type="button" class="btn-primary" id="btnSaveReceipt">確認進貨</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="photoViewOverlay">
+  <div class="sheet" style="text-align:center;">
+    <div class="sheet-handle"></div>
+    <img id="photoViewImg" style="max-width:100%; border-radius:10px;">
+    <div class="sheet-actions" style="margin-top:16px;">
+      <button type="button" class="btn-primary" id="btnClosePhotoView" style="flex:1;">關閉</button>
     </div>
   </div>
 </div>
@@ -2025,10 +2044,52 @@ function openReceiptForm(m){
   document.getElementById('mrBatchNo').value = m.batchNo || '';
   document.getElementById('mrMfgDate').value = m.mfgDate || '';
   document.getElementById('mrExpDate').value = m.expDate || '';
+  document.getElementById('mrPhoto').value = '';
+  document.getElementById('mrPhotoPreview').style.display = 'none';
   materialReceiptOverlay.classList.add('show');
 }
 document.getElementById('btnCancelReceipt').onclick = ()=> materialReceiptOverlay.classList.remove('show');
 materialReceiptOverlay.onclick = (e)=>{ if(e.target === materialReceiptOverlay) materialReceiptOverlay.classList.remove('show'); };
+
+const photoViewOverlay = document.getElementById('photoViewOverlay');
+document.getElementById('btnClosePhotoView').onclick = ()=> photoViewOverlay.classList.remove('show');
+photoViewOverlay.onclick = (e)=>{ if(e.target === photoViewOverlay) photoViewOverlay.classList.remove('show'); };
+
+function compressImageToBase64(file, maxWidth, quality){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w > maxWidth){
+          h = Math.round(h * (maxWidth / w));
+          w = maxWidth;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+document.getElementById('mrPhoto').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  const preview = document.getElementById('mrPhotoPreview');
+  const img = document.getElementById('mrPhotoPreviewImg');
+  if(!file){ preview.style.display = 'none'; return; }
+  const url = URL.createObjectURL(file);
+  img.src = url;
+  preview.style.display = '';
+});
+
 document.getElementById('btnSaveReceipt').onclick = async ()=>{
   const m = materials.find(x=>x.id===receivingMaterialId);
   if(!m) return;
@@ -2038,9 +2099,28 @@ document.getElementById('btnSaveReceipt').onclick = async ()=>{
   const batchNo = document.getElementById('mrBatchNo').value.trim();
   const mfgDate = document.getElementById('mrMfgDate').value;
   const expDate = document.getElementById('mrExpDate').value;
+  const photoFile = document.getElementById('mrPhoto').files[0];
 
   if(!qty || qty <= 0){ showToast('請填寫正確的進貨數量'); return; }
   if(!supplier){ showToast('請填寫供應商'); return; }
+  if(!photoFile){ showToast('請上傳標籤照片'); return; }
+
+  const saveBtn = document.getElementById('btnSaveReceipt');
+  const originalLabel = saveBtn.textContent;
+  saveBtn.disabled = true;
+  saveBtn.textContent = '處理照片中...';
+
+  const receiptId = 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+  let photoData = '';
+  try{
+    photoData = await compressImageToBase64(photoFile, 480, 0.5);
+  }catch(e){
+    console.error(e);
+    saveBtn.disabled = false;
+    saveBtn.textContent = originalLabel;
+    showToast('照片處理失敗，請換一張照片再試一次');
+    return;
+  }
 
   m.stock = Math.round(((m.stock||0) + qty) * 1000) / 1000;
   m.batchNo = batchNo;
@@ -2048,13 +2128,16 @@ document.getElementById('btnSaveReceipt').onclick = async ()=>{
   m.expDate = expDate;
 
   receipts.push({
-    id: 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+    id: receiptId,
     materialId: m.id, materialName: m.name, unit: m.unit || '',
     qty, supplier, batchNo, mfgDate, expDate, receivedDate,
+    photoData,
     createdAt: Date.now()
   });
 
   await saveBomData();
+  saveBtn.disabled = false;
+  saveBtn.textContent = originalLabel;
   materialReceiptOverlay.classList.remove('show');
   renderMaterialList();
   renderReceiptList();
@@ -2070,11 +2153,22 @@ function renderReceiptList(){
   }
   const sorted = [...receipts].sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
   listEl.innerHTML = sorted.map(r=>{
-    return '<div class="ship-list-row"><div>' +
+    const thumb = r.photoData
+      ? '<img src="'+r.photoData+'" class="receipt-thumb" data-photo="'+r.photoData+'">'
+      : '<div class="receipt-thumb receipt-thumb-empty">無照片</div>';
+    return '<div class="ship-list-row">' +
+      thumb +
+      '<div style="flex:1;">' +
       '<div class="ship-list-name">'+escapeHtml(r.materialName)+' ・ +'+r.qty+' '+escapeHtml(r.unit||'')+'</div>' +
       '<div class="ship-list-meta">供應商 '+escapeHtml(r.supplier||'－')+' ・ 批號 '+escapeHtml(r.batchNo||'－')+' ・ 進貨日 '+(r.receivedDate||'－')+'</div>' +
     '</div></div>';
   }).join('');
+  listEl.querySelectorAll('[data-photo]').forEach(img=>{
+    img.onclick = ()=>{
+      document.getElementById('photoViewImg').src = img.dataset.photo;
+      document.getElementById('photoViewOverlay').classList.add('show');
+    };
+  });
 }
 
 // ---- BOM 設定 ----
