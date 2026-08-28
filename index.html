@@ -615,6 +615,7 @@
     <div class="report-tabs" id="bomTabs">
       <button type="button" class="report-tab active" data-bom-tab="materials">📦 原料庫存</button>
       <button type="button" class="report-tab" data-bom-tab="boms">🧾 BOM 設定</button>
+      <button type="button" class="report-tab" data-bom-tab="receipts">📥 進貨紀錄</button>
     </div>
 
     <div class="report-tab-panel" id="bomPanelMaterials">
@@ -627,8 +628,53 @@
       <div id="bomList"></div>
     </div>
 
+    <div class="report-tab-panel" id="bomPanelReceipts" style="display:none;">
+      <div id="receiptList"></div>
+    </div>
+
     <div class="sheet-actions" style="margin-top:18px;">
       <button type="button" class="btn-primary" id="btnCloseBom">關閉</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="materialReceiptOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>原料進貨</h2>
+    <div class="report-updated" id="receiptMaterialName"></div>
+    <div class="row2">
+      <div class="field">
+        <label>進貨數量</label>
+        <input type="number" id="mrQty" placeholder="0" step="any">
+      </div>
+      <div class="field">
+        <label>進貨日期</label>
+        <input type="date" id="mrDate">
+      </div>
+    </div>
+    <div class="field">
+      <label>供應商</label>
+      <input type="text" id="mrSupplier" placeholder="供應商名稱">
+    </div>
+    <div class="section-label" style="margin-top:8px;">新批號資訊（會更新為目前批號）</div>
+    <div class="field">
+      <label>批號</label>
+      <input type="text" id="mrBatchNo" placeholder="原料進貨批號">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>製造日期</label>
+        <input type="date" id="mrMfgDate">
+      </div>
+      <div class="field">
+        <label>有效日期</label>
+        <input type="date" id="mrExpDate">
+      </div>
+    </div>
+    <div class="sheet-actions">
+      <button type="button" class="btn-secondary" id="btnCancelReceipt">取消</button>
+      <button type="button" class="btn-primary" id="btnSaveReceipt">確認進貨</button>
     </div>
   </div>
 </div>
@@ -789,6 +835,7 @@ const SHIP_METHOD_LABEL = { today:'🚚 今天寄貨', tomorrow:'📦 明天送�
 let orders = []; // [{id, customer, items:[...]}]
 let materials = []; // [{id, name, unit, stock, batchNo, mfgDate, expDate}]
 let boms = []; // [{id, product, rows:[{materialId, qtyPerUnit}]}]
+let receipts = []; // [{id, materialId, materialName, qty, unit, supplier, batchNo, mfgDate, expDate, receivedDate, createdAt}]
 let currentTab = 'pending';
 let editingOrderId = null; // 目前編輯表單所屬的訂單 id（null = 新訂單）
 let editingItemId = null;  // 目前編輯的品項 id（null = 新品項）
@@ -1807,7 +1854,7 @@ if(isTestMode){
 document.getElementById('btnMergeToProd').onclick = async ()=>{
   const orderCount = orders.reduce((sum,o)=> sum + (o.items||[]).length, 0);
   const ok = await showConfirm(
-    '測試期間新增的 ' + orders.length + ' 張訂單（共 ' + orderCount + ' 個品項）、' + materials.length + ' 項原料、' + boms.length + ' 筆 BOM 設定，會加進正式版現有的資料裡（不會覆蓋，只會新增）。確定要合併嗎？',
+    '測試期間新增的 ' + orders.length + ' 張訂單（共 ' + orderCount + ' 個品項）、' + materials.length + ' 項原料、' + boms.length + ' 筆 BOM 設定、' + receipts.length + ' 筆進貨紀錄，會加進正式版現有的資料裡（不會覆蓋，只會新增）。確定要合併嗎？',
     '合併到正式版'
   );
   if(!ok) return;
@@ -1822,15 +1869,17 @@ document.getElementById('btnMergeToProd').onclick = async ()=>{
     const prodBomData = prodBomSnap.exists() ? prodBomSnap.data() : {};
     const prodMaterials = prodBomData.materials || [];
     const prodBoms = prodBomData.boms || [];
+    const prodReceipts = prodBomData.receipts || [];
     const mergedMaterials = prodMaterials.concat(materials);
     const mergedBoms = prodBoms.concat(boms);
-    await setDoc(prodBomDataDocRef, { materials: mergedMaterials, boms: mergedBoms });
+    const mergedReceipts = prodReceipts.concat(receipts);
+    await setDoc(prodBomDataDocRef, { materials: mergedMaterials, boms: mergedBoms, receipts: mergedReceipts });
 
     showToast('已合併到正式版！');
 
     const clearOk = await showConfirm('要不要順便清空測試資料，讓測試環境恢復乾淨？', '清空測試資料？');
     if(clearOk){
-      orders = []; materials = []; boms = [];
+      orders = []; materials = []; boms = []; receipts = [];
       await saveOrders();
       await saveBomData();
       showToast('測試資料已清空');
@@ -1847,15 +1896,17 @@ function loadBomData(){
     const data = snap.exists() ? snap.data() : {};
     materials = data.materials || [];
     boms = data.boms || [];
+    receipts = data.receipts || [];
     renderMaterialList();
     renderBomList();
+    renderReceiptList();
   }, (err)=>{
     console.error(err);
   });
 }
 async function saveBomData(){
   try{
-    await setDoc(bomDataDocRef, { materials, boms });
+    await setDoc(bomDataDocRef, { materials, boms, receipts });
   }catch(e){
     console.error(e);
     showToast('儲存失敗，請檢查網路');
@@ -1867,12 +1918,13 @@ document.getElementById('bomBtn').onclick = ()=>{
   switchBomTab('materials');
   renderMaterialList();
   renderBomList();
+  renderReceiptList();
   bomOverlay.classList.add('show');
 };
 document.getElementById('btnCloseBom').onclick = ()=> bomOverlay.classList.remove('show');
 bomOverlay.onclick = (e)=>{ if(e.target === bomOverlay) bomOverlay.classList.remove('show'); };
 
-const BOM_PANELS = { materials:'bomPanelMaterials', boms:'bomPanelBoms' };
+const BOM_PANELS = { materials:'bomPanelMaterials', boms:'bomPanelBoms', receipts:'bomPanelReceipts' };
 function switchBomTab(key){
   document.querySelectorAll('#bomTabs .report-tab').forEach(btn=>{
     btn.classList.toggle('active', btn.dataset.bomTab === key);
@@ -1893,15 +1945,23 @@ function renderMaterialList(){
     return;
   }
   listEl.innerHTML = materials.map(m=>{
-    return '<div class="material-item" data-mid="'+m.id+'">' +
-      '<div class="material-item-top"><div class="material-item-name">'+escapeHtml(m.name)+'</div><div class="material-item-stock">'+ (m.stock ?? 0) +' '+escapeHtml(m.unit||'')+'</div></div>' +
-      '<div class="material-item-meta">批號 '+escapeHtml(m.batchNo||'－')+'　有效期限 '+(m.expDate||'－')+'</div>' +
+    return '<div class="material-item">' +
+      '<div class="material-item-top" data-mid="'+m.id+'" style="cursor:pointer;"><div class="material-item-name">'+escapeHtml(m.name)+'</div><div class="material-item-stock">'+ (m.stock ?? 0) +' '+escapeHtml(m.unit||'')+'</div></div>' +
+      '<div class="material-item-meta" data-mid="'+m.id+'" style="cursor:pointer;">批號 '+escapeHtml(m.batchNo||'－')+'　有效期限 '+(m.expDate||'－')+'</div>' +
+      '<button type="button" class="split-btn" data-receipt-mid="'+m.id+'" style="margin-top:8px;">📥 進貨</button>' +
     '</div>';
   }).join('');
   listEl.querySelectorAll('[data-mid]').forEach(el=>{
     el.onclick = ()=>{
       const m = materials.find(x=>x.id===el.dataset.mid);
       if(m) openMaterialForm(m);
+    };
+  });
+  listEl.querySelectorAll('[data-receipt-mid]').forEach(btn=>{
+    btn.onclick = (e)=>{
+      e.stopPropagation();
+      const m = materials.find(x=>x.id===btn.dataset.receiptMid);
+      if(m) openReceiptForm(m);
     };
   });
 }
@@ -1952,6 +2012,70 @@ document.getElementById('btnDeleteMaterial').onclick = async ()=>{
   renderMaterialList();
   showToast('已刪除原料');
 };
+
+// ---- 原料進貨 ----
+let receivingMaterialId = null;
+const materialReceiptOverlay = document.getElementById('materialReceiptOverlay');
+function openReceiptForm(m){
+  receivingMaterialId = m.id;
+  document.getElementById('receiptMaterialName').textContent = m.name + '　目前庫存 ' + (m.stock ?? 0) + ' ' + (m.unit||'');
+  document.getElementById('mrQty').value = '';
+  document.getElementById('mrDate').value = todayStr();
+  document.getElementById('mrSupplier').value = '';
+  document.getElementById('mrBatchNo').value = m.batchNo || '';
+  document.getElementById('mrMfgDate').value = m.mfgDate || '';
+  document.getElementById('mrExpDate').value = m.expDate || '';
+  materialReceiptOverlay.classList.add('show');
+}
+document.getElementById('btnCancelReceipt').onclick = ()=> materialReceiptOverlay.classList.remove('show');
+materialReceiptOverlay.onclick = (e)=>{ if(e.target === materialReceiptOverlay) materialReceiptOverlay.classList.remove('show'); };
+document.getElementById('btnSaveReceipt').onclick = async ()=>{
+  const m = materials.find(x=>x.id===receivingMaterialId);
+  if(!m) return;
+  const qty = parseFloat(document.getElementById('mrQty').value);
+  const receivedDate = document.getElementById('mrDate').value;
+  const supplier = document.getElementById('mrSupplier').value.trim();
+  const batchNo = document.getElementById('mrBatchNo').value.trim();
+  const mfgDate = document.getElementById('mrMfgDate').value;
+  const expDate = document.getElementById('mrExpDate').value;
+
+  if(!qty || qty <= 0){ showToast('請填寫正確的進貨數量'); return; }
+  if(!supplier){ showToast('請填寫供應商'); return; }
+
+  m.stock = Math.round(((m.stock||0) + qty) * 1000) / 1000;
+  m.batchNo = batchNo;
+  m.mfgDate = mfgDate;
+  m.expDate = expDate;
+
+  receipts.push({
+    id: 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+    materialId: m.id, materialName: m.name, unit: m.unit || '',
+    qty, supplier, batchNo, mfgDate, expDate, receivedDate,
+    createdAt: Date.now()
+  });
+
+  await saveBomData();
+  materialReceiptOverlay.classList.remove('show');
+  renderMaterialList();
+  renderReceiptList();
+  showToast('已記錄進貨，庫存已更新');
+};
+
+function renderReceiptList(){
+  const listEl = document.getElementById('receiptList');
+  if(!listEl) return;
+  if(receipts.length === 0){
+    listEl.innerHTML = '<div class="ship-list-empty">還沒有任何進貨紀錄</div>';
+    return;
+  }
+  const sorted = [...receipts].sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
+  listEl.innerHTML = sorted.map(r=>{
+    return '<div class="ship-list-row"><div>' +
+      '<div class="ship-list-name">'+escapeHtml(r.materialName)+' ・ +'+r.qty+' '+escapeHtml(r.unit||'')+'</div>' +
+      '<div class="ship-list-meta">供應商 '+escapeHtml(r.supplier||'－')+' ・ 批號 '+escapeHtml(r.batchNo||'－')+' ・ 進貨日 '+(r.receivedDate||'－')+'</div>' +
+    '</div></div>';
+  }).join('');
+}
 
 // ---- BOM 設定 ----
 function renderBomList(){
