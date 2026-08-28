@@ -1,0 +1,1608 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>工廠排程板</title>
+<meta name="theme-color" content="#1B1D21">
+<link rel="manifest" href="data:application/manifest+json;base64,eyJuYW1lIjogIuW3peW7oOaOkueoi+advyIsICJzaG9ydF9uYW1lIjogIuW3peW7oOaOkueoi+advyIsICJkZXNjcmlwdGlvbiI6ICLlt6Xlu6DoqILllq7oiIfmjpLnqIvnrqHnkIYiLCAic3RhcnRfdXJsIjogIi4iLCAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwgImJhY2tncm91bmRfY29sb3IiOiAiIzFCMUQyMSIsICJ0aGVtZV9jb2xvciI6ICIjMUIxRDIxIiwgImljb25zIjogW3sic3JjIjogImRhdGE6aW1hZ2UvcG5nO2Jhc2U2NCxpVkJPUncwS0dnb0FBQUFOU1VoRVVnQUFBTUFBQUFEQUNBWUFBQUJTM0d3SEFBQUV1MGxFUVZSNG5PM2N5M1hiVmhTR1VWQXJucXFDTkpCUzFFaUtTaU11SlEya0FrODFjQVloc3lDYUJQSEd4Zm4zTG9EQzQzeTRBRVh5MGpYbXgvZHZQNC9lQnJiei92RjVPWG9iK2c3ZEdNTk8xeDBieGU1LzJOQXpaTzhZZHZ0akJwOHA5Z3BoOHo5aThGbGk2eEEyZTNHRHo1cTJDbUgxRnpYNGJHbnRFTjdXZkRIRHo5YlduckZWYWpMNEhHR04xV0R4Q21ENE9jb2FzN2NvQU1QUDBaYk80T3dBREQrdFdES0xzd0l3L0xSbTdreE9Ec0R3MDZvNXN6a3BBTU5QNjZiTzZPZ0FERDluTVdWV1J3VmcrRG1ic1RQN01nRER6MW1ObWQxVlB3b0Jaek1ZZ0tzL1ovZHFocDhHWVBpcFltaVczUUlSN1dFQXJ2NVU4MnltclFCRSt5VUFWMytxZWpUYlZnQ2lmUW5BMVovcTdtZmNDa0MwL3dOdzlTZEZmOWF0QUVRVEFOSGV1czd0RDNsdU0yOEZJSm9BaUNZQW9nbUFhQmNQd0NTekFoQk5BRVFUQU5FRVFEUUJFRTBBUkJNQTBRUkFOQUVRN2Jlak4rRHMvdmp6OTZNM29mdjdyMytPM29UVDhsR0ltVm9ZL0Q0UnpPTVdxSWpXZ2p3TEFjelE2ckMxdWwwdEV3RFJCRUMwcUlkZ3R3ampwVHhVUndSZzhPZXJIa0w1V3lERHYwejE0MWM2Z09vbmJ5K1ZqMlBaQUNxZnRDTlVQWjRsQTZoNnNvNVc4YmpHZlJhbytrUGRHaW9PK2pQbFZvQ2hrMmY0eHhrNlR0WGlLQmZBTTRaL21wVGpGUk1BUENJQW9nbUFhQUlnbWdDSUpnQ2lDWUJvQWlDYUFJZ21BS0lKZ0dnQ0lKb0FpQ1lBb2dtQWFBSWdtZ0NJSmdDaUNZQm9BaUNhQUlnbUFLSUpnR2h4dnd6M1NxVWZma3I1Ylo4bHJBQTlsWWEvNitydHp4WUVjRlYxV0tydTExb0VRRFFCRUUwQVYxVWZHS3Z1MTFvRTBGTnRXS3J0enhhOERYckgwR1N4QWhCTkFFUVRBTkVFUURRQkVFMEFSQk1BMFFSQU5BRVFUUUJFRXdEUkJFQTBBUkJOQUVRVEFORjhIK0JPcFMrUisyN0RhMWFBbmtyRDMzWDE5bWNMQXJpcU9peFY5MnN0QWlDYUFJZ21nS3VxRDR4Vjkyc3RBdWlwTml6VjltY0wzZ2E5WTJpeVdBR0lKZ0NpQ1lCb0FpQ2FBSWdtQUtJSmdHZ0NJSm9BaUNZQW9nbUFhQUlnbWdDSUpnQ2krVGowblJhK1Erc2oyZnV4QXZTME1QeGQxODUySkJEQVZXdEQxOXIyVkNVQW9nbUFhQUs0YXUzQnM3WHRxVW9BUGEwTVhTdmJrY0Rib0hjTVh4WXJBTkVFUURRQkVFMEFSQk1BMFFSQU5BRVFUUUJFRXdEUkJFQTBBUkJOQUVRVEFORUVRRFFCRUUwQVJCTUEwUVJBTkFFUTdlMzk0L055OUVic3dROU5UWk53dk40L1BpL2xWb0NoTDdVbm5OUTFEQjJuYWo4YUVQZXJFQ0tncjl3SzBIWDFybEt0cUhoY1N3YlFkVFZQMXBHcUhzKzNydnZ2WWVEb0RkbEMxWk8ydDRySDhUYnpaVmVBbTRvbmIwL1ZqMS9FUS9EdEpIb0FIcS82NE45OHVmWDU4ZjNiejZNMkJQYlN2K1V2ZndzRVE3NEVVUFZoR0c3dVo5d0tRTFJmQXJBS1VOV2oyYllDRU8xaEFGWUJxbmsyMDFZQW9qME53Q3BBRlVPelBMZ0NpSUN6ZXpYRGJvR0k5aklBcXdCbk5XWjJSNjBBSXVCc3hzN3M2RnNnRVhBV1UyWjEwak9BQ0dqZDFCbWQvQkFzQWxvMVp6Wm52UXNrQWxvemR5Wm52dzBxQWxxeFpCWVgvUjlBQkJ4dDZRd3Uva2VZQ0RqS0dyTzM2dkQ2VGpGN1dQT2l1K3BISWF3R2JHM3RHZHRzWUswR3JHbXJpK3ZtVjJ3aHNNVFdkeFc3M2JJSWdTbjJ1cDNlL1o1ZENBelorem55MElkV01kQjF4NzU1MHR5N05xS29yYlYzQ3Y4RkJiQkpSRDdza3RRQUFBQUFTVVZPUks1Q1lJST0iLCAic2l6ZXMiOiAiMTkyeDE5MiIsICJ0eXBlIjogImltYWdlL3BuZyJ9LCB7InNyYyI6ICJkYXRhOmltYWdlL3BuZztiYXNlNjQsaVZCT1J3MEtHZ29BQUFBTlNVaEVVZ0FBQWdBQUFBSUFDQVlBQUFEMGVOVDZBQUFPcUVsRVFWUjRuTzNkelhYVFdoaUdVZWV1TUtVQ0dxQVVHcUdvTkVJcGFTQVZNR1hBSFdRWm5KQTRsblQrMzcwTFlNbkhscjVIUjQ2NU96R2tuejgrL2U1OURBQWxmUDcyNjY3M01mQXZiMG9uQmp6QU00SFFoMFZ2d0xBSDJFWVUxR2VCS3pEd0Fjb1NCT1ZaMEFJTWZJQzJCTUZ4Rm5BblF4OWdER0pnSDR1MmdhRVBNRFl4Y0RzTDlRRkRIMkJPWXVBNmkvTU9neDlnRFVMZ2JSYmxncUVQc0RZeDhKZUZPQm44QUdtRVFIZ0FHUHdBMlpKRElQS0ZHL3dBWEVvTWdhZ1hiUEFEY0UxU0NFUzhVSU1mZ0MwU1F1Qy8zZ2RRbStFUHdGWUpzMlBad2tsNDh3Q29iOVhkZ09WZWxNRVBRQTJyaGNCU2p3QU1md0JxV1czR0xGRXpxNzBwQUl4dGhkMkE2WGNBREg4QVdsdGg5a3dkQUN1OEFRRE1hZllaTk9VV3h1eUxEc0JhWm53a01OME9nT0VQd0dobW5FMVRCY0NNQ3d4QWh0bG0xQlJiRnJNdEtnRFpabmdrTVB3T2dPRVB3R3htbUYxREI4QU1Dd2dBYnhsOWhnMGJBS012SEFCOFpPUlpObVFBakx4Z0FMREZxRE50dUFBWWRhRUFZSzhSWjl0UUFURGlBZ0ZBQ2FQTnVHRUNZTFNGQVlEU1JwcDFRd1RBU0FzQ0FEV05Ndk82QjhBb0N3RUFyWXd3KzdvR3dBZ0xBQUE5OUo2QjNRS2c5d3NIZ041NnpzSXVBV0Q0QThDelhqT3hlUUFZL2dEd1VvL1oyRFFBREg4QWVGdnJHZGtzQUF4L0FMaXU1YXhzRWdDR1B3RGNwdFhNN1A0N0FBQkFlOVVEd04wL0FHelRZblpXRFFEREh3RDJxVDFEcXdXQTRROEF4OVNjcGI0REFBQ0JxZ1NBdTM4QUtLUFdUQzBlQUlZL0FKUlZZN1lXRFFEREh3RHFLRDFqZlFjQUFBSVZDd0IzL3dCUVY4bFpXeVFBREg4QWFLUFV6UFVJQUFBQ0hRNEFkLzhBMEZhSjJXc0hBQUFDSFFvQWQvOEEwTWZSR2J3N0FBeC9BT2pyeUN6MkNBQUFBdTBLQUhmL0FEQ0d2VFBaRGdBQUJOb2NBTzcrQVdBc2UyYXpIUUFBQ0xRcEFOejlBOENZdHM1b093QUFFT2ptQUhEM0R3QmoyektyN1FBQVFLQ2JBc0RkUHdETTRkYVpiUWNBQUFJSkFBQUk5R0VBMlA0SGdMbmNNcnZ0QUFCQW9Lc0I0TzRmQU9iMDBReTNBd0FBZ1FRQUFBUjZOd0JzL3dQQTNLN05janNBQUJCSUFBQkFvRGNEd1BZL0FLemh2Wmx1QndBQUFna0FBQWowVHdEWS9nZUF0YncxMiswQUFFQWdBUUFBZ1FRQUFBUjZFUUNlL3dQQW1sN1BlRHNBQUJCSUFBQkFJQUVBQUlIK0JJRG4vd0N3dHN0WmJ3Y0FBQUlKQUFBSUpBQUFJSkFBQUlCQS81MU92Z0FJQUNuT005OE9BQUFFRWdBQUVFZ0FBRUFnQVFBQWdRUUFBQVFTQUFBUVNBQUFRS0E3dndFQUFIbnNBQUJBSUFFQUFJRUVBQUFFRWdBQUVFZ0FBRUFnQVFBQWdRUUFBQVFTQUFBUVNBQUFRQ0FCQUFDQkJBQUFCQklBQUJCSUFBQkFJQUVBQUlFRUFBQUVFZ0FBRUVnQUFFQWdBUUFBZ1FRQUFBUzY3MzBBc0xLdjM3LzBQb1RwUFQ0ODlUNEVXTkxkengrZmZ2YytDRmlKb1YrSEVJQ3lCQUFVWlBqWEp3U2dETjhCZ0VJTS96YXNNNVFoQUtBQVE2a3Q2dzNIQ1FBNHlERHF3N3JETVFJQURqQ0Urckwrc0o4QUFJQkFBZ0FBQWdrQTJNbjI4eGk4RDdDUEFBQ0FRQUlBQUFJSkFBQUlKQUFBSUpBQUFJQkFBZ0FBQXZuZkFPbkduMi9CTS8vRElUMElBSm94OE9GallvQldCQURWR2Z5d2p4aWdKZ0ZBTlFZL2xDRUVxTUdYQUtuQzhJZHluRS9VWUFlQW9seW9vQzY3QVpSaUI0QmlESCtvejNsR0tRS0FJbHlVb0Izbkd5VUlBQTV6TVlMMm5IY2NKUUE0eEVVSStuSCtjWVFBWURjWEgralBlY2hlQWdBQUFna0FkbkhYQWVOd1ByS0hBR0F6RnhzWWovT1NyUVFBQUFRU0FHemlMZ1BHNWZ4a0N3RUFBSUg4WHdEY3JOYmRoZDgySjVWemlwN3VleDhBdVZ5a1NIYytCMnpkMDROSEFIUmgrTU5memdkNkVBQTA1MklILzNKZTBKb0E0Q2FsdGloZDVPQjlwYzRQanhTNGhRQUFnRUFDZ0diYy9jUEhuQ2UwSWdBQUlKQUFBSUJBQWdBQUFna0FBQWdrQUFBZ2tBQUFnRUFDQUFBQ0NRQUFDQ1FBQUNDUUFBQ0FRQUlBQUFJSkFBQUlKQUFBSUpBQUFJQkFBZ0FBQWdrQUFBZ2tBQUFna0FBQWdFQUNBQUFDQ1FBQUNDUUFBQ0NRQUFDQVFBSUFBQUlKQUFBSUpBQUFJSkFBQUlCQUFnQUFBZ2tBQUFna0FBQWdrQUFBZ0VBQ0FBQUNDUUFBQ0NRQUFDQ1FBQUNBUUFJQUFBSUpBQUFJSkFBQUlKQUFBSUJBQWdBQUFna0FBQWdrQUFBZ2tBQUFnRUFDQUFBQ0NRQUFDQ1FBQUNDUUFBQ0FRQUlBQUFJSkFBQUlKQUFBSUpBQUFJQkFBZ0FBQWdrQUFBZ2tBQUFna0FBQWdFQUNBQUFDQ1FBQUNDUUFBQ0NRQUFDQVFBSUFBQUlKQUFBSUpBQUFJSkFBQUlCQUFnQUFBdDMzUGdDbzRldjNMNzBQZ2NFOFBqejFQZ1FZaWdCZ0tRWS83emwvTm9RQVBQTUlnR1VZL3R6QzV3U2VDUUNXNEtMT0ZqNHZJQUJZZ0lzNWUvamNrRTRBQUVBZ0FjRFUzTVZ4aE04UHlRUUFBQVFTQUFBUVNBQUFRQ0FCQUFDQkJBQUFCQklBVE0zUHVuS0V6dy9KQkFBQUJCSUFUTTlkSEh2NDNKQk9BTEFFRjNPMjhIa0JBY0JDWE5TNWhjOEpQTHZ2ZlFCUTB2bmk3aWRlZWMzZ2g1Y0VBRXR5c1FlNHppTUFBQWdrQUFBZ2tBQUFnRUFDQUFBQ0NRQUFDQ1FBQUNDUUFBQ0FRQUlBQUFJSkFBQUlKQUFBSUpBQUFJQkFBZ0FBQWdrQUFBZ2tBQUFna0FBQWdFQUNBQUFDQ1FBQUNDUUFBQ0NRQUFDQVFBSUFBQUlKQUFBSUpBQUFJSkFBQUlCQUFnQUFBZ2tBQUFna0FBQWdrQUFBZ0VBQ0FBQUNDUUFBQ0NRQUFDQ1FBQUNBUUFJQUFBSUpBQUFJSkFBQUlKQUFBSUJBQWdBQUFna0FBQWdrQUFBZ2tBQUFnRUFDQUFBQzNmYytBS2poNi9jdnZRK0J3VHcrUFBVK0JCaUtBR0FwQmovdk9YODJoQUE4OHdpQVpSaiszTUxuQko0SkFKYmdvczRXUGk4Z0FGaUFpemw3K055UVRnQUFRQ0FCd05UY3hYR0V6dy9KQkFBQUJCSUFBQkJJQUFCQUlBRUFBSUVFQUFBRUVnQk16Yys2Y29UUEQ4a0VBQUFFRWdCTXoxMGNlL2pja0U0QXNBUVhjN2J3ZVFFQndFSmMxTG1GendrOHUrOTlBRkRTK2VMdUoxNTV6ZUNIbHdRQVMzS3hCN2pPSXdBQUNDUUFBQ0NRQUFDQVFBSUFBQUlKQUFBSUpBQUFJSkFBQUlCQUFnQUFBZ2tBQUFna0FBQWdrQUFBZ0VBQ0FBQUNDUUFBQ0NRQUFDQ1FBQUNBUUFJQUFBSUpBQUFJSkFBQUlKQUFBSUJBQWdBQUFna0FBQWdrQUFBZ2tBQUFnRUFDQUFBQ0NRQUFDQ1FBQUNDUUFBQ0FRQUlBQUFJSkFBQUlKQUFBSUpBQUFJQkFBZ0FBQWdrQUFBZ2tBQUFna0FBQWdFQUNBQUFDQ1FBQUNDUUFBQ0NRQUFDQVFBSUFBQUlKQUFBSWROLzdBS0NHcjkrLzlENkU1VHcrUFBVK0JLQWdBY0JTRFA1Nnptc3JCR0FOSGdHd0RNTy9EZXNNYXhBQUxNRlFhc3Q2dy93RUFOTXpqUHF3N2pBM0FRQUFnUVFBVTNNWDJwZjFoM2tKQUFBSUpBQUFJSkFBQUlCQUFnQUFBZ2tBQUFna0FKaWFuNlh0eS9yRHZBUUFBQVFTQUV6UFhXZ2YxaDNtSmdCWWdtSFVsdldHK1FrQWxtRW90V0dkWVEzM3ZROEFTam9QSno5Ulc1N0JEMnNSQUN6SnNBSzR6aU1BQUFna0FBQWdrQUFBZ0VBQ0FBQUNDUUFBQ0NRQUFDQ1FBQUNBUUFJQUFBSUpBQUFJSkFBQUlKQUFBSUJBQWdBQUFna0FBQWdrQUFBZ2tBQUFnRUFDQUFBQ0NRQUFDQ1FBQUNDUUFBQ0FRQUlBQUFJSkFBQUlKQUFBSUpBQUFJQkFBZ0FBQWdrQUFBZ2tBQUFna0FBQWdFQUNBQUFDQ1FBQUNDUUFBQ0NRQUFDQVFBSUFBQUlKQUFBSUpBQUFJSkFBQUlCQUFnQUFBZ2tBQUFna0FBQWdrQUFBZ0VBQ0FBQUNDUUFBQ0NRQUFDQ1FBQUNBUUFJQUFBSUpBQUFJSkFBQUlKQUFBSUJBLzMzKzl1dXU5MEVBQU8xOC92YnJ6ZzRBQUFRU0FBQVFTQURRek5mdlgzb2ZBZ3pQZVVJckFnQUFBZ2tBYnZMNDhGVGszM0YzQSs4cmRYNlVPbDlabXdDZ09SRUEvM0plMEpvQW9Bc1hPL2pMK1VBUGYzNEQ0T2VQVDc5N0hnaHpxSEdoc2wxSkt1Y1RQWngvLytlKzk0R0F1eCtBOWp3Q0FJQkFBb0JOYkMvQ3VKeWZiQ0VBQUNEUW53RHdud0p4SzNjWk1CN25KYmU0blBWMkFOakZ4UWJHNFh4a0R3RUFNREhEbjcwRUFMdTU4QURNNjBVQStCNEFXNGtBNk1mNXh4YXZaN3dkQUE1ekVZTDJuSGNjSlFBb3dzVUkybkcrVVlJQW9CZ1hKYWpyOGVISmVVWXhiejd6OXg4RGNaVGY5NGV5REg2T2VPczdmbllBcU1MRkNzcHhQbEdEL3cyUWFzNFhMYnNCc0kvQlQwM3YvdG1meHdDVUpnVGdZNFkrcGIzM0ovNTJBR2ptOVlWTkVNQXpRNThlQkFEZHVPZ0I5UFB1bHdEOUtpQUF6TzNhTFBkWEFBQVFTQUFBUUtDckFlQXhBQURNNmFNWmJnY0FBQUo5R0FCMkFRQmdMcmZNYmpzQUFCQklBQUJBb0pzQ3dHTUFBSmpEclRQYkRnQUFCTG81QU93Q0FNRFl0c3hxT3dBQUVHaFRBTmdGQUlBeGJaM1JkZ0FBSU5EbUFMQUxBQUJqMlRPYjdRQUFRS0JkQVdBWEFBREdzSGNtMndFQWdFQzdBOEF1QUFEMGRXUVdIOW9CRUFFQTBNZlJHZXdSQUFBRU9od0FkZ0VBb0swU3M5Y09BQUFFS2hJQWRnRUFvSTFTTTdmWURvQUlBSUM2U3M1YWp3QUFJRkRSQUxBTEFBQjFsSjZ4eFhjQVJBQUFsRlZqdGxaNUJDQUNBS0NNV2pQVmR3QUFJRkMxQUxBTEFBREgxSnlsVlhjQVJBQUE3Rk43aGxaL0JDQUNBR0NiRnJQVGR3QUFJRkNUQUxBTEFBQzNhVFV6bSswQWlBQUF1Szdsckd6NkNFQUVBTURiV3MvSTV0OEJFQUVBOEZLUDJkamxTNEFpQUFDZTlacUozZjRLUUFRQWtLN25MT3o2WjRBaUFJQlV2V2RnOTk4QjZMMEFBTkRhQ0xPdmV3Q2NUbU1zQkFDME1Nck1HeUlBVHFkeEZnUUFhaGxwMWcwVEFLZlRXQXNEQUNXTk51T0dDb0RUYWJ3RkFvQ2pScHh0d3dYQTZUVG1RZ0hBSHFQT3RDRUQ0SFFhZDhFQTRGWWp6N0poQStCMEdudmhBT0NhMFdmWTBBRndPbzIvZ0FEdzJneXphL2dEdlBUeng2ZmZ2WThCQU40encrQS9HMzRINE5KTUN3dEFsdGxtMUZRQmNEck50OEFBckcvRzJUVGRBVi95U0FDQW5tWWMvR2ZUN1FCY21ubmhBWmpiN0RObzZnQTRuZVovQXdDWXp3cXpaL29YY01rakFRQnFXbUh3bjAyL0EzQnBwVGNHZ0xHc05tT1dlakdYN0FZQVVNSnFnLzlzeVJkMVNRZ0FzTWVxZy85c3FVY0FiMW45RFFTZ3ZJVFpzZndMdkdRM0FJQnJFZ2IvV2N3THZTUUVBTGlVTlBqUDRsN3dKU0VBa0MxeDhKL0Z2dkJMUWdBZ1MvTGdQNHRmZ0V0Q0FHQnRCdjlmRnVJZFlnQmdEWWIrMnl6S0I0UUF3SndNL3Vzc3pnWmlBR0JzaHY3dExOUk9ZZ0JnREliK1BoYXRBREVBMEphaGY1d0ZyRUFRQUpSbDRKZG5RUnNRQkFEYkdQajFXZUJPUkFIQU04TytENHMrS0lFQXJNS0FIOVAvZnFJNzZZaGgrS1FBQUFBQVNVVk9SSzVDWUlJPSIsICJzaXplcyI6ICI1MTJ4NTEyIiwgInR5cGUiOiAiaW1hZ2UvcG5nIn1dfQ==">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAEu0lEQVR4nO3cy3XbVhSGUVArnqqCNJBS1EiKSiMuJQ2kAk81cAYhsyCaBPHGxfn3LoDC43y4AEXy0jXmx/dvP4/eBrbz/vF5OXob+g7dGMNO1x0bxe5/2NAzZO8YdvtjBp8p9gph8z9i8Fli6xA2e3GDz5q2CmH1FzX4bGntEN7WfDHDz9bWnrFVajL4HGGN1WDxCmD4Ocoas7coAMPP0ZbO4OwADD+tWDKLswIw/LRm7kxODsDw06o5szkpAMNP66bO6OgADD9nMWVWRwVg+DmbsTP7MgDDz1mNmd1VPwoBZzMYgKs/Z/dqhp8GYPipYmiW3QIR7WEArv5U82ymrQBE+yUAV3+qejTbVgCifQnA1Z/q7mfcCkC0/wNw9SdFf9atAEQTANHeus7tD3luM28FIJoAiCYAogmAaBcPwCSzAhBNAEQTANEEQDQBEE0ARBMA0QRANAEQ7bejN+Ds/vjz96M3ofv7r3+O3oTT8lGImVoY/D4RzOMWqIjWgjwLAczQ6rC1ul0tEwDRBEC0qIdgtwjjpTxURwRg8OerHkL5WyDDv0z141c6gOonby+Vj2PZACqftCNUPZ4lA6h6so5W8bjGfRao+kPdGioO+jPlVoChk2f4xxk6TtXiKBfAM4Z/mpTjFRMAPCIAogmAaAIgmgCIJgCiCYBoAiCaAIgmAKIJgGgCIJoAiCYAogmAaAIgmgCIJgCiCYBoAiCaAIgmAKIJgGhxvwz3SqUffkr5bZ8lrAA9lYa/6+rtzxYEcFV1WKru11oEQDQBEE0AV1UfGKvu11oE0FNtWKrtzxa8DXrH0GSxAhBNAEQTANEEQDQBEE0ARBMA0QRANAEQTQBEEwDRBEA0ARBNAEQTANF8H+BOpS+R+27Da1aAnkrD33X19mcLAriqOixV92stAiCaAIgmgKuqD4xV92stAuipNizV9mcL3ga9Y2iyWAGIJgCiCYBoAiCaAIgmAKIJgGgCIJoAiCYAogmAaAIgmgCIJgCi+Tj0nRa+Q+sj2fuxAvS0MPxd1852JBDAVWtD19r2VCUAogmAaAK4au3Bs7XtqUoAPa0MXSvbkcDboHcMXxYrANEEQDQBEE0ARBMA0QRANAEQTQBEEwDRBEA0ARBNAEQTANEEQDQBEE0ARBMA0QRANAEQ7e394/Ny9EbswQ9NTZNwvN4/Pi/lVoChL7UnnNQ1DB2naj8aEPerECKgr9wK0HX1rlKtqHhcSwbQdTVP1pGqHs+3rvvvYeDoDdlC1ZO2t4rH8TbzZVeAm4onb0/Vj1/EQ/DtJHoAHq/64N98ufX58f3bz6M2BPbSv+UvfwsEQ74EUPVhGG7uZ9wKQLRfArAKUNWj2bYCEO1hAFYBqnk201YAoj0NwCpAFUOzPLgCiICzezXDboGI9jIAqwBnNWZ2R60AIuBsxs7s6FsgEXAWU2Z10jOACGjd1Bmd/BAsAlo1ZzZnvQskAlozdyZnvw0qAlqxZBYX/R9ABBxt6Qwu/keYCDjKGrO36vD6TjF7WPOiu+pHIawGbG3tGdtsYK0GrGmri+vmV2whsMTWdxW73bIIgSn2up3e/Z5dCAzZ+zny0IdWMdB1x7550ty7NqKorbV3Cv8FBbBJRD7sktQAAAAASUVORK5CYII=">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="工廠排程板">
+<meta name="mobile-web-app-capable" content="yes">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg: #1B1D21;
+    --panel: #24272C;
+    --panel-raised: #2C2F35;
+    --line: #383C43;
+    --ink: #EDEDE8;
+    --ink-dim: #9AA0A8;
+    --amber: #F2B705;
+    --amber-ink: #1B1D21;
+    --blue: #4C8CB0;
+    --purple: #9B7EDE;
+    --teal: #3FB8AF;
+    --green: #4CA872;
+    --red: #E5544D;
+    --mono: 'JetBrains Mono', 'Roboto Mono', ui-monospace, SFMono-Regular, monospace;
+    --sans: 'Archivo', 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:var(--sans); min-height:100vh;}
+  body{ padding-bottom:90px; }
+
+  .login-gate{ position:fixed; inset:0; z-index:100; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:24px; }
+  .login-gate.hidden{ display:none; }
+  .login-box{ max-width:340px; width:100%; text-align:center; }
+
+  header{ position:sticky; top:0; z-index:20; background:var(--bg); border-bottom:2px solid var(--line); padding:16px 16px 0 16px; }
+  .header-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:14px;}
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand-mark{ width:34px; height:34px; border-radius:6px; background:var(--amber); display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-weight:700; color:var(--amber-ink); font-size:15px; transform:rotate(-3deg); flex:0 0 auto; }
+  h1{ font-size:19px; margin:0; font-weight:800; letter-spacing:0.2px; }
+  .subtitle{ font-size:11px; color:var(--ink-dim); font-family:var(--mono); margin-top:1px; }
+  .sync-dot{ width:8px; height:8px; border-radius:50%; background:var(--green); display:inline-block; margin-right:5px; box-shadow:0 0 0 3px rgba(76,168,114,0.15);}
+  .bell-btn{ width:36px; height:36px; border-radius:10px; background:var(--panel); border:1.5px solid var(--line); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex:0 0 36px; color:var(--ink-dim); }
+  .bell-btn.enabled{ border-color:var(--amber); color:var(--amber); background:rgba(242,183,5,0.1); }
+  .quick-stat-btn{ position:relative; }
+  .quick-badge{
+    position:absolute; top:-6px; right:-6px; min-width:17px; height:17px; padding:0 4px; border-radius:9px;
+    background:var(--blue); color:#fff; font-size:10px; font-weight:800; font-family:var(--mono);
+    display:flex; align-items:center; justify-content:center; line-height:1; border:2px solid var(--bg);
+  }
+  .quick-badge.todayrisk-badge{ background:var(--red); animation:pulseTodayRisk 1.6s ease-in-out infinite; }
+
+  .tabs{ display:flex; gap:6px; overflow-x:auto; padding-bottom:12px; }
+  .tab{ flex:0 0 auto; min-width:82px; background:var(--panel); border:1.5px solid var(--line); border-radius:10px 10px 0 0; padding:10px 10px; text-align:center; cursor:pointer; user-select:none; border-bottom:none; }
+  .tab.active{ background:var(--panel-raised); border-color:var(--ink-dim); }
+  .tab-label{ font-size:11.5px; font-weight:700; color:var(--ink-dim); white-space:nowrap; }
+  .tab.active .tab-label{ color:var(--ink); }
+  .tab-count{ font-family:var(--mono); font-size:18px; font-weight:700; margin-top:2px; }
+  .tab[data-status="pending"] .tab-count{ color:var(--blue); }
+  .tab[data-status="inprogress"] .tab-count{ color:var(--amber); }
+  .tab[data-status="labeling"] .tab-count{ color:var(--purple); }
+  .tab[data-status="done"] .tab-count{ color:var(--green); }
+  .tab[data-status="shipped"] .tab-count{ color:var(--teal); }
+
+  main{ padding:14px 16px 4px 16px; max-width:680px; margin:0 auto; }
+  .empty{ text-align:center; padding:60px 20px; color:var(--ink-dim); }
+  .empty-tag{ width:56px; height:56px; margin:0 auto 14px auto; border-radius:8px; border:2px dashed var(--line); display:flex; align-items:center; justify-content:center; font-size:24px; }
+  .empty p{ font-size:13px; line-height:1.6; margin:0; }
+
+  .order-list{ display:flex; flex-direction:column; gap:14px; }
+
+  .order-card{ background:var(--panel); border:1.5px solid var(--line); border-radius:12px; padding:14px; }
+  .order-card-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .order-no{ font-family:var(--mono); font-size:10.5px; color:var(--ink-dim); letter-spacing:0.5px; margin-bottom:2px; }
+  .order-customer{ font-size:15px; font-weight:800; }
+  .order-actions{ display:flex; gap:6px; }
+  .icon-btn{ width:30px; height:30px; border-radius:7px; background:var(--panel-raised); border:1px solid var(--line); color:var(--ink-dim); font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+
+  .item-row{ background:var(--panel-raised); border:1.5px solid var(--line); border-radius:10px; padding:12px; position:relative; overflow:hidden; margin-bottom:8px; }
+  .item-row:last-of-type{ margin-bottom:0; }
+  .item-row::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:4px; }
+  .item-row.pri-urgent::before{ background:var(--red); }
+  .item-row.pri-normal::before{ background:var(--line); }
+  .item-row.overdue{ border-color:var(--red); }
+
+  .item-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:6px; }
+  .item-product{ font-size:14.5px; font-weight:800; }
+  .item-spec{ font-size:11px; color:var(--ink-dim); font-weight:600; }
+  .badge{ font-size:9.5px; font-weight:700; padding:3px 7px; border-radius:20px; white-space:nowrap; font-family:var(--mono); }
+  .badge.urgent{ background:rgba(229,84,77,0.15); color:var(--red); }
+  .badge.overdue{ background:var(--red); color:#fff; }
+  .badge.todayrisk{ background:var(--red); color:#fff; cursor:pointer; animation:pulseTodayRisk 1.6s ease-in-out infinite; }
+  @keyframes pulseTodayRisk{ 0%,100%{ opacity:1; } 50%{ opacity:0.55; } }
+  .badge.stage{ background:var(--panel); border:1px solid var(--line); color:var(--ink-dim); }
+  .badge.stage.st-pending{ color:var(--blue); border-color:var(--blue); }
+  .badge.stage.st-inprogress{ color:var(--amber); border-color:var(--amber); }
+  .badge.stage.st-labeling{ color:var(--purple); border-color:var(--purple); }
+  .badge.stage.st-done{ color:var(--green); border-color:var(--green); }
+  .badge.stage.st-shipped{ color:var(--teal); border-color:var(--teal); }
+
+  .item-meta{ display:flex; gap:8px 12px; flex-wrap:wrap; margin-bottom:8px; }
+  .meta-item{ font-size:11.5px; color:var(--ink-dim); }
+  .meta-item b{ color:var(--ink); font-family:var(--mono); font-weight:700; }
+
+  .checklist-row{ display:flex; align-items:center; gap:5px; margin-bottom:8px; flex-wrap:wrap; }
+  .chk-pill{ font-size:9.5px; font-family:var(--mono); font-weight:700; padding:3px 6px; border-radius:5px; border:1px solid var(--line); color:var(--ink-dim); }
+  .chk-pill.on{ border-color:var(--green); color:var(--green); background:rgba(76,168,114,0.1); }
+
+  .item-note{ font-size:11.5px; color:var(--ink-dim); margin-bottom:8px; line-height:1.5; border-left:2px solid var(--line); padding-left:7px;}
+
+  .item-actions{ display:flex; gap:6px; }
+  .btn{ flex:1; padding:9px 6px; border-radius:8px; border:none; font-size:12px; font-weight:700; cursor:pointer; font-family:var(--sans); display:flex; align-items:center; justify-content:center; gap:4px; }
+  .btn-back{ background:var(--panel); color:var(--ink-dim); border:1px solid var(--line); flex:0 0 38px; }
+  .btn-forward{ background:var(--amber); color:var(--amber-ink); }
+  .btn-forward.st-labeling{ background:var(--purple); color:#fff; }
+  .btn-forward.st-done{ background:var(--green); color:#0F1B14; }
+  .btn-forward.st-shipped{ background:var(--teal); color:#0F1B14; }
+  .btn-edit{ background:var(--panel); color:var(--ink); border:1px solid var(--line); flex:0 0 38px; }
+  .btn-done-label{ background:transparent; color:var(--teal); border:1px dashed var(--teal); }
+
+  .add-item-btn{ width:100%; margin-top:2px; padding:9px; border-radius:8px; border:1.5px dashed var(--line); background:transparent; color:var(--ink-dim); font-size:12px; font-weight:700; cursor:pointer; }
+  .split-btn{ width:100%; margin-top:6px; padding:7px; border-radius:7px; border:1px dashed var(--line); background:transparent; color:var(--ink-dim); font-size:11px; font-weight:700; cursor:pointer; }
+
+  .fab{ position:fixed; right:18px; bottom:22px; z-index:30; width:58px; height:58px; border-radius:16px; background:var(--amber); color:var(--amber-ink); border:none; font-size:28px; font-weight:700; box-shadow:0 6px 18px rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+
+  .overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:40; display:none; align-items:flex-end; justify-content:center; }
+  .overlay.show{ display:flex; }
+  .sheet{ background:var(--panel); width:100%; max-width:680px; border-radius:18px 18px 0 0; padding:20px 18px calc(20px + env(safe-area-inset-bottom)) 18px; max-height:88vh; overflow-y:auto; border-top:2px solid var(--line); }
+  .sheet-handle{ width:40px; height:4px; background:var(--line); border-radius:4px; margin:0 auto 16px auto; }
+  .sheet h2{ font-size:17px; margin:0 0 4px 0; font-weight:800; }
+  .sheet-sub{ font-size:12px; color:var(--ink-dim); margin-bottom:16px; }
+
+  .section-label{ font-size:11px; font-weight:800; color:var(--amber); text-transform:uppercase; letter-spacing:0.6px; margin:18px 0 10px 0; padding-top:14px; border-top:1px solid var(--line); }
+  .section-label:first-of-type{ margin-top:0; padding-top:0; border-top:none; }
+
+  .stage-hint{ font-size:12px; color:var(--ink-dim); background:var(--panel-raised); border:1px dashed var(--line); border-radius:8px; padding:10px 12px; margin:18px 0 0 0; line-height:1.5; }
+
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:12px; color:var(--ink-dim); margin-bottom:6px; font-weight:600; }
+  .field input, .field select, .field textarea{ width:100%; background:var(--panel-raised); border:1.5px solid var(--line); border-radius:8px; padding:11px 12px; color:var(--ink); font-size:14.5px; font-family:var(--sans); }
+  .field input:focus, .field select:focus, .field textarea:focus{ outline:2px solid var(--amber); border-color:var(--amber); }
+  .field textarea{ resize:vertical; min-height:60px; }
+  .row2{ display:flex; gap:10px; }
+  .row2 .field{ flex:1; }
+  .row3{ display:flex; gap:10px; }
+  .row3 .field{ flex:1; }
+  .pri-toggle{ display:flex; gap:8px; }
+  .pri-opt{ flex:1; padding:10px; text-align:center; border-radius:8px; border:1.5px solid var(--line); background:var(--panel-raised); font-size:13px; font-weight:700; color:var(--ink-dim); cursor:pointer; }
+  .pri-opt.selected[data-p="normal"]{ border-color:var(--ink-dim); color:var(--ink); }
+  .pri-opt.selected[data-p="urgent"]{ border-color:var(--red); color:var(--red); background:rgba(229,84,77,0.1); }
+
+  .check-item{ display:flex; align-items:center; gap:10px; padding:11px 12px; background:var(--panel-raised); border:1.5px solid var(--line); border-radius:8px; margin-bottom:8px; cursor:pointer; }
+  .check-item.on{ border-color:var(--green); background:rgba(76,168,114,0.08); }
+  .check-box{ width:22px; height:22px; border-radius:5px; border:1.5px solid var(--ink-dim); flex:0 0 22px; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800; color:transparent; }
+  .check-item.on .check-box{ border-color:var(--green); background:var(--green); color:#0F1B14; }
+  .check-text{ font-size:13px; color:var(--ink); line-height:1.4; }
+
+  .sheet-actions{ display:flex; gap:10px; margin-top:6px; }
+  .btn-primary{ flex:1; background:var(--amber); color:var(--amber-ink); border:none; padding:14px; border-radius:10px; font-weight:800; font-size:14.5px; }
+  .btn-secondary{ flex:0 0 90px; background:transparent; color:var(--ink-dim); border:1.5px solid var(--line); padding:14px; border-radius:10px; font-weight:700; font-size:13px; }
+  .btn-delete{ width:100%; background:transparent; color:var(--red); border:1.5px solid var(--red); padding:12px; border-radius:10px; font-weight:700; font-size:13px; margin-top:8px; }
+
+  .toast{ position:fixed; bottom:96px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--panel-raised); border:1px solid var(--line); color:var(--ink); padding:10px 18px; border-radius:30px; font-size:13px; z-index:50; opacity:0; transition:all 0.25s ease; pointer-events:none; font-weight:600; max-width:88vw; text-align:center; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  .alert-item{ background:rgba(229,84,77,0.12); border:1.5px solid var(--red); border-radius:10px; padding:10px 12px; display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .alert-item.tomorrow{ background:rgba(242,183,5,0.12); border-color:var(--amber); }
+  .alert-item.overdue-item{ background:var(--red); border-color:var(--red); }
+  .alert-item.overdue-item .alert-text{ color:#fff; }
+  .alert-item.overdue-item .alert-text b{ color:#fff; }
+  .alert-item.overdue-item .alert-jump{ background:#fff; color:var(--red); }
+  .alert-item.overdue-item button:not(.alert-jump){ color:rgba(255,255,255,0.8); }
+  .alert-item.backup-reminder{ background:rgba(76,140,176,0.14); border-color:var(--blue); }
+  .alert-item.backup-reminder .alert-text b{ color:var(--blue); }
+  .alert-item.backup-reminder .alert-jump{ background:var(--blue); color:#fff; }
+  .alert-item .alert-text{ flex:1; font-size:12.5px; color:var(--ink); line-height:1.4; }
+  .alert-item .alert-text b{ color:var(--red); }
+  .alert-item.tomorrow .alert-text b{ color:var(--amber); }
+  .alert-item button{ background:none; border:none; color:var(--ink-dim); font-size:16px; cursor:pointer; padding:2px 4px; flex:0 0 auto; }
+  .alert-item .alert-jump{ background:var(--red); color:#fff; border:none; border-radius:6px; padding:6px 10px; font-size:11.5px; font-weight:700; cursor:pointer; flex:0 0 auto; }
+  .alert-item.tomorrow .alert-jump{ background:var(--amber); color:var(--amber-ink); }
+  .alert-banner{ display:none; flex-direction:column; margin-bottom:12px; }
+  .alert-banner.show{ display:flex; }
+
+  .report-updated{ font-size:11px; color:var(--ink-dim); font-family:var(--mono); margin-bottom:4px; }
+  .report-section-title{ font-size:11px; font-weight:800; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.6px; margin:18px 0 10px 0; }
+  .report-section-title:first-of-type{ margin-top:6px; }
+  .stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .stat-card{ background:var(--panel-raised); border:1.5px solid var(--line); border-radius:10px; padding:14px; text-align:left; }
+  .stat-card.clickable{ cursor:pointer; }
+  .stat-card.clickable:active{ opacity:0.8; }
+  .stat-card.clickable.active-detail{ outline:2px solid var(--amber); }
+  .stat-num{ font-family:var(--mono); font-size:24px; font-weight:800; color:var(--ink); line-height:1; }
+  .stat-label{ font-size:11.5px; color:var(--ink-dim); margin-top:6px; font-weight:600; }
+  .stat-card.danger .stat-num{ color:var(--red); }
+  .stat-card.amber .stat-num{ color:var(--amber); }
+  .stat-card.blue .stat-num{ color:var(--blue); }
+  .stat-card.purple .stat-num{ color:var(--purple); }
+  .stat-card.green .stat-num{ color:var(--green); }
+  .stat-card.teal .stat-num{ color:var(--teal); }
+
+  .backup-info{ font-size:12px; color:var(--ink-dim); background:var(--panel-raised); border:1px dashed var(--line); border-radius:8px; padding:10px 12px; margin-bottom:12px; line-height:1.5; }
+
+  .trash-item{ background:var(--panel-raised); border:1.5px solid var(--line); border-radius:10px; padding:12px; margin-bottom:10px; }
+  .trash-item-name{ font-size:14px; font-weight:700; color:var(--ink); }
+  .trash-item-meta{ font-size:11.5px; color:var(--ink-dim); font-family:var(--mono); }
+  .trash-item-actions{ display:flex; gap:8px; margin-top:10px; }
+  .trash-item-actions button{ flex:1; padding:9px; border-radius:8px; border:none; font-size:12.5px; font-weight:700; cursor:pointer; font-family:var(--sans); }
+  .btn-restore{ background:var(--green); color:#0F1B14; }
+  .btn-purge{ background:transparent; color:var(--red); border:1px solid var(--red) !important; }
+  .trash-empty{ text-align:center; padding:40px 20px; color:var(--ink-dim); font-size:13px; }
+
+  .ship-opt{
+    width:100%; padding:16px; border-radius:10px; border:1.5px solid var(--line); background:var(--panel-raised);
+    color:var(--ink); font-size:15px; font-weight:700; cursor:pointer; text-align:left;
+  }
+  .ship-opt:active{ border-color:var(--teal); background:rgba(63,184,175,0.1); }
+  .badge.ship-today{ background:var(--teal); color:#0F1B14; }
+  .badge.ship-tomorrow{ background:var(--panel); border:1px solid var(--teal); color:var(--teal); }
+  .badge.ship-pickup{ background:var(--panel); border:1px solid var(--purple); color:var(--purple); }
+  .badge.coa-badge{ background:var(--panel); border:1px solid var(--blue); color:var(--blue); }
+
+  .ship-list-row{
+    background:var(--panel-raised); border:1px solid var(--line); border-radius:8px;
+    padding:10px 12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; gap:8px;
+  }
+  .ship-list-name{ font-size:13px; font-weight:700; color:var(--ink); }
+  .ship-list-meta{ font-size:11px; color:var(--ink-dim); margin-top:2px; }
+  .ship-list-qty{ font-family:var(--mono); font-size:13px; font-weight:700; color:var(--teal); flex:0 0 auto; }
+  .ship-list-tag{ font-size:10px; font-weight:700; padding:2px 6px; border-radius:5px; background:var(--panel); border:1px solid var(--line); color:var(--ink-dim); white-space:nowrap; margin-top:4px; display:inline-block; }
+  .ship-list-empty{ font-size:12px; color:var(--ink-dim); padding:8px 2px 4px 2px; }
+</style>
+</head>
+<body>
+
+<div id="loginGate" class="login-gate">
+  <div class="login-box">
+    <div class="brand-mark" style="width:52px;height:52px;font-size:20px;margin:0 auto 20px auto;">工單</div>
+    <h1 style="margin-bottom:6px;">工廠排程板</h1>
+    <p style="color:var(--ink-dim); font-size:13px; margin-bottom:28px;">請使用公司 Google 帳號登入</p>
+    <button id="googleSignInBtn" class="btn-primary" style="width:100%; display:flex; align-items:center; justify-content:center; gap:8px;">使用 Google 帳號登入</button>
+    <p id="loginError" style="color:var(--red); font-size:12.5px; margin-top:16px; display:none;"></p>
+  </div>
+</div>
+
+<header>
+  <div class="header-top">
+    <div class="brand">
+      <div class="brand-mark">工單</div>
+      <div>
+        <h1>工廠排程板</h1>
+        <div class="subtitle"><span class="sync-dot"></span>共用資料・自動同步</div>
+      </div>
+    </div>
+    <button class="bell-btn quick-stat-btn" id="coaQuickBtn" title="需要COA的品項">📄<span class="quick-badge" id="coaQuickCount" style="display:none;">0</span></button>
+    <button class="bell-btn quick-stat-btn" id="todayRiskQuickBtn" title="今日3點未出貨的品項">⏰<span class="quick-badge todayrisk-badge" id="todayRiskQuickCount" style="display:none;">0</span></button>
+    <button class="bell-btn" id="signOutBtn" title="登出">👤</button>
+    <button class="bell-btn" id="trashBtn" title="查看垃圾桶">🗑️</button>
+    <button class="bell-btn" id="reportBtn" title="查看統計報表">📊</button>
+    <button class="bell-btn" id="bellBtn" title="開啟出貨提醒通知">🔔</button>
+  </div>
+  <div class="alert-banner" id="alertBanner"></div>
+  <div class="tabs" id="tabs"></div>
+</header>
+
+<main>
+  <div id="listArea"></div>
+</main>
+
+<button class="fab" id="fabAdd" aria-label="新增訂單">+</button>
+
+<div class="overlay" id="overlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 id="sheetTitle">新增訂單</h2>
+    <div class="sheet-sub" id="sheetSub"></div>
+    <form id="orderForm" novalidate>
+
+      <div class="row3">
+        <div class="field">
+          <label>填寫日期</label>
+          <input type="date" id="fFillFormDate">
+        </div>
+        <div class="field">
+          <label>填寫時間</label>
+          <input type="time" id="fFillFormTime">
+        </div>
+        <div class="field">
+          <label>填寫人員 <span style="color:var(--red);">*</span></label>
+          <select id="fFilledBy">
+            <option value="">請選擇</option>
+            <option value="呂思穎">呂思穎</option>
+            <option value="潘麗娟">潘麗娟</option>
+            <option value="謝牧華">謝牧華</option>
+            <option value="自訂">自訂</option>
+          </select>
+        </div>
+      </div>
+      <input type="text" id="fFilledByCustom" placeholder="輸入姓名" style="display:none; margin:-6px 0 14px 0;">
+
+      <div class="section-label">基本資料</div>
+      <div class="field">
+        <label>客戶名稱</label>
+        <input type="text" id="fCustomer" placeholder="例如 許桂花" required>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>產品名稱</label>
+          <input type="text" id="fProduct" placeholder="例如 炒香料" required>
+        </div>
+        <div class="field">
+          <label>規格</label>
+          <input type="text" id="fSpec" placeholder="例如 箱">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>數量</label>
+          <input type="number" id="fQty" placeholder="0" min="1" required>
+        </div>
+        <div class="field">
+          <label>預計需求出貨日期</label>
+          <input type="date" id="fDue" required>
+        </div>
+      </div>
+      <div class="field">
+        <label>產地</label>
+        <input type="text" id="fOrigin" placeholder="產地">
+      </div>
+      <div class="field">
+        <label>COA <span style="color:var(--red);">*</span></label>
+        <select id="fCoa">
+          <option value="">請選擇</option>
+          <option value="需要(隨貨附)">需要(隨貨附)</option>
+          <option value="需要(Email)">需要(Email)</option>
+          <option value="無">無</option>
+        </select>
+      </div>
+      <div id="coaValuesSection" style="display:none;">
+        <div class="row2">
+          <div class="field">
+            <label>水分</label>
+            <input type="text" id="fCoaMoisture" placeholder="例如 5.2%">
+          </div>
+          <div class="field">
+            <label>水活性</label>
+            <input type="text" id="fCoaWaterActivity" placeholder="例如 0.45">
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>總生菌數</label>
+            <input type="text" id="fCoaTotalPlateCount" placeholder="例如 <10 CFU/g">
+          </div>
+          <div class="field">
+            <label>大腸桿菌群</label>
+            <input type="text" id="fCoaColiform" placeholder="例如 陰性">
+          </div>
+        </div>
+        <div class="field">
+          <label>大腸桿菌</label>
+          <input type="text" id="fCoaEcoli" placeholder="例如 陰性">
+        </div>
+      </div>
+
+      <div id="stageHintBatch" class="stage-hint">🔒 訂單進入「生產中」後才會開放填寫生產批號、包材批號等欄位</div>
+      <div id="sectionBatch">
+        <div class="section-label">批號 / 日期</div>
+        <div class="row3">
+          <div class="field">
+            <label>產品製造日期-包裝日期</label>
+            <input type="text" id="fBatchNo" placeholder="例如 B20260820-0820">
+          </div>
+          <div class="field">
+            <label>產品有效日期</label>
+            <input type="date" id="fProductExpDate">
+          </div>
+          <div class="field">
+            <label>包材批號</label>
+            <input type="text" id="fTrayBatchNo" placeholder="包材批號">
+          </div>
+        </div>
+        <div class="row3">
+          <div class="field">
+            <label>原料進貨批號</label>
+            <input type="text" id="fMaterialBatchNo" placeholder="原料進貨批號">
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>原料製造日期</label>
+            <input type="date" id="fMaterialMfgDate">
+          </div>
+          <div class="field">
+            <label>原料有效日期</label>
+            <input type="date" id="fMaterialExpDate">
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">優先度 / 備註</div>
+      <div class="field">
+        <label>優先度</label>
+        <div class="pri-toggle">
+          <div class="pri-opt selected" data-p="normal" id="priNormal">一般</div>
+          <div class="pri-opt" data-p="urgent" id="priUrgent">急件</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>備註 / 包裝注意事項</label>
+        <textarea id="fNote" placeholder="例如：全廠請務必儘速提供正確批號，以利標籤連動"></textarea>
+      </div>
+
+      <div id="stageHintChecklist" class="stage-hint">🔒 訂單進入「已完成」後才會開放出貨前檢查與放行確認</div>
+      <div id="sectionChecklist">
+        <div class="section-label" style="display:flex; align-items:center; justify-content:space-between; border-top:none; padding-top:0; margin-top:0;">
+          <span>出貨前檢查項目及放行確認 <span style="color:var(--red);">*</span></span>
+          <button type="button" id="btnCheckAll" style="background:var(--panel-raised); border:1px solid var(--green); color:var(--green); font-size:11px; font-weight:700; padding:5px 10px; border-radius:6px; cursor:pointer; text-transform:none; letter-spacing:0;">✓ 一鍵確認</button>
+        </div>
+        <div class="check-item" data-chk="c1"><div class="check-box">✓</div><div class="check-text">產品內容物與標籤品名是否核對正確</div></div>
+        <div class="check-item" data-chk="c2"><div class="check-box">✓</div><div class="check-text">裝箱數量是否正確</div></div>
+        <div class="check-item" data-chk="c3"><div class="check-box">✓</div><div class="check-text">包裝密封完整無歪斜及漏粉</div></div>
+        <div class="check-item" data-chk="c4"><div class="check-box">✓</div><div class="check-text">生產日期有效日期是否印製正確</div></div>
+        <div class="field" style="margin-top:14px;">
+          <label>確認及放行人員 <span style="color:var(--red);">*</span></label>
+          <select id="fReleaseBy">
+            <option value="">請選擇</option>
+            <option value="張春雪">張春雪</option>
+            <option value="楊秋燕">楊秋燕</option>
+            <option value="自訂">自訂</option>
+          </select>
+          <input type="text" id="fReleaseByCustom" placeholder="輸入姓名" style="margin-top:8px; display:none;">
+        </div>
+        <div class="field">
+          <label>倉管出貨確認 <span style="color:var(--red);">*</span></label>
+          <select id="fWarehouseConfirm">
+            <option value="">請選擇</option>
+            <option value="張春雪">張春雪</option>
+            <option value="楊秋燕">楊秋燕</option>
+            <option value="自訂">自訂</option>
+          </select>
+          <input type="text" id="fWarehouseConfirmCustom" placeholder="輸入姓名" style="margin-top:8px; display:none;">
+        </div>
+      </div>
+
+      <div class="sheet-actions">
+        <button type="button" class="btn-secondary" id="btnCancel">取消</button>
+        <button type="button" class="btn-primary" id="btnSave">儲存</button>
+      </div>
+      <button type="button" class="btn-delete" id="btnDelete" style="display:none;">刪除此品項</button>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="reportOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>統計報表</h2>
+    <div class="report-updated" id="reportUpdated"></div>
+
+    <div class="report-section-title">出貨警示（點卡片看明細）</div>
+    <div class="stat-grid">
+      <div class="stat-card danger clickable" data-detail="overdue"><div class="stat-num" id="statOverdue">0</div><div class="stat-label">已逾期未出貨</div></div>
+      <div class="stat-card danger clickable" data-detail="today"><div class="stat-num" id="statToday">0</div><div class="stat-label">今日應出貨</div></div>
+      <div class="stat-card amber clickable" data-detail="tomorrow"><div class="stat-num" id="statTomorrow">0</div><div class="stat-label">明日應出貨</div></div>
+      <div class="stat-card clickable" data-detail="urgent"><div class="stat-num" id="statUrgent">0</div><div class="stat-label">急件進行中</div></div>
+      <div class="stat-card blue clickable" data-detail="coa"><div class="stat-num" id="statCoa">0</div><div class="stat-label">需要COA</div></div>
+    </div>
+    <div id="statDetailPanel" style="display:none;">
+      <div class="report-section-title" id="statDetailTitle"></div>
+      <div id="statDetailList"></div>
+    </div>
+
+    <div class="report-section-title">生產進度（品項數）</div>
+    <div class="stat-grid">
+      <div class="stat-card blue"><div class="stat-num" id="statPending">0</div><div class="stat-label">待生產</div></div>
+      <div class="stat-card amber"><div class="stat-num" id="statInprogress">0</div><div class="stat-label">生產中</div></div>
+      <div class="stat-card purple"><div class="stat-num" id="statLabeling">0</div><div class="stat-label">標籤印製</div></div>
+      <div class="stat-card green"><div class="stat-num" id="statDone">0</div><div class="stat-label">已完成</div></div>
+      <div class="stat-card teal"><div class="stat-num" id="statShipped">0</div><div class="stat-label">已出貨</div></div>
+      <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-label">品項總數</div></div>
+    </div>
+
+    <div class="report-section-title">出貨量</div>
+    <div class="stat-grid">
+      <div class="stat-card teal"><div class="stat-num" id="statShippedToday">0</div><div class="stat-label">今日出貨</div></div>
+      <div class="stat-card teal"><div class="stat-num" id="statShippedWeek">0</div><div class="stat-label">本週出貨</div></div>
+    </div>
+
+    <div class="report-section-title">🚚 今日寄貨清單</div>
+    <div id="shipTodayList"></div>
+
+    <div class="report-section-title">📦 明日送貨清單</div>
+    <div id="shipTomorrowList"></div>
+
+    <div class="report-section-title">🙋 客戶自取清單</div>
+    <div id="shipPickupList"></div>
+
+    <div class="report-section-title">✅ 已出貨品項清單（全部，最新在前）</div>
+    <div id="shippedAllList"></div>
+
+    <div class="report-section-title">資料備份</div>
+    <div class="backup-info" id="backupInfo">尚未有備份紀錄</div>
+    <div class="sheet-actions" style="margin-top:0;">
+      <button type="button" class="btn-primary" id="btnExportBackup">📥 匯出 Excel（含垃圾桶）</button>
+    </div>
+
+    <div class="sheet-actions" style="margin-top:18px;">
+      <button type="button" class="btn-secondary" style="flex:1;" id="btnCloseReport">關閉</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="trashOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>垃圾桶</h2>
+    <div class="report-updated">刪除的品項會保留 30 天，逾期會自動清除</div>
+    <div id="trashList"></div>
+    <div class="sheet-actions" style="margin-top:18px;">
+      <button type="button" class="btn-primary" id="btnCloseTrash">關閉</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="confirmOverlay">
+  <div class="sheet" style="padding-bottom:24px;">
+    <div class="sheet-handle"></div>
+    <h2 id="confirmTitle">確定嗎？</h2>
+    <p id="confirmMessage" style="font-size:13.5px; color:var(--ink-dim); line-height:1.6; margin:0 0 20px 0;"></p>
+    <div class="sheet-actions">
+      <button type="button" class="btn-secondary" id="confirmCancelBtn">取消</button>
+      <button type="button" class="btn-primary" id="confirmOkBtn">確定</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="shipMethodOverlay">
+  <div class="sheet" style="padding-bottom:24px;">
+    <div class="sheet-handle"></div>
+    <h2>出貨方式</h2>
+    <p style="font-size:13.5px; color:var(--ink-dim); line-height:1.6; margin:0 0 20px 0;" id="shipMethodSub">請選擇這批貨的出貨方式</p>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <button type="button" class="ship-opt" data-ship="today">🚚 今天寄貨</button>
+      <button type="button" class="ship-opt" data-ship="tomorrow">📦 明天送貨</button>
+      <button type="button" class="ship-opt" data-ship="pickup">🙋 客戶自取</button>
+    </div>
+    <div class="sheet-actions" style="margin-top:16px;">
+      <button type="button" class="btn-secondary" style="flex:1;" id="shipMethodCancelBtn">取消</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="splitOverlay">
+  <div class="sheet" style="padding-bottom:24px;">
+    <div class="sheet-handle"></div>
+    <h2>拆分品項</h2>
+    <p style="font-size:13.5px; color:var(--ink-dim); line-height:1.6; margin:0 0 4px 0;" id="splitSub">目前數量</p>
+    <div class="field" style="margin-top:14px;">
+      <label>要拆出多少數量？</label>
+      <input type="number" id="splitQtyInput" min="1" placeholder="例如 40">
+    </div>
+    <p style="font-size:12px; color:var(--ink-dim); line-height:1.5; margin:0 0 4px 0;">拆出的部分會變成同一張訂單裡的新品項，狀態重新從「待生產」開始，批號等資訊需要重新填寫。</p>
+    <div class="sheet-actions" style="margin-top:16px;">
+      <button type="button" class="btn-secondary" id="splitCancelBtn">取消</button>
+      <button type="button" class="btn-primary" id="splitConfirmBtn">確定拆分</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBvFJyLifazvg85e6Z0NQEev-1d9KiZyMg",
+  authDomain: "factory-scheduling-board.firebaseapp.com",
+  projectId: "factory-scheduling-board",
+  storageBucket: "factory-scheduling-board.firebasestorage.app",
+  messagingSenderId: "458832382144",
+  appId: "1:458832382144:web:8ba118bfc9e67f67f50525"
+};
+const ALLOWED_EMAIL_DOMAIN = "chia-hui.com.tw";
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+const auth = getAuth(fbApp);
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ hd: ALLOWED_EMAIL_DOMAIN });
+const ordersDocRef = doc(db, 'appData', 'orders');
+const backupDocRef = doc(db, 'appData', 'backupState');
+
+window.addEventListener('error', function(e){
+  try{ showToastSafe('發生錯誤：' + e.message); }catch(_){}
+  console.error('App error:', e.message, e.filename, e.lineno);
+});
+function showToastSafe(msg){
+  const t = document.getElementById('toast');
+  if(!t){ alert(msg); return; }
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=> t.classList.remove('show'), 3000);
+}
+
+const STATUS = ['pending','inprogress','labeling','done','shipped'];
+const STATUS_LABEL = { pending:'待生產', inprogress:'生產中', labeling:'標籤印製', done:'已完成', shipped:'出貨' };
+const STATUS_FORWARD_LABEL = { pending:'開始生產 →', inprogress:'標籤印製 →', labeling:'完成 ✓', done:'出貨 →' };
+const CHK_LABELS = { c1:'標籤品名核對', c2:'裝箱數量', c3:'包裝密封', c4:'生產/有效日期' };
+const SHIP_METHOD_LABEL = { today:'🚚 今天寄貨', tomorrow:'📦 明天送貨', pickup:'🙋 客戶自取' };
+
+let orders = []; // [{id, customer, items:[...]}]
+let currentTab = 'pending';
+let editingOrderId = null; // 目前編輯表單所屬的訂單 id（null = 新訂單）
+let editingItemId = null;  // 目前編輯的品項 id（null = 新品項）
+let checklistState = { c1:false, c2:false, c3:false, c4:false };
+
+function activeOrders(){ return orders; }
+
+function allActiveItems(){
+  const list = [];
+  orders.forEach(o=>{
+    (o.items||[]).forEach(it=>{
+      if(!it.deleted) list.push({ order:o, item:it });
+    });
+  });
+  return list;
+}
+
+function todayStr(){ const d = new Date(); return d.toISOString().slice(0,10); }
+
+function generateOrderNo(){
+  const prefix = todayStr().replace(/-/g,'');
+  const todayCount = orders.filter(o => o.orderNo && o.orderNo.startsWith(prefix + '-')).length;
+  return prefix + '-' + String(todayCount + 1).padStart(3, '0');
+}
+function tomorrowStr(){ const d = new Date(); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); }
+function nowTimeStr(){ const d = new Date(); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
+
+let confirmResolver = null;
+function showConfirm(message, title){
+  const overlay = document.getElementById('confirmOverlay');
+  document.getElementById('confirmTitle').textContent = title || '確定嗎？';
+  document.getElementById('confirmMessage').textContent = message;
+  overlay.classList.add('show');
+  return new Promise((resolve)=>{ confirmResolver = resolve; });
+}
+function closeConfirm(result){
+  document.getElementById('confirmOverlay').classList.remove('show');
+  if(confirmResolver){ confirmResolver(result); confirmResolver = null; }
+}
+document.getElementById('confirmOkBtn').onclick = ()=> closeConfirm(true);
+document.getElementById('confirmCancelBtn').onclick = ()=> closeConfirm(false);
+document.getElementById('confirmOverlay').addEventListener('click', (e)=>{ if(e.target.id === 'confirmOverlay') closeConfirm(false); });
+
+let shipMethodResolver = null;
+function showShipMethodChoice(subText){
+  const overlay = document.getElementById('shipMethodOverlay');
+  document.getElementById('shipMethodSub').textContent = subText || '請選擇這批貨的出貨方式';
+  overlay.classList.add('show');
+  return new Promise((resolve)=>{ shipMethodResolver = resolve; });
+}
+function closeShipMethodChoice(result){
+  document.getElementById('shipMethodOverlay').classList.remove('show');
+  if(shipMethodResolver){ shipMethodResolver(result); shipMethodResolver = null; }
+}
+document.querySelectorAll('.ship-opt').forEach(btn=>{
+  btn.onclick = ()=> closeShipMethodChoice(btn.dataset.ship);
+});
+document.getElementById('shipMethodCancelBtn').onclick = ()=> closeShipMethodChoice(null);
+document.getElementById('shipMethodOverlay').addEventListener('click', (e)=>{ if(e.target.id === 'shipMethodOverlay') closeShipMethodChoice(null); });
+
+let splitResolver = null;
+function showSplitDialog(item){
+  const overlay = document.getElementById('splitOverlay');
+  document.getElementById('splitSub').textContent = item.product + '　目前數量：' + item.qty;
+  const input = document.getElementById('splitQtyInput');
+  input.value = '';
+  input.max = item.qty - 1;
+  overlay.classList.add('show');
+  setTimeout(()=> input.focus(), 50);
+  return new Promise((resolve)=>{ splitResolver = resolve; });
+}
+function closeSplitDialog(result){
+  document.getElementById('splitOverlay').classList.remove('show');
+  if(splitResolver){ splitResolver(result); splitResolver = null; }
+}
+document.getElementById('splitConfirmBtn').onclick = ()=>{
+  const val = parseInt(document.getElementById('splitQtyInput').value, 10);
+  closeSplitDialog(isNaN(val) ? 0 : val);
+};
+document.getElementById('splitCancelBtn').onclick = ()=> closeSplitDialog(null);
+document.getElementById('splitOverlay').addEventListener('click', (e)=>{ if(e.target.id === 'splitOverlay') closeSplitDialog(null); });
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=> t.classList.remove('show'), 1800);
+}
+
+function loadOrders(){
+  onSnapshot(ordersDocRef, async (snap)=>{
+    orders = (snap.exists() && snap.data().list) ? snap.data().list : [];
+    orders.forEach(o=>{ if(!o.items) o.items = []; });
+    await purgeExpiredTrash();
+    render();
+    checkShipmentAlerts();
+  }, (err)=>{
+    console.error(err);
+    showToast('連線 Firebase 失敗，請檢查設定與網路');
+  });
+}
+
+async function saveOrders(){
+  try{
+    await setDoc(ordersDocRef, { list: orders });
+  }catch(e){
+    console.error(e);
+    showToast('儲存失敗，請檢查網路');
+  }
+}
+
+function isOverdue(item){ return item.status !== 'shipped' && item.due < todayStr(); }
+function isChecklistComplete(item){
+  const c = item.checklist || {};
+  return !!(c.c1 && c.c2 && c.c3 && c.c4);
+}
+function isTodayAtRisk(item){ const now = new Date(); return item.status !== 'shipped' && item.due === todayStr() && now.getHours() >= 15; }
+function isTomorrowRisk(item){ return item.status !== 'shipped' && item.due === tomorrowStr(); }
+function needsCoa(item){ return !!item.coa && item.coa !== '無'; }
+
+function escapeHtml(s){ const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+function renderTabs(){
+  const tabsEl = document.getElementById('tabs');
+  tabsEl.innerHTML = '';
+  STATUS.forEach(s=>{
+    let count = 0;
+    orders.forEach(o=> (o.items||[]).forEach(it=>{ if(!it.deleted && it.status===s) count++; }));
+    const tab = document.createElement('div');
+    tab.className = 'tab' + (s===currentTab ? ' active' : '');
+    tab.dataset.status = s;
+    tab.innerHTML = '<div class="tab-label">' + STATUS_LABEL[s] + '</div><div class="tab-count">' + count + '</div>';
+    tab.onclick = ()=>{ currentTab = s; render(); };
+    tabsEl.appendChild(tab);
+  });
+}
+
+function renderList(){
+  const listEl = document.getElementById('listArea');
+  const matchingOrders = orders.filter(o => (o.items||[]).some(it => !it.deleted && it.status === currentTab));
+
+  if(matchingOrders.length === 0){
+    listEl.innerHTML = '<div class="empty"><div class="empty-tag">🏷️</div><p>目前「' + STATUS_LABEL[currentTab] + '」沒有品項<br>點右下角 + 新增一筆</p></div>';
+    return;
+  }
+
+  matchingOrders.sort((a,b)=>{
+    const aMin = Math.min(...a.items.filter(it=>!it.deleted && it.status===currentTab).map(it=>it.due||'9999'));
+    const bMin = Math.min(...b.items.filter(it=>!it.deleted && it.status===currentTab).map(it=>it.due||'9999'));
+    return String(aMin).localeCompare(String(bMin));
+  });
+
+  listEl.innerHTML = '<div class="order-list" id="orderList"></div>';
+  const wrap = document.getElementById('orderList');
+
+  matchingOrders.forEach(order=>{
+    const activeItems = (order.items||[]).filter(it=>!it.deleted);
+    const card = document.createElement('div');
+    card.className = 'order-card';
+
+    let itemsHtml = '';
+    activeItems.forEach(item=>{
+      const overdue = isOverdue(item);
+      const todayRisk = isTodayAtRisk(item);
+      let badges = '';
+      if(overdue) badges += '<span class="badge overdue">逾期</span>';
+      else if(item.priority === 'urgent') badges += '<span class="badge urgent">急件</span>';
+      badges += '<span class="badge stage st-' + item.status + '">' + STATUS_LABEL[item.status] + '</span>';
+      if(todayRisk){
+        badges += '<span class="badge todayrisk" data-jump-today="1" data-oid="'+order.id+'" data-iid="'+item.id+'">⏰ 今日3點未出貨</span>';
+      }
+      if(needsCoa(item)){
+        badges += '<span class="badge coa-badge">📄 需COA' + (item.coa === '需要(Email)' ? '(Email)' : '(隨貨)') + '</span>';
+      }
+      if(item.shipMethod){
+        badges += '<span class="badge ship-' + item.shipMethod + '">' + SHIP_METHOD_LABEL[item.shipMethod] + '</span>';
+      }
+
+      const idx = STATUS.indexOf(item.status);
+      const canBack = idx > 0;
+      let actionsHtml = '';
+      if(item.status !== 'shipped'){
+        actionsHtml =
+          (canBack ? '<button class="btn btn-back" data-act="back" data-oid="'+order.id+'" data-iid="'+item.id+'">‹</button>' : '') +
+          '<button class="btn btn-forward st-' + STATUS[idx+1] + '" data-act="forward" data-oid="'+order.id+'" data-iid="'+item.id+'">' + STATUS_FORWARD_LABEL[item.status] + '</button>' +
+          '<button class="btn btn-edit" data-act="edit" data-oid="'+order.id+'" data-iid="'+item.id+'">✎</button>';
+      }else{
+        actionsHtml =
+          '<button class="btn btn-back" data-act="back" data-oid="'+order.id+'" data-iid="'+item.id+'">‹</button>' +
+          '<button class="btn btn-done-label" disabled>已出貨</button>' +
+          '<button class="btn btn-edit" data-act="edit" data-oid="'+order.id+'" data-iid="'+item.id+'">✎</button>';
+      }
+
+      const chk = item.checklist || {};
+      let chkHtml = '';
+      ['c1','c2','c3','c4'].forEach(k=>{ chkHtml += '<span class="chk-pill' + (chk[k] ? ' on' : '') + '">' + CHK_LABELS[k] + (chk[k] ? ' ✓' : '') + '</span>'; });
+
+      const metaBits = [];
+      if(item.batchNo) metaBits.push('<div class="meta-item">批號 <b>' + escapeHtml(item.batchNo) + '</b></div>');
+      if(item.materialBatchNo) metaBits.push('<div class="meta-item">原料批號 <b>' + escapeHtml(item.materialBatchNo) + '</b></div>');
+      metaBits.push('<div class="meta-item">數量 <b>' + item.qty + '</b></div>');
+      metaBits.push('<div class="meta-item">出貨日 <b>' + item.due + '</b></div>');
+      if(item.origin) metaBits.push('<div class="meta-item">產地 <b>' + escapeHtml(item.origin) + '</b></div>');
+
+      const splitBtnHtml = (item.qty > 1 && item.status !== 'shipped')
+        ? '<button type="button" class="split-btn" data-act="split" data-oid="'+order.id+'" data-iid="'+item.id+'">✂️ 拆分數量</button>'
+        : '';
+
+      itemsHtml += '<div class="item-row pri-' + item.priority + (overdue ? ' overdue' : '') + '">' +
+        '<div class="item-top"><div><div class="item-product">' + escapeHtml(item.product) + (item.spec ? '<span class="item-spec"> ・ ' + escapeHtml(item.spec) + '</span>' : '') + '</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">' + badges + '</div></div>' +
+        '<div class="item-meta">' + metaBits.join('') + '</div>' +
+        '<div class="checklist-row">' + chkHtml + '</div>' +
+        (item.note ? '<div class="item-note">' + escapeHtml(item.note) + '</div>' : '') +
+        '<div class="item-actions">' + actionsHtml + '</div>' +
+        splitBtnHtml +
+      '</div>';
+    });
+
+    card.innerHTML =
+      '<div class="order-card-top">' +
+        '<div><div class="order-no">' + escapeHtml(order.orderNo || '') + '</div><div class="order-customer">' + escapeHtml(order.customer) + '</div></div>' +
+        '<div class="order-actions">' +
+          '<button class="icon-btn" data-act="delorder" data-oid="' + order.id + '" title="刪除整張訂單">🗑</button>' +
+        '</div>' +
+      '</div>' +
+      itemsHtml +
+      '<button class="add-item-btn" data-act="additem" data-oid="' + order.id + '">+ 新增品項</button>';
+
+    wrap.appendChild(card);
+  });
+
+  wrap.querySelectorAll('[data-act="forward"]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const order = orders.find(o=>o.id === btn.dataset.oid);
+      const item = order && order.items.find(i=>i.id === btn.dataset.iid);
+      if(!item) return;
+      const idx = STATUS.indexOf(item.status);
+      const nextStatus = STATUS[idx+1];
+
+      if(item.status === 'pending' && (!item.filledBy || !item.coa)){
+        const missing = [];
+        if(!item.filledBy) missing.push('填寫人員');
+        if(!item.coa) missing.push('COA');
+        showToast('請先填寫「' + missing.join('、') + '」才能進入生產中');
+        openSheet(order, item);
+        return;
+      }
+      if(item.status === 'done' && (!item.releaseBy || !item.warehouseConfirm || !isChecklistComplete(item))){
+        const missing = [];
+        if(!isChecklistComplete(item)) missing.push('出貨前檢查項目');
+        if(!item.releaseBy) missing.push('確認及放行人員');
+        if(!item.warehouseConfirm) missing.push('倉管出貨確認');
+        showToast('請先完成「' + missing.join('、') + '」才能出貨');
+        openSheet(order, item);
+        return;
+      }
+
+      if(nextStatus === 'shipped'){
+        const choice = await showShipMethodChoice(order.customer + ' ・ ' + item.product);
+        if(!choice) return; // 使用者取消
+        item.shipMethod = choice;
+      }
+
+      item.status = nextStatus;
+      if(item.status === 'done') item.completedAt = Date.now();
+      if(item.status === 'shipped') item.shippedAt = Date.now();
+      saveOrders(); render();
+      showToast('已移至「' + STATUS_LABEL[item.status] + '」');
+    };
+  });
+  wrap.querySelectorAll('[data-act="back"]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const order = orders.find(o=>o.id === btn.dataset.oid);
+      const item = order && order.items.find(i=>i.id === btn.dataset.iid);
+      if(!item) return;
+      const idx = STATUS.indexOf(item.status);
+      item.status = STATUS[idx-1];
+      if(item.status !== 'done') delete item.completedAt;
+      if(item.status !== 'shipped'){ delete item.shippedAt; delete item.shipMethod; }
+      saveOrders(); render();
+      showToast('已移至「' + STATUS_LABEL[item.status] + '」');
+    };
+  });
+  wrap.querySelectorAll('[data-act="edit"]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const order = orders.find(o=>o.id === btn.dataset.oid);
+      const item = order && order.items.find(i=>i.id === btn.dataset.iid);
+      if(order && item) openSheet(order, item);
+    };
+  });
+  wrap.querySelectorAll('[data-jump-today]').forEach(badge=>{
+    badge.onclick = ()=>{
+      const order = orders.find(o=>o.id === badge.dataset.oid);
+      const item = order && order.items.find(i=>i.id === badge.dataset.iid);
+      if(order && item) openSheet(order, item);
+    };
+  });
+  wrap.querySelectorAll('[data-act="additem"]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const order = orders.find(o=>o.id === btn.dataset.oid);
+      if(order) openSheet(order, null);
+    };
+  });
+  wrap.querySelectorAll('[data-act="delorder"]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const order = orders.find(o=>o.id === btn.dataset.oid);
+      if(!order) return;
+      const ok = await showConfirm('這張訂單裡所有品項都會移到垃圾桶，30天內可復原。', '確定要刪除整張訂單嗎？');
+      if(!ok) return;
+      (order.items||[]).forEach(it=>{ if(!it.deleted){ it.deleted = true; it.deletedAt = Date.now(); } });
+      await saveOrders(); render();
+      showToast('已刪除整張訂單');
+    };
+  });
+  wrap.querySelectorAll('[data-act="split"]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const order = orders.find(o=>o.id === btn.dataset.oid);
+      const item = order && order.items.find(i=>i.id === btn.dataset.iid);
+      if(!item) return;
+      const splitQty = await showSplitDialog(item);
+      if(splitQty === null) return;
+      if(!(splitQty > 0 && splitQty < item.qty)){
+        showToast('拆分數量必須介於 1 到 ' + (item.qty - 1) + ' 之間');
+        return;
+      }
+      const newItem = Object.assign({}, item, {
+        id: 'i_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+        qty: splitQty,
+        status: 'pending',
+        batchNo: '', trayBatchNo: '', materialBatchNo: '', materialMfgDate: '', materialExpDate: '', productExpDate: '',
+        checklist: { c1:false, c2:false, c3:false, c4:false },
+        releaseBy: '', shipMethod: undefined, shippedAt: undefined, completedAt: undefined,
+        deleted: false, deletedAt: undefined
+      });
+      delete newItem.shipMethod; delete newItem.shippedAt; delete newItem.completedAt; delete newItem.deletedAt;
+      item.qty = item.qty - splitQty;
+      order.items.push(newItem);
+      await saveOrders(); render();
+      showToast('已拆分出 ' + splitQty + ' 件為新品項');
+    };
+  });
+}
+
+function render(){ renderTabs(); renderList(); renderAlertBanner(); updateQuickStatBadges(); }
+
+function updateQuickStatBadges(){
+  const all = allActiveItems();
+  const coaCount = all.filter(x => needsCoa(x.item) && x.item.status !== 'shipped').length;
+  const todayRiskCount = all.filter(x => isTodayAtRisk(x.item)).length;
+
+  const coaBadge = document.getElementById('coaQuickCount');
+  coaBadge.textContent = coaCount;
+  coaBadge.style.display = coaCount > 0 ? '' : 'none';
+
+  const todayBadge = document.getElementById('todayRiskQuickCount');
+  todayBadge.textContent = todayRiskCount;
+  todayBadge.style.display = todayRiskCount > 0 ? '' : 'none';
+}
+
+// ---- sheet / form ----
+const overlay = document.getElementById('overlay');
+const form = document.getElementById('orderForm');
+let selectedPriority = 'normal';
+
+function updateStageVisibility(stage){
+  const showBatch = stage !== 'pending';
+  const showChecklist = (STATUS.indexOf(stage) >= 3); // 已完成或以後
+  document.getElementById('sectionBatch').style.display = showBatch ? '' : 'none';
+  document.getElementById('stageHintBatch').style.display = showBatch ? 'none' : '';
+  document.getElementById('sectionChecklist').style.display = showChecklist ? '' : 'none';
+  document.getElementById('stageHintChecklist').style.display = showChecklist ? 'none' : '';
+}
+
+function updateCoaValuesVisibility(){
+  const coaVal = document.getElementById('fCoa').value;
+  const show = !!coaVal && coaVal !== '無';
+  document.getElementById('coaValuesSection').style.display = show ? '' : 'none';
+}
+document.getElementById('fCoa').addEventListener('change', updateCoaValuesVisibility);
+
+function setPickerValue(selectId, customId, value){
+  const select = document.getElementById(selectId);
+  const custom = document.getElementById(customId);
+  const options = Array.from(select.options).map(o=>o.value);
+  if(!value){
+    select.value = ''; custom.style.display = 'none'; custom.value = '';
+  }else if(options.includes(value) && value !== '自訂'){
+    select.value = value; custom.style.display = 'none'; custom.value = '';
+  }else{
+    select.value = '自訂'; custom.style.display = ''; custom.value = value;
+  }
+}
+function getPickerValue(selectId, customId){
+  const select = document.getElementById(selectId);
+  const custom = document.getElementById(customId);
+  return select.value === '自訂' ? custom.value.trim() : select.value;
+}
+[['fReleaseBy','fReleaseByCustom'], ['fFilledBy','fFilledByCustom'], ['fWarehouseConfirm','fWarehouseConfirmCustom']].forEach(([selectId, customId])=>{
+  document.getElementById(selectId).addEventListener('change', function(){
+    document.getElementById(customId).style.display = (this.value === '自訂') ? '' : 'none';
+    if(this.value !== '自訂') document.getElementById(customId).value = '';
+  });
+});
+
+function updateChecklistUI(){
+  document.querySelectorAll('.check-item').forEach(el=>{
+    el.classList.toggle('on', !!checklistState[el.dataset.chk]);
+  });
+}
+document.querySelectorAll('.check-item').forEach(el=>{
+  el.onclick = ()=>{ checklistState[el.dataset.chk] = !checklistState[el.dataset.chk]; updateChecklistUI(); };
+});
+document.getElementById('btnCheckAll').onclick = ()=>{
+  const allOn = checklistState.c1 && checklistState.c2 && checklistState.c3 && checklistState.c4;
+  const newVal = !allOn;
+  checklistState = { c1:newVal, c2:newVal, c3:newVal, c4:newVal };
+  updateChecklistUI();
+};
+
+function openSheet(order, item){
+  editingOrderId = order ? order.id : null;
+  editingItemId = item ? item.id : null;
+
+  const isNewOrder = !order;
+  const isNewItem = order && !item;
+
+  document.getElementById('sheetTitle').textContent = isNewOrder ? '新增訂單' : (isNewItem ? '新增品項' : '編輯品項');
+  document.getElementById('sheetSub').textContent = isNewOrder ? '' : ('訂單編號 ' + (order.orderNo || '') + '　客戶：' + (order.customer || ''));
+
+  document.getElementById('fCustomer').value = order ? (order.customer || '') : '';
+  document.getElementById('fFillFormDate').value = item ? (item.fillFormDate || todayStr()) : todayStr();
+  document.getElementById('fFillFormTime').value = item ? (item.fillFormTime || nowTimeStr()) : nowTimeStr();
+  document.getElementById('fProduct').value = item ? item.product : '';
+  document.getElementById('fSpec').value = item ? (item.spec || '') : '';
+  document.getElementById('fQty').value = item ? item.qty : '';
+  document.getElementById('fDue').value = item ? item.due : todayStr();
+  document.getElementById('fOrigin').value = item ? (item.origin || '') : '';
+  document.getElementById('fProductExpDate').value = item ? (item.productExpDate || '') : '';
+  document.getElementById('fBatchNo').value = item ? (item.batchNo || '') : '';
+  document.getElementById('fTrayBatchNo').value = item ? (item.trayBatchNo || '') : '';
+  document.getElementById('fMaterialBatchNo').value = item ? (item.materialBatchNo || '') : '';
+  document.getElementById('fMaterialMfgDate').value = item ? (item.materialMfgDate || '') : '';
+  document.getElementById('fMaterialExpDate').value = item ? (item.materialExpDate || '') : '';
+  document.getElementById('fCoa').value = item ? (item.coa || '') : '';
+  document.getElementById('fCoaMoisture').value = item ? (item.coaMoisture || '') : '';
+  document.getElementById('fCoaWaterActivity').value = item ? (item.coaWaterActivity || '') : '';
+  document.getElementById('fCoaTotalPlateCount').value = item ? (item.coaTotalPlateCount || '') : '';
+  document.getElementById('fCoaColiform').value = item ? (item.coaColiform || '') : '';
+  document.getElementById('fCoaEcoli').value = item ? (item.coaEcoli || '') : '';
+  updateCoaValuesVisibility();
+  document.getElementById('fNote').value = item ? (item.note || '') : '';
+  setPickerValue('fReleaseBy', 'fReleaseByCustom', item ? (item.releaseBy || '') : '');
+  setPickerValue('fFilledBy', 'fFilledByCustom', item ? (item.filledBy || '') : '');
+  setPickerValue('fWarehouseConfirm', 'fWarehouseConfirmCustom', item ? (item.warehouseConfirm || '') : '');
+
+  selectedPriority = item ? item.priority : 'normal';
+  updatePriorityUI();
+
+  checklistState = (item && item.checklist) ? Object.assign({c1:false,c2:false,c3:false,c4:false}, item.checklist) : {c1:false,c2:false,c3:false,c4:false};
+  updateChecklistUI();
+
+  updateStageVisibility(item ? item.status : 'pending');
+
+  document.getElementById('btnDelete').style.display = item ? 'block' : 'none';
+  overlay.classList.add('show');
+}
+
+function closeSheet(){
+  overlay.classList.remove('show');
+  form.reset();
+  editingOrderId = null; editingItemId = null;
+  checklistState = {c1:false,c2:false,c3:false,c4:false};
+}
+
+function updatePriorityUI(){
+  document.getElementById('priNormal').classList.toggle('selected', selectedPriority === 'normal');
+  document.getElementById('priUrgent').classList.toggle('selected', selectedPriority === 'urgent');
+}
+document.getElementById('priNormal').onclick = ()=>{ selectedPriority = 'normal'; updatePriorityUI(); };
+document.getElementById('priUrgent').onclick = ()=>{ selectedPriority = 'urgent'; updatePriorityUI(); };
+
+document.getElementById('fabAdd').onclick = ()=> openSheet(null, null);
+document.getElementById('btnCancel').onclick = closeSheet;
+overlay.onclick = (e)=>{ if(e.target === overlay) closeSheet(); };
+
+async function handleSaveOrder(){
+  const customer = document.getElementById('fCustomer').value.trim();
+  const product = document.getElementById('fProduct').value.trim();
+  const spec = document.getElementById('fSpec').value.trim();
+  const qty = parseInt(document.getElementById('fQty').value, 10);
+  const due = document.getElementById('fDue').value;
+  const origin = document.getElementById('fOrigin').value.trim();
+  const productExpDate = document.getElementById('fProductExpDate').value;
+  const batchNo = document.getElementById('fBatchNo').value.trim();
+  const trayBatchNo = document.getElementById('fTrayBatchNo').value.trim();
+  const materialBatchNo = document.getElementById('fMaterialBatchNo').value.trim();
+  const materialMfgDate = document.getElementById('fMaterialMfgDate').value;
+  const materialExpDate = document.getElementById('fMaterialExpDate').value;
+  const coa = document.getElementById('fCoa').value;
+  const coaMoisture = document.getElementById('fCoaMoisture').value.trim();
+  const coaWaterActivity = document.getElementById('fCoaWaterActivity').value.trim();
+  const coaTotalPlateCount = document.getElementById('fCoaTotalPlateCount').value.trim();
+  const coaColiform = document.getElementById('fCoaColiform').value.trim();
+  const coaEcoli = document.getElementById('fCoaEcoli').value.trim();
+  const note = document.getElementById('fNote').value.trim();
+  const fillFormDate = document.getElementById('fFillFormDate').value;
+  const fillFormTime = document.getElementById('fFillFormTime').value;
+  const releaseBy = getPickerValue('fReleaseBy', 'fReleaseByCustom');
+  const filledBy = getPickerValue('fFilledBy', 'fFilledByCustom');
+  const warehouseConfirm = getPickerValue('fWarehouseConfirm', 'fWarehouseConfirmCustom');
+
+  const missing = [];
+  if(!customer) missing.push('客戶名稱');
+  if(!product) missing.push('產品名稱');
+  if(!qty) missing.push('數量');
+  if(!due) missing.push('預計需求出貨日期');
+  if(missing.length > 0){ showToast('請填寫：' + missing.join('、')); return; }
+
+  const itemPayload = {
+    product, spec, qty, due, origin, productExpDate, batchNo, trayBatchNo, materialBatchNo, materialMfgDate, materialExpDate, coa, note,
+    coaMoisture, coaWaterActivity, coaTotalPlateCount, coaColiform, coaEcoli,
+    fillFormDate, fillFormTime,
+    releaseBy, filledBy, warehouseConfirm,
+    priority: selectedPriority,
+    checklist: Object.assign({}, checklistState)
+  };
+
+  if(!editingOrderId){
+    const newOrder = {
+      id: 'o_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+      orderNo: generateOrderNo(),
+      customer,
+      createdAt: Date.now(),
+      items: [ Object.assign({ id: 'i_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), status: 'pending' }, itemPayload) ]
+    };
+    orders.push(newOrder);
+    showToast('已新增訂單');
+  }else{
+    const order = orders.find(o=>o.id === editingOrderId);
+    if(!order) return;
+    order.customer = customer;
+    if(!editingItemId){
+      order.items.push(Object.assign({ id: 'i_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), status: 'pending' }, itemPayload));
+      showToast('已新增品項');
+    }else{
+      const item = order.items.find(i=>i.id === editingItemId);
+      if(item) Object.assign(item, itemPayload);
+      showToast('已更新品項');
+    }
+  }
+  await saveOrders();
+  closeSheet();
+  render();
+}
+document.getElementById('btnSave').addEventListener('click', handleSaveOrder);
+form.addEventListener('submit', function(e){ e.preventDefault(); });
+
+document.getElementById('btnDelete').onclick = async ()=>{
+  if(!editingOrderId || !editingItemId) return;
+  const ok = await showConfirm('刪除後會先移到垃圾桶，30天內都能復原。', '確定要刪除這個品項嗎？');
+  if(!ok) return;
+  const order = orders.find(o=>o.id === editingOrderId);
+  const item = order && order.items.find(i=>i.id === editingItemId);
+  if(item){ item.deleted = true; item.deletedAt = Date.now(); }
+  await saveOrders();
+  closeSheet(); render();
+  showToast('已移到垃圾桶，可在垃圾桶復原');
+};
+
+// ---- 出貨警示 ----
+let notifiedIds = new Set();
+let dismissedIds = new Set();
+let notifyPermission = (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported';
+
+function updateBellUI(){
+  const bell = document.getElementById('bellBtn');
+  if(notifyPermission === 'granted'){ bell.classList.add('enabled'); bell.title = '出貨提醒通知已開啟'; }
+  else{ bell.classList.remove('enabled'); bell.title = '點擊開啟出貨提醒通知'; }
+}
+document.getElementById('bellBtn').onclick = async ()=>{
+  if(typeof Notification === 'undefined'){ showToast('此瀏覽器不支援通知，仍會顯示畫面提醒'); return; }
+  if(Notification.permission === 'granted'){ showToast('通知已經是開啟狀態'); return; }
+  const perm = await Notification.requestPermission();
+  notifyPermission = perm; updateBellUI();
+  showToast(perm === 'granted' ? '已開啟出貨提醒通知' : '未取得通知權限，仍會顯示畫面提醒');
+};
+
+function fireNotification(title, body, tag){
+  if(notifyPermission === 'granted' && typeof Notification !== 'undefined'){
+    try{ new Notification(title, { body, tag }); }catch(e){}
+  }
+}
+
+function renderAlertBanner(){
+  const banner = document.getElementById('alertBanner');
+  const all = allActiveItems();
+  const overdueAlerts = all.filter(x => isOverdue(x.item) && !dismissedIds.has('overdue-' + x.item.id)).sort((a,b)=> a.item.due.localeCompare(b.item.due));
+  const todayAlerts = all.filter(x => isTodayAtRisk(x.item) && !dismissedIds.has('3pm-' + x.item.id));
+  const tomorrowAlerts = all.filter(x => isTomorrowRisk(x.item) && !dismissedIds.has('tmrw-' + x.item.id));
+  const showBackupReminder = backupNeeded() && !dismissedIds.has('backup-' + currentYearMonth());
+
+  if(overdueAlerts.length===0 && todayAlerts.length===0 && tomorrowAlerts.length===0 && !showBackupReminder){
+    banner.classList.remove('show'); banner.innerHTML = ''; return;
+  }
+  banner.classList.add('show');
+  let html = '';
+  overdueAlerts.forEach(x=>{
+    const days = Math.max(1, Math.round((new Date(todayStr()) - new Date(x.item.due)) / 86400000));
+    html += '<div class="alert-item overdue-item"><div class="alert-text"><b>🚨 已逾期 ' + days + ' 天未出貨：</b>' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '（交期 ' + x.item.due + '）</div><button class="alert-jump" data-jump="' + x.item.status + '">查看</button><button data-dismiss="overdue-' + x.item.id + '">✕</button></div>';
+  });
+  todayAlerts.forEach(x=>{
+    html += '<div class="alert-item"><div class="alert-text"><b>⚠ 今日應出貨尚未完成：</b>' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '</div><button class="alert-jump" data-jump="' + x.item.status + '">查看</button><button data-dismiss="3pm-' + x.item.id + '">✕</button></div>';
+  });
+  tomorrowAlerts.forEach(x=>{
+    html += '<div class="alert-item tomorrow"><div class="alert-text"><b>⏰ 明日出貨，今日尚未完成：</b>' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '</div><button class="alert-jump" data-jump="' + x.item.status + '">查看</button><button data-dismiss="tmrw-' + x.item.id + '">✕</button></div>';
+  });
+  if(showBackupReminder){
+    html += '<div class="alert-item backup-reminder"><div class="alert-text"><b>📦 月底提醒：</b>這個月還沒匯出備份，建議存一份下來</div><button class="alert-jump" data-backup-now="1">立即匯出</button><button data-dismiss="backup-' + currentYearMonth() + '">✕</button></div>';
+  }
+  banner.innerHTML = html;
+  banner.querySelectorAll('[data-backup-now]').forEach(btn=> btn.onclick = exportBackup);
+  banner.querySelectorAll('[data-dismiss]').forEach(btn=> btn.onclick = ()=>{ dismissedIds.add(btn.dataset.dismiss); renderAlertBanner(); });
+  banner.querySelectorAll('[data-jump]').forEach(btn=> btn.onclick = ()=>{ currentTab = btn.dataset.jump; render(); });
+}
+
+function checkShipmentAlerts(){
+  const all = allActiveItems();
+  all.filter(x=>isTodayAtRisk(x.item)).forEach(x=>{
+    const key = '3pm-' + x.item.id;
+    if(!notifiedIds.has(key)){ notifiedIds.add(key); fireNotification('出貨提醒：今日訂單尚未完成', x.order.customer + ' ・ ' + x.item.product + '（預計今日出貨，已過下午3點）', key); }
+  });
+  all.filter(x=>isTomorrowRisk(x.item)).forEach(x=>{
+    const key = 'tmrw-' + x.item.id;
+    if(!notifiedIds.has(key)){ notifiedIds.add(key); fireNotification('出貨提醒：明日訂單尚未完成', x.order.customer + ' ・ ' + x.item.product + '（預計明日出貨，請留意進度）', key); }
+  });
+  renderAlertBanner();
+}
+
+// ---- 統計報表 ----
+function startOfWeek(){ const d = new Date(); const day = d.getDay(); const diff = (day===0?6:day-1); d.setDate(d.getDate()-diff); d.setHours(0,0,0,0); return d.getTime(); }
+
+function computeStats(){
+  const today = todayStr();
+  const weekStart = startOfWeek();
+  const todayStart = new Date(today).getTime();
+  const all = allActiveItems();
+  const stats = { overdue:0, today:0, tomorrow:0, urgent:0, coa:0, pending:0, inprogress:0, labeling:0, done:0, shipped:0, total: all.length, shippedToday:0, shippedWeek:0 };
+  all.forEach(x=>{
+    const it = x.item;
+    if(isOverdue(it)) stats.overdue++;
+    if(isTodayAtRisk(it) || (it.status !== 'shipped' && it.due === today)) stats.today++;
+    if(isTomorrowRisk(it)) stats.tomorrow++;
+    if(it.priority === 'urgent' && it.status !== 'shipped') stats.urgent++;
+    if(needsCoa(it) && it.status !== 'shipped') stats.coa++;
+    if(it.status === 'pending') stats.pending++;
+    if(it.status === 'inprogress') stats.inprogress++;
+    if(it.status === 'labeling') stats.labeling++;
+    if(it.status === 'done') stats.done++;
+    if(it.status === 'shipped') stats.shipped++;
+    if(it.status === 'shipped' && it.shippedAt){
+      if(it.shippedAt >= todayStart) stats.shippedToday++;
+      if(it.shippedAt >= weekStart) stats.shippedWeek++;
+    }
+  });
+  return stats;
+}
+
+function renderReport(){
+  const s = computeStats();
+  document.getElementById('statOverdue').textContent = s.overdue;
+  document.getElementById('statToday').textContent = s.today;
+  document.getElementById('statTomorrow').textContent = s.tomorrow;
+  document.getElementById('statUrgent').textContent = s.urgent;
+  document.getElementById('statCoa').textContent = s.coa;
+  document.getElementById('statPending').textContent = s.pending;
+  document.getElementById('statInprogress').textContent = s.inprogress;
+  document.getElementById('statLabeling').textContent = s.labeling;
+  document.getElementById('statDone').textContent = s.done;
+  document.getElementById('statShipped').textContent = s.shipped;
+  document.getElementById('statTotal').textContent = s.total;
+  document.getElementById('statShippedToday').textContent = s.shippedToday;
+  document.getElementById('statShippedWeek').textContent = s.shippedWeek;
+  document.getElementById('reportUpdated').textContent = '更新時間 ' + new Date().toLocaleString('zh-TW', { hour12:false });
+  renderShipLists();
+}
+
+function isShippedToday(item){
+  if(!item.shippedAt) return false;
+  return new Date(item.shippedAt).toISOString().slice(0,10) === todayStr();
+}
+
+function renderShipLists(){
+  const all = allActiveItems();
+  const todayList = all.filter(x => x.item.status === 'shipped' && x.item.shipMethod === 'today' && isShippedToday(x.item));
+  const tomorrowList = all.filter(x => x.item.status === 'shipped' && x.item.shipMethod === 'tomorrow' && isShippedToday(x.item));
+  const pickupList = all.filter(x => x.item.status === 'shipped' && x.item.shipMethod === 'pickup' && isShippedToday(x.item));
+
+  const renderRows = (list)=>{
+    if(list.length === 0) return '<div class="ship-list-empty">目前沒有品項</div>';
+    return list.map(x =>
+      '<div class="ship-list-row"><div><div class="ship-list-name">' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '</div><div class="ship-list-meta">' + escapeHtml(x.order.orderNo || '') + (x.item.spec ? ' ・ ' + escapeHtml(x.item.spec) : '') + ' ・ 出貨日 ' + x.item.due + '</div></div><div class="ship-list-qty">x' + x.item.qty + '</div></div>'
+    ).join('');
+  };
+
+  document.getElementById('shipTodayList').innerHTML = renderRows(todayList);
+  document.getElementById('shipTomorrowList').innerHTML = renderRows(tomorrowList);
+  document.getElementById('shipPickupList').innerHTML = renderRows(pickupList);
+
+  const SHIPPED_ALL_LIMIT = 100;
+  const shippedAll = all
+    .filter(x => x.item.status === 'shipped')
+    .sort((a,b)=> (b.item.shippedAt||0) - (a.item.shippedAt||0))
+    .slice(0, SHIPPED_ALL_LIMIT);
+
+  const shippedAllEl = document.getElementById('shippedAllList');
+  if(shippedAll.length === 0){
+    shippedAllEl.innerHTML = '<div class="ship-list-empty">目前還沒有已出貨的品項</div>';
+  }else{
+    shippedAllEl.innerHTML = shippedAll.map(x=>{
+      const dateStr = x.item.shippedAt ? new Date(x.item.shippedAt).toLocaleDateString('zh-TW') : '';
+      const methodTag = x.item.shipMethod ? '<span class="ship-list-tag">' + SHIP_METHOD_LABEL[x.item.shipMethod] + '</span>' : '';
+      return '<div class="ship-list-row"><div><div class="ship-list-name">' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '</div>' +
+        '<div class="ship-list-meta">' + escapeHtml(x.order.orderNo || '') + (x.item.spec ? ' ・ ' + escapeHtml(x.item.spec) : '') + ' ・ 出貨日期 ' + dateStr + '</div>' +
+        methodTag + '</div><div class="ship-list-qty">x' + x.item.qty + '</div></div>';
+    }).join('');
+    if(all.filter(x=>x.item.status==='shipped').length > SHIPPED_ALL_LIMIT){
+      shippedAllEl.innerHTML += '<div class="ship-list-empty">僅顯示最近 ' + SHIPPED_ALL_LIMIT + ' 筆</div>';
+    }
+  }
+}
+
+const reportOverlay = document.getElementById('reportOverlay');
+document.getElementById('reportBtn').onclick = ()=>{
+  renderReport(); renderBackupInfo();
+  document.getElementById('statDetailPanel').style.display = 'none';
+  currentStatDetailKey = null;
+  reportOverlay.classList.add('show');
+};
+document.getElementById('btnCloseReport').onclick = ()=> reportOverlay.classList.remove('show');
+reportOverlay.onclick = (e)=>{ if(e.target === reportOverlay) reportOverlay.classList.remove('show'); };
+
+let currentStatDetailKey = null;
+const STAT_DETAIL_CONFIG = {
+  overdue:  { title: '🚨 已逾期未出貨的品項', filter: (item)=> isOverdue(item) },
+  today:    { title: '⚠ 今日應出貨的品項', filter: (item)=> isTodayAtRisk(item) || (item.status !== 'shipped' && item.due === todayStr()) },
+  tomorrow: { title: '⏰ 明日應出貨的品項', filter: (item)=> isTomorrowRisk(item) },
+  urgent:   { title: '🔴 急件進行中的品項', filter: (item)=> item.priority === 'urgent' && item.status !== 'shipped' },
+  coa:      { title: '📄 需要COA的品項', filter: (item)=> needsCoa(item) && item.status !== 'shipped' },
+  todayrisk:{ title: '⏰ 今日3點未出貨的品項', filter: (item)=> isTodayAtRisk(item) }
+};
+
+function renderStatDetail(key){
+  const config = STAT_DETAIL_CONFIG[key];
+  const panel = document.getElementById('statDetailPanel');
+  const listEl = document.getElementById('statDetailList');
+  document.getElementById('statDetailTitle').textContent = config.title;
+
+  const matched = allActiveItems().filter(x => config.filter(x.item)).sort((a,b)=> (a.item.due||'').localeCompare(b.item.due||''));
+
+  if(matched.length === 0){
+    listEl.innerHTML = '<div class="ship-list-empty">目前沒有符合的品項</div>';
+  }else{
+    listEl.innerHTML = matched.map(x=>{
+      const badge = '<span class="ship-list-tag">' + STATUS_LABEL[x.item.status] + '</span>';
+      return '<div class="ship-list-row" data-jump-oid="'+x.order.id+'" data-jump-status="'+x.item.status+'" style="cursor:pointer;">' +
+        '<div><div class="ship-list-name">' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '</div>' +
+        '<div class="ship-list-meta">' + escapeHtml(x.order.orderNo || '') + (x.item.spec ? ' ・ ' + escapeHtml(x.item.spec) : '') + ' ・ 出貨日 ' + x.item.due + '</div>' +
+        badge + '</div><div class="ship-list-qty">x' + x.item.qty + '</div></div>';
+    }).join('');
+    listEl.querySelectorAll('[data-jump-oid]').forEach(row=>{
+      row.onclick = ()=>{
+        currentTab = row.dataset.jumpStatus;
+        render();
+        reportOverlay.classList.remove('show');
+      };
+    });
+  }
+  panel.style.display = '';
+}
+
+document.querySelectorAll('.stat-card[data-detail]').forEach(card=>{
+  card.onclick = ()=>{
+    const key = card.dataset.detail;
+    document.querySelectorAll('.stat-card[data-detail]').forEach(c=> c.classList.remove('active-detail'));
+    if(currentStatDetailKey === key){
+      // 再點一次同一張卡片就收起明細
+      currentStatDetailKey = null;
+      document.getElementById('statDetailPanel').style.display = 'none';
+      return;
+    }
+    currentStatDetailKey = key;
+    card.classList.add('active-detail');
+    renderStatDetail(key);
+  };
+});
+
+function openReportWithDetail(key){
+  renderReport(); renderBackupInfo();
+  reportOverlay.classList.add('show');
+  currentStatDetailKey = key;
+  document.querySelectorAll('.stat-card[data-detail]').forEach(c=> c.classList.toggle('active-detail', c.dataset.detail === key));
+  renderStatDetail(key);
+}
+document.getElementById('coaQuickBtn').onclick = ()=> openReportWithDetail('coa');
+document.getElementById('todayRiskQuickBtn').onclick = ()=> openReportWithDetail('todayrisk');
+
+// ---- 備份 ----
+let backupState = null;
+function currentYearMonth(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); }
+function isNearMonthEnd(){ const d = new Date(); const lastDay = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate(); return d.getDate() >= lastDay - 2; }
+
+async function loadBackupState(){
+  try{ const snap = await getDoc(backupDocRef); backupState = snap.exists() ? snap.data() : null; }
+  catch(e){ backupState = null; }
+}
+async function markBackupDone(){
+  backupState = { lastBackupAt: Date.now(), lastBackupYearMonth: currentYearMonth() };
+  try{ await setDoc(backupDocRef, backupState); }catch(e){}
+}
+function backupNeeded(){ if(!isNearMonthEnd()) return false; return !backupState || backupState.lastBackupYearMonth !== currentYearMonth(); }
+function renderBackupInfo(){
+  const el = document.getElementById('backupInfo');
+  el.textContent = (backupState && backupState.lastBackupAt) ? ('上次備份：' + new Date(backupState.lastBackupAt).toLocaleString('zh-TW', { hour12:false })) : '尚未有備份紀錄，建議每月底匯出一次';
+}
+async function exportBackup(){
+  if(typeof XLSX === 'undefined'){
+    showToast('Excel 匯出元件載入失敗，請檢查網路後重新整理再試');
+    return;
+  }
+
+  const rows = [];
+  orders.forEach(order=>{
+    (order.items||[]).forEach(item=>{
+      rows.push({
+        '訂單編號': order.orderNo || '',
+        '填寫日期': item.fillFormDate || '',
+        '填寫時間': item.fillFormTime || '',
+        '客戶名稱': order.customer || '',
+        '產品名稱': item.product || '',
+        '規格': item.spec || '',
+        '數量': item.qty || '',
+        '出貨日期': item.due || '',
+        '優先度': item.priority === 'urgent' ? '急件' : '一般',
+        '狀態': item.deleted ? '已刪除(垃圾桶)' : (STATUS_LABEL[item.status] || item.status),
+        '產品製造日期-包裝日期': item.batchNo || '',
+        '產品有效日期': item.productExpDate || '',
+        '包材批號': item.trayBatchNo || '',
+        '原料進貨批號': item.materialBatchNo || '',
+        '原料製造日期': item.materialMfgDate || '',
+        '原料有效日期': item.materialExpDate || '',
+        'COA': item.coa || '',
+        'COA-水分': item.coaMoisture || '',
+        'COA-水活性': item.coaWaterActivity || '',
+        'COA-總生菌數': item.coaTotalPlateCount || '',
+        'COA-大腸桿菌群': item.coaColiform || '',
+        'COA-大腸桿菌': item.coaEcoli || '',
+        '產地': item.origin || '',
+        '備註': item.note || '',
+        '標籤品名核對': item.checklist && item.checklist.c1 ? 'V' : '',
+        '裝箱數量核對': item.checklist && item.checklist.c2 ? 'V' : '',
+        '包裝密封核對': item.checklist && item.checklist.c3 ? 'V' : '',
+        '生產/有效日期核對': item.checklist && item.checklist.c4 ? 'V' : '',
+        '確認及放行人員': item.releaseBy || '',
+        '填寫人員': item.filledBy || '',
+        '倉管出貨確認': item.warehouseConfirm || '',
+        '出貨方式': item.shipMethod ? SHIP_METHOD_LABEL[item.shipMethod] : '',
+        '出貨時間': item.shippedAt ? new Date(item.shippedAt).toLocaleString('zh-TW', { hour12:false }) : '',
+        '建立時間': order.createdAt ? new Date(order.createdAt).toLocaleString('zh-TW', { hour12:false }) : ''
+      });
+    });
+  });
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = Object.keys(rows[0] || {}).map(()=> ({ wch: 16 }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '訂單品項');
+
+  const wbout = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+  const blob = new Blob([wbout], { type:'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = '工廠排程板備份_' + todayStr() + '.xlsx';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  await markBackupDone(); renderBackupInfo(); renderAlertBanner();
+  showToast('已匯出 Excel 備份檔案');
+}
+document.getElementById('btnExportBackup').onclick = exportBackup;
+
+// ---- 垃圾桶 ----
+const TRASH_RETENTION_DAYS = 30;
+const trashOverlay = document.getElementById('trashOverlay');
+
+function renderTrash(){
+  const listEl = document.getElementById('trashList');
+  const trashed = [];
+  orders.forEach(o=> (o.items||[]).forEach(it=>{ if(it.deleted) trashed.push({order:o, item:it}); }));
+  trashed.sort((a,b)=> (b.item.deletedAt||0) - (a.item.deletedAt||0));
+
+  if(trashed.length === 0){ listEl.innerHTML = '<div class="trash-empty">垃圾桶是空的</div>'; return; }
+
+  listEl.innerHTML = trashed.map(x=>{
+    const daysLeft = x.item.deletedAt ? Math.max(0, TRASH_RETENTION_DAYS - Math.floor((Date.now()-x.item.deletedAt)/86400000)) : '?';
+    return '<div class="trash-item">' +
+      '<div class="trash-item-meta">' + escapeHtml(x.order.orderNo||'') + '</div>' +
+      '<div class="trash-item-name">' + escapeHtml(x.order.customer||'') + ' ・ ' + escapeHtml(x.item.product||'') + '</div>' +
+      '<div class="trash-item-meta">數量 ' + (x.item.qty||'') + '　出貨日 ' + (x.item.due||'') + '</div>' +
+      '<div class="trash-item-meta">還剩 ' + daysLeft + ' 天自動清除</div>' +
+      '<div class="trash-item-actions">' +
+        '<button class="btn-restore" data-restore-o="'+x.order.id+'" data-restore-i="'+x.item.id+'">復原</button>' +
+        '<button class="btn-purge" data-purge-o="'+x.order.id+'" data-purge-i="'+x.item.id+'">永久刪除</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  listEl.querySelectorAll('[data-restore-i]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const order = orders.find(o=>o.id===btn.dataset.restoreO);
+      const item = order && order.items.find(i=>i.id===btn.dataset.restoreI);
+      if(item){ delete item.deleted; delete item.deletedAt; await saveOrders(); render(); renderTrash(); showToast('已復原品項'); }
+    };
+  });
+  listEl.querySelectorAll('[data-purge-i]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const ok = await showConfirm('此動作無法復原。', '確定要永久刪除嗎？');
+      if(!ok) return;
+      const order = orders.find(o=>o.id===btn.dataset.purgeO);
+      if(order){ order.items = order.items.filter(i=>i.id!==btn.dataset.purgeI); await saveOrders(); renderTrash(); showToast('已永久刪除'); }
+    };
+  });
+}
+document.getElementById('trashBtn').onclick = ()=>{ renderTrash(); trashOverlay.classList.add('show'); };
+document.getElementById('btnCloseTrash').onclick = ()=> trashOverlay.classList.remove('show');
+trashOverlay.onclick = (e)=>{ if(e.target === trashOverlay) trashOverlay.classList.remove('show'); };
+
+async function purgeExpiredTrash(){
+  const cutoff = Date.now() - TRASH_RETENTION_DAYS*86400000;
+  let changed = false;
+  orders.forEach(o=>{
+    const before = o.items.length;
+    o.items = o.items.filter(it => !(it.deleted && it.deletedAt && it.deletedAt < cutoff));
+    if(o.items.length !== before) changed = true;
+  });
+  if(changed) await saveOrders();
+}
+
+function tick(){ checkShipmentAlerts(); renderList(); }
+setInterval(tick, 60000);
+
+// ---- 登入驗證 ----
+let appInitialized = false;
+function isAllowedEmail(email){ if(!email) return false; return email.toLowerCase().endsWith('@' + ALLOWED_EMAIL_DOMAIN.toLowerCase()); }
+function showLoginError(msg){ const el = document.getElementById('loginError'); el.textContent = msg; el.style.display = 'block'; }
+
+function isMobileDevice(){ return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent); }
+
+document.getElementById('googleSignInBtn').onclick = async ()=>{
+  document.getElementById('loginError').style.display = 'none';
+  try{
+    if(isMobileDevice()) await signInWithRedirect(auth, googleProvider);
+    else await signInWithPopup(auth, googleProvider);
+  }catch(e){ console.error(e); handleAuthError(e); }
+};
+
+function handleAuthError(e){
+  if(e && (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request')) return;
+  if(e && (String(e.message||'').includes('missing initial state') || e.code === 'auth/web-storage-unsupported')){
+    showLoginError('登入失敗：Safari 的「防止跨網站追蹤」設定擋住了登入流程。請到 設定 → Safari 瀏覽器 → 進階 → 把「防止跨網站追蹤」關掉，再重新整理頁面試一次。');
+    return;
+  }
+  showLoginError('登入失敗，請再試一次。');
+}
+getRedirectResult(auth).catch((e)=>{ console.error(e); handleAuthError(e); });
+
+document.getElementById('signOutBtn').onclick = ()=> signOut(auth);
+
+onAuthStateChanged(auth, (user)=>{
+  const gate = document.getElementById('loginGate');
+  if(!user){ appInitialized = false; gate.classList.remove('hidden'); return; }
+  if(!isAllowedEmail(user.email)){
+    showLoginError('此帳號（' + (user.email||'') + '）不在允許的名單內，僅限 @' + ALLOWED_EMAIL_DOMAIN + ' 的帳號使用。');
+    signOut(auth);
+    return;
+  }
+  gate.classList.add('hidden');
+  if(!appInitialized){ appInitialized = true; loadOrders(); loadBackupState(); }
+});
+</script>
+</body>
+</html>
