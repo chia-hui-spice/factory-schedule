@@ -616,15 +616,20 @@
     <div class="report-updated">生產中→標籤印製自動扣原料；標籤印製→已完成自動加成品(並依配方扣半成品)；已完成→出貨自動扣成品</div>
 
     <div class="report-tabs" id="bomTabs">
-      <button type="button" class="report-tab active" data-bom-tab="materials">📦 原料庫存</button>
+      <button type="button" class="report-tab active" data-bom-tab="receipts">📥 原料進貨</button>
+      <button type="button" class="report-tab" data-bom-tab="materials">📦 原料庫存</button>
       <button type="button" class="report-tab" data-bom-tab="semiGoods">🧪 半成品</button>
       <button type="button" class="report-tab" data-bom-tab="finishedGoods">🏷 成品庫存</button>
       <button type="button" class="report-tab" data-bom-tab="boms">🧾 成品配方</button>
       <button type="button" class="report-tab" data-bom-tab="semiBoms">🧫 半成品配方</button>
-      <button type="button" class="report-tab" data-bom-tab="receipts">📥 進貨紀錄</button>
     </div>
 
-    <div class="report-tab-panel" id="bomPanelMaterials">
+    <div class="report-tab-panel" id="bomPanelReceipts">
+      <button type="button" class="split-btn" id="btnGoToMaterialsForReceipt" style="margin-bottom:12px; text-align:left;">要記錄新進貨？點這裡前往「📦 原料庫存」選擇原料 →</button>
+      <div id="receiptList"></div>
+    </div>
+
+    <div class="report-tab-panel" id="bomPanelMaterials" style="display:none;">
       <button type="button" class="add-item-btn" id="btnAddMaterial" style="margin-bottom:12px;">+ 新增原料</button>
       <div id="materialList"></div>
     </div>
@@ -647,10 +652,6 @@
     <div class="report-tab-panel" id="bomPanelSemiBoms" style="display:none;">
       <button type="button" class="add-item-btn" id="btnAddSemiBom" style="margin-bottom:12px;">+ 新增半成品配方</button>
       <div id="semiBomList"></div>
-    </div>
-
-    <div class="report-tab-panel" id="bomPanelReceipts" style="display:none;">
-      <div id="receiptList"></div>
     </div>
 
     <div class="sheet-actions" style="margin-top:18px;">
@@ -758,13 +759,18 @@
     <div class="report-updated" id="receiptMaterialName"></div>
     <div class="row2">
       <div class="field">
-        <label>進貨數量</label>
-        <input type="number" id="mrQty" placeholder="0" step="any">
+        <label>進貨件數</label>
+        <input type="number" id="mrPieces" placeholder="例如 10" step="any">
       </div>
       <div class="field">
-        <label>進貨日期</label>
-        <input type="date" id="mrDate">
+        <label>規格（每件重量/數量）</label>
+        <input type="number" id="mrSpec" placeholder="例如 25" step="any">
       </div>
+    </div>
+    <div class="backup-info" id="mrTotalDisplay" style="margin-bottom:14px;">總重量：0</div>
+    <div class="field">
+      <label>進貨日期</label>
+      <input type="date" id="mrDate">
     </div>
     <div class="field">
       <label>供應商</label>
@@ -789,7 +795,8 @@
       <label>標籤照片 <span style="color:var(--red);">*</span></label>
       <input type="file" id="mrPhoto" accept="image/*" capture="environment">
       <div id="mrPhotoPreview" style="margin-top:8px; display:none;">
-        <img id="mrPhotoPreviewImg" style="max-width:100%; border-radius:8px; border:1px solid var(--line);">
+        <img id="mrPhotoPreviewImg" style="max-width:100%; border-radius:8px; border:1px solid var(--line); margin-bottom:8px;">
+        <button type="button" class="split-btn" id="btnChangePhoto">🔄 更換照片</button>
       </div>
     </div>
     <div class="sheet-actions">
@@ -814,6 +821,10 @@
     <div class="sheet-handle"></div>
     <h2 id="materialFormTitle">新增原料</h2>
     <div class="field">
+      <label>原料料號</label>
+      <input type="text" id="mfCode" placeholder="例如 M001">
+    </div>
+    <div class="field">
       <label>原料名稱</label>
       <input type="text" id="mfName" placeholder="例如 白胡椒粉">
     </div>
@@ -826,6 +837,10 @@
         <label>目前庫存量</label>
         <input type="number" id="mfStock" placeholder="0" step="any">
       </div>
+    </div>
+    <div class="field">
+      <label>預設規格（每件重量/數量，進貨時會自動帶入）</label>
+      <input type="number" id="mfDefaultSpec" placeholder="例如 25" step="any">
     </div>
     <div class="section-label" style="margin-top:8px;">目前批號資訊（用於自動帶入訂單）</div>
     <div class="field">
@@ -2076,7 +2091,7 @@ async function saveBomData(){
 
 const bomOverlay = document.getElementById('bomOverlay');
 document.getElementById('bomBtn').onclick = ()=>{
-  switchBomTab('materials');
+  switchBomTab('receipts');
   renderMaterialList();
   renderBomList();
   renderReceiptList();
@@ -2100,8 +2115,25 @@ function switchBomTab(key){
 document.querySelectorAll('#bomTabs .report-tab').forEach(btn=>{
   btn.onclick = ()=> switchBomTab(btn.dataset.bomTab);
 });
+document.getElementById('btnGoToMaterialsForReceipt').onclick = ()=> switchBomTab('materials');
 
 // ---- 原料庫存 ----
+function materialLabel(m){
+  return (m.code ? escapeHtml(m.code) + ' ・ ' : '') + escapeHtml(m.name);
+}
+function materialLabelPlain(m){
+  return (m.code ? m.code + ' ・ ' : '') + m.name;
+}
+
+function suggestNextMaterialCode(){
+  let max = 0;
+  materials.forEach(m=>{
+    const match = /^M(\d+)$/.exec(m.code || '');
+    if(match) max = Math.max(max, parseInt(match[1], 10));
+  });
+  return 'M' + String(max + 1).padStart(3, '0');
+}
+
 function renderMaterialList(){
   const listEl = document.getElementById('materialList');
   if(materials.length === 0){
@@ -2110,7 +2142,7 @@ function renderMaterialList(){
   }
   listEl.innerHTML = materials.map(m=>{
     return '<div class="material-item">' +
-      '<div class="material-item-top" data-mid="'+m.id+'" style="cursor:pointer;"><div class="material-item-name">'+escapeHtml(m.name)+'</div><div class="material-item-stock">'+ (m.stock ?? 0) +' '+escapeHtml(m.unit||'')+'</div></div>' +
+      '<div class="material-item-top" data-mid="'+m.id+'" style="cursor:pointer;"><div class="material-item-name">'+materialLabel(m)+'</div><div class="material-item-stock">'+ (m.stock ?? 0) +' '+escapeHtml(m.unit||'')+'</div></div>' +
       '<div class="material-item-meta" data-mid="'+m.id+'" style="cursor:pointer;">批號 '+escapeHtml(m.batchNo||'－')+'　有效期限 '+(m.expDate||'－')+'</div>' +
       '<button type="button" class="split-btn" data-receipt-mid="'+m.id+'" style="margin-top:8px;">📥 進貨</button>' +
     '</div>';
@@ -2135,9 +2167,11 @@ const materialFormOverlay = document.getElementById('materialFormOverlay');
 function openMaterialForm(m){
   editingMaterialId = m ? m.id : null;
   document.getElementById('materialFormTitle').textContent = m ? '編輯原料' : '新增原料';
+  document.getElementById('mfCode').value = m ? (m.code || '') : suggestNextMaterialCode();
   document.getElementById('mfName').value = m ? m.name : '';
   document.getElementById('mfUnit').value = m ? (m.unit||'') : '';
   document.getElementById('mfStock').value = m ? (m.stock ?? '') : '';
+  document.getElementById('mfDefaultSpec').value = m ? (m.defaultSpec ?? '') : '';
   document.getElementById('mfBatchNo').value = m ? (m.batchNo||'') : '';
   document.getElementById('mfMfgDate').value = m ? (m.mfgDate||'') : '';
   document.getElementById('mfExpDate').value = m ? (m.expDate||'') : '';
@@ -2147,19 +2181,21 @@ function openMaterialForm(m){
 document.getElementById('btnAddMaterial').onclick = ()=> openMaterialForm(null);
 document.getElementById('btnCancelMaterial').onclick = ()=> materialFormOverlay.classList.remove('show');
 document.getElementById('btnSaveMaterial').onclick = async ()=>{
+  const code = document.getElementById('mfCode').value.trim();
   const name = document.getElementById('mfName').value.trim();
   const unit = document.getElementById('mfUnit').value.trim();
   const stock = parseFloat(document.getElementById('mfStock').value);
+  const defaultSpec = parseFloat(document.getElementById('mfDefaultSpec').value);
   const batchNo = document.getElementById('mfBatchNo').value.trim();
   const mfgDate = document.getElementById('mfMfgDate').value;
   const expDate = document.getElementById('mfExpDate').value;
   if(!name){ showToast('請填寫原料名稱'); return; }
   if(editingMaterialId){
     const m = materials.find(x=>x.id===editingMaterialId);
-    if(m) Object.assign(m, { name, unit, stock: isNaN(stock)?0:stock, batchNo, mfgDate, expDate });
+    if(m) Object.assign(m, { code, name, unit, stock: isNaN(stock)?0:stock, defaultSpec: isNaN(defaultSpec)?null:defaultSpec, batchNo, mfgDate, expDate });
     showToast('已更新原料');
   }else{
-    materials.push({ id:'m_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), name, unit, stock: isNaN(stock)?0:stock, batchNo, mfgDate, expDate });
+    materials.push({ id:'m_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), code, name, unit, stock: isNaN(stock)?0:stock, defaultSpec: isNaN(defaultSpec)?null:defaultSpec, batchNo, mfgDate, expDate });
     showToast('已新增原料');
   }
   await saveBomData();
@@ -2333,7 +2369,7 @@ function openSemiProduceForm(s){
   }else{
     const desc = recipe.rows.map(r=>{
       const m = materials.find(x=>x.id===r.materialId);
-      return (m?m.name:'（原料已刪除）') + ' ' + r.qtyPerUnit + (m?m.unit||'':'');
+      return (m?materialLabelPlain(m):'（原料已刪除）') + ' ' + r.qtyPerUnit + (m?m.unit||'':'');
     }).join('、');
     infoEl.textContent = '配方（每 1 單位）：' + desc;
   }
@@ -2385,7 +2421,7 @@ function renderSemiBomList(){
     const s = semiGoods.find(x=>x.id===b.semiGoodId);
     const rowsHtml = (b.rows||[]).map(r=>{
       const m = materials.find(x=>x.id===r.materialId);
-      return '<div class="bom-item-row">・ '+escapeHtml(m?m.name:'（原料已刪除）')+'　每單位用量 '+r.qtyPerUnit+' '+escapeHtml(m?m.unit||'':'')+'</div>';
+      return '<div class="bom-item-row">・ '+(m?materialLabel(m):'（原料已刪除）')+'　每單位用量 '+r.qtyPerUnit+' '+escapeHtml(m?m.unit||'':'')+'</div>';
     }).join('');
     return '<div class="bom-item" data-sbid="'+b.id+'"><div class="bom-item-name">'+escapeHtml(s?s.name:'（半成品已刪除）')+'</div>'+rowsHtml+'</div>';
   }).join('');
@@ -2408,7 +2444,7 @@ function renderSemiBomRows(){
     return;
   }
   wrap.innerHTML = semiBomRowsState.map((row, idx)=>{
-    const options = materials.map(m=>'<option value="'+m.id+'"'+(m.id===row.materialId?' selected':'')+'>'+escapeHtml(m.name)+'</option>').join('');
+    const options = materials.map(m=>'<option value="'+m.id+'"'+(m.id===row.materialId?' selected':'')+'>'+materialLabel(m)+'</option>').join('');
     return '<div class="bom-material-row" data-idx="'+idx+'">' +
       '<div class="field"><select class="semiBomRowMaterial">'+options+'</select></div>' +
       '<div class="field qty-field"><input type="number" step="any" class="semiBomRowQty" placeholder="用量" value="'+(row.qtyPerUnit ?? '')+'"></div>' +
@@ -2490,10 +2526,19 @@ document.getElementById('btnDeleteSemiBom').onclick = async ()=>{
 // ---- 原料進貨 ----
 let receivingMaterialId = null;
 const materialReceiptOverlay = document.getElementById('materialReceiptOverlay');
+function updateReceiptTotal(){
+  const pieces = parseFloat(document.getElementById('mrPieces').value) || 0;
+  const spec = parseFloat(document.getElementById('mrSpec').value) || 0;
+  const total = Math.round(pieces * spec * 1000) / 1000;
+  const m = materials.find(x=>x.id===receivingMaterialId);
+  document.getElementById('mrTotalDisplay').textContent = '總重量：' + total + ' ' + (m ? (m.unit||'') : '');
+  return total;
+}
 function openReceiptForm(m){
   receivingMaterialId = m.id;
-  document.getElementById('receiptMaterialName').textContent = m.name + '　目前庫存 ' + (m.stock ?? 0) + ' ' + (m.unit||'');
-  document.getElementById('mrQty').value = '';
+  document.getElementById('receiptMaterialName').textContent = materialLabelPlain(m) + '　目前庫存 ' + (m.stock ?? 0) + ' ' + (m.unit||'');
+  document.getElementById('mrPieces').value = '';
+  document.getElementById('mrSpec').value = (m.defaultSpec ?? '') === null ? '' : (m.defaultSpec ?? '');
   document.getElementById('mrDate').value = todayStr();
   document.getElementById('mrSupplier').value = '';
   document.getElementById('mrBatchNo').value = m.batchNo || '';
@@ -2501,8 +2546,11 @@ function openReceiptForm(m){
   document.getElementById('mrExpDate').value = m.expDate || '';
   document.getElementById('mrPhoto').value = '';
   document.getElementById('mrPhotoPreview').style.display = 'none';
+  updateReceiptTotal();
   materialReceiptOverlay.classList.add('show');
 }
+document.getElementById('mrPieces').addEventListener('input', updateReceiptTotal);
+document.getElementById('mrSpec').addEventListener('input', updateReceiptTotal);
 document.getElementById('btnCancelReceipt').onclick = ()=> materialReceiptOverlay.classList.remove('show');
 materialReceiptOverlay.onclick = (e)=>{ if(e.target === materialReceiptOverlay) materialReceiptOverlay.classList.remove('show'); };
 
@@ -2535,20 +2583,29 @@ function compressImageToBase64(file, maxWidth, quality){
   });
 }
 
-document.getElementById('mrPhoto').addEventListener('change', (e)=>{
-  const file = e.target.files[0];
+function refreshPhotoPreview(file){
   const preview = document.getElementById('mrPhotoPreview');
   const img = document.getElementById('mrPhotoPreviewImg');
   if(!file){ preview.style.display = 'none'; return; }
   const url = URL.createObjectURL(file);
   img.src = url;
   preview.style.display = '';
+}
+document.getElementById('mrPhoto').addEventListener('change', (e)=>{
+  refreshPhotoPreview(e.target.files[0]);
 });
+document.getElementById('btnChangePhoto').onclick = ()=>{
+  document.getElementById('mrPhoto').value = '';
+  document.getElementById('mrPhotoPreview').style.display = 'none';
+  document.getElementById('mrPhoto').click();
+};
 
 document.getElementById('btnSaveReceipt').onclick = async ()=>{
   const m = materials.find(x=>x.id===receivingMaterialId);
   if(!m) return;
-  const qty = parseFloat(document.getElementById('mrQty').value);
+  const pieces = parseFloat(document.getElementById('mrPieces').value);
+  const spec = parseFloat(document.getElementById('mrSpec').value);
+  const qty = updateReceiptTotal();
   const receivedDate = document.getElementById('mrDate').value;
   const supplier = document.getElementById('mrSupplier').value.trim();
   const batchNo = document.getElementById('mrBatchNo').value.trim();
@@ -2556,7 +2613,8 @@ document.getElementById('btnSaveReceipt').onclick = async ()=>{
   const expDate = document.getElementById('mrExpDate').value;
   const photoFile = document.getElementById('mrPhoto').files[0];
 
-  if(!qty || qty <= 0){ showToast('請填寫正確的進貨數量'); return; }
+  if(!pieces || pieces <= 0){ showToast('請填寫正確的進貨件數'); return; }
+  if(!spec || spec <= 0){ showToast('請填寫正確的規格（每件重量/數量）'); return; }
   if(!supplier){ showToast('請填寫供應商'); return; }
   if(!photoFile){ showToast('請上傳標籤照片'); return; }
 
@@ -2584,8 +2642,8 @@ document.getElementById('btnSaveReceipt').onclick = async ()=>{
 
   receipts.push({
     id: receiptId,
-    materialId: m.id, materialName: m.name, unit: m.unit || '',
-    qty, supplier, batchNo, mfgDate, expDate, receivedDate,
+    materialId: m.id, materialName: m.name, materialCode: m.code || '', unit: m.unit || '',
+    pieces, spec, qty, supplier, batchNo, mfgDate, expDate, receivedDate,
     photoData,
     createdAt: Date.now()
   });
@@ -2611,10 +2669,12 @@ function renderReceiptList(){
     const thumb = r.photoData
       ? '<img src="'+r.photoData+'" class="receipt-thumb" data-photo="'+r.photoData+'">'
       : '<div class="receipt-thumb receipt-thumb-empty">無照片</div>';
+    const namePrefix = r.materialCode ? escapeHtml(r.materialCode) + ' ・ ' : '';
+    const pieceInfo = (r.pieces && r.spec) ? ' （'+r.pieces+'件 × '+r.spec+'）' : '';
     return '<div class="ship-list-row">' +
       thumb +
       '<div style="flex:1;">' +
-      '<div class="ship-list-name">'+escapeHtml(r.materialName)+' ・ +'+r.qty+' '+escapeHtml(r.unit||'')+'</div>' +
+      '<div class="ship-list-name">'+namePrefix+escapeHtml(r.materialName)+' ・ +'+r.qty+' '+escapeHtml(r.unit||'')+pieceInfo+'</div>' +
       '<div class="ship-list-meta">供應商 '+escapeHtml(r.supplier||'－')+' ・ 批號 '+escapeHtml(r.batchNo||'－')+' ・ 進貨日 '+(r.receivedDate||'－')+'</div>' +
     '</div></div>';
   }).join('');
@@ -2645,7 +2705,8 @@ function renderBomList(){
     const rowsHtml = (b.rows||[]).map(r=>{
       const { type, item } = resolveBomRowItem(r);
       const tag = type === 'semi' ? '🧪半成品' : '📦原料';
-      return '<div class="bom-item-row">・ ['+tag+'] '+escapeHtml(item?item.name:'（已刪除）')+'　每單位用量 '+r.qtyPerUnit+' '+escapeHtml(item?item.unit||'':'')+'</div>';
+      const itemLabel = item ? (type === 'material' ? materialLabel(item) : escapeHtml(item.name)) : '（已刪除）';
+      return '<div class="bom-item-row">・ ['+tag+'] '+itemLabel+'　每單位用量 '+r.qtyPerUnit+' '+escapeHtml(item?item.unit||'':'')+'</div>';
     }).join('');
     return '<div class="bom-item" data-bid="'+b.id+'"><div class="bom-item-name">'+escapeHtml(b.product)+'</div>'+rowsHtml+'</div>';
   }).join('');
@@ -2671,7 +2732,7 @@ function renderBomRows(){
     const type = row.type || 'material';
     const refId = row.refId || row.materialId;
     const list = type === 'semi' ? semiGoods : materials;
-    const options = list.map(x=>'<option value="'+x.id+'"'+(x.id===refId?' selected':'')+'>'+escapeHtml(x.name)+'</option>').join('');
+    const options = list.map(x=>'<option value="'+x.id+'"'+(x.id===refId?' selected':'')+'>'+(type==='material'?materialLabel(x):escapeHtml(x.name))+'</option>').join('');
     return '<div class="bom-material-row" data-idx="'+idx+'">' +
       '<div class="field" style="flex:0 0 92px;"><select class="bomRowType">' +
         '<option value="material"'+(type==='material'?' selected':'')+'>📦原料</option>' +
