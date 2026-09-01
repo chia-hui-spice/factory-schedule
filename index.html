@@ -817,6 +817,20 @@
         <input type="number" id="fgStock" placeholder="0" step="any">
       </div>
     </div>
+    <div class="field">
+      <label>批號</label>
+      <input type="text" id="fgBatchNo" placeholder="成品批號">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>製造日期</label>
+        <input type="date" id="fgMfgDate">
+      </div>
+      <div class="field">
+        <label>有效日期</label>
+        <input type="date" id="fgExpDate">
+      </div>
+    </div>
     <div class="sheet-actions">
       <button type="button" class="btn-secondary" id="btnCancelFg">取消</button>
       <button type="button" class="btn-primary" id="btnSaveFg">儲存</button>
@@ -2449,8 +2463,12 @@ function renderFinishedGoodList(){
     return;
   }
   listEl.innerHTML = finishedGoods.map(f=>{
+    const metaLine = (f.batchNo || f.expDate)
+      ? '<div class="material-item-meta">批號 '+escapeHtml(f.batchNo||'－')+'　有效期限 '+(f.expDate||'－')+'</div>'
+      : '';
     return '<div class="material-item" data-fgid="'+f.id+'">' +
       '<div class="material-item-top"><div class="material-item-name">'+escapeHtml(f.product)+'</div><div class="material-item-stock">'+ (f.stock ?? 0) +' '+escapeHtml(f.unit||'')+'</div></div>' +
+      metaLine +
     '</div>';
   }).join('');
   listEl.querySelectorAll('[data-fgid]').forEach(el=>{
@@ -2478,6 +2496,9 @@ function openFgForm(f){
   document.getElementById('fgProduct').value = f ? f.product : '';
   document.getElementById('fgUnit').value = f ? (f.unit||'') : '';
   document.getElementById('fgStock').value = f ? (f.stock ?? '') : '';
+  document.getElementById('fgBatchNo').value = f ? (f.batchNo||'') : '';
+  document.getElementById('fgMfgDate').value = f ? (f.mfgDate||'') : '';
+  document.getElementById('fgExpDate').value = f ? (f.expDate||'') : '';
   document.getElementById('btnDeleteFg').style.display = f ? 'block' : 'none';
   fgFormOverlay.classList.add('show');
 }
@@ -2494,13 +2515,16 @@ document.getElementById('btnSaveFg').onclick = async ()=>{
   const product = document.getElementById('fgProduct').value.trim();
   const unit = document.getElementById('fgUnit').value.trim();
   const stock = parseFloat(document.getElementById('fgStock').value);
+  const batchNo = document.getElementById('fgBatchNo').value.trim();
+  const mfgDate = document.getElementById('fgMfgDate').value;
+  const expDate = document.getElementById('fgExpDate').value;
   if(!product){ showToast('請填寫產品名稱'); return; }
   if(editingFgId){
     const f = finishedGoods.find(x=>x.id===editingFgId);
-    if(f) Object.assign(f, { product, unit, stock: isNaN(stock)?0:stock });
+    if(f) Object.assign(f, { product, unit, stock: isNaN(stock)?0:stock, batchNo, mfgDate, expDate });
     showToast('已更新成品');
   }else{
-    finishedGoods.push({ id:'fg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), product, unit, stock: isNaN(stock)?0:stock });
+    finishedGoods.push({ id:'fg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), product, unit, stock: isNaN(stock)?0:stock, batchNo, mfgDate, expDate });
     showToast('已新增成品');
   }
   await saveBomData();
