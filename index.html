@@ -360,15 +360,9 @@
           <input type="text" id="fSpec" placeholder="例如 箱">
         </div>
       </div>
-      <div class="row2">
-        <div class="field">
-          <label>數量</label>
-          <input type="number" id="fQty" placeholder="0" min="1" required>
-        </div>
-        <div class="field">
-          <label>預計需求出貨日期</label>
-          <input type="date" id="fDue" required>
-        </div>
+      <div class="field">
+        <label>數量</label>
+        <input type="number" id="fQty" placeholder="0" min="1" required>
       </div>
       <div class="field">
         <label>產地</label>
@@ -422,14 +416,20 @@
         <label>備註 / 包裝注意事項</label>
         <textarea id="fNote" placeholder="例如：全廠請務必儘速提供正確批號，以利標籤連動"></textarea>
       </div>
-      <div class="field">
-        <label>出貨方式（可先選，之後出貨時也能改）</label>
-        <select id="fShipMethod">
-          <option value="">未定</option>
-          <option value="today">🚚 今天寄貨</option>
-          <option value="tomorrow">📦 明天送貨</option>
-          <option value="pickup">🙋 客戶自取</option>
-        </select>
+      <div class="row2">
+        <div class="field">
+          <label>預計需求出貨日期</label>
+          <input type="date" id="fDue" required>
+        </div>
+        <div class="field">
+          <label>出貨方式（可先選，之後也能改）</label>
+          <select id="fShipMethod">
+            <option value="">未定</option>
+            <option value="today">🚚 寄貨</option>
+            <option value="tomorrow">📦 送貨</option>
+            <option value="pickup">🙋 自取</option>
+          </select>
+        </div>
       </div>
 
       <div class="field">
@@ -913,9 +913,9 @@
     <h2>出貨方式</h2>
     <p style="font-size:13.5px; color:var(--ink-dim); line-height:1.6; margin:0 0 20px 0;" id="shipMethodSub">請選擇這批貨的出貨方式</p>
     <div style="display:flex; flex-direction:column; gap:10px;">
-      <button type="button" class="ship-opt" data-ship="today">🚚 今天寄貨</button>
-      <button type="button" class="ship-opt" data-ship="tomorrow">📦 明天送貨</button>
-      <button type="button" class="ship-opt" data-ship="pickup">🙋 客戶自取</button>
+      <button type="button" class="ship-opt" data-ship="today">🚚 寄貨</button>
+      <button type="button" class="ship-opt" data-ship="tomorrow">📦 送貨</button>
+      <button type="button" class="ship-opt" data-ship="pickup">🙋 自取</button>
     </div>
     <div class="sheet-actions" style="margin-top:16px;">
       <button type="button" class="btn-secondary" style="flex:1;" id="shipMethodCancelBtn">取消</button>
@@ -986,7 +986,20 @@ const STATUS = ['pending','inprogress','labeling','done','shipped'];
 const STATUS_LABEL = { pending:'待生產', inprogress:'生產中', labeling:'標籤印製', done:'已完成', shipped:'出貨' };
 const STATUS_FORWARD_LABEL = { pending:'開始生產 →', inprogress:'標籤印製 →', labeling:'完成 ✓', done:'出貨 →' };
 const CHK_LABELS = { c1:'標籤品名核對', c2:'裝箱數量', c3:'包裝密封', c4:'生產/有效日期' };
-const SHIP_METHOD_LABEL = { today:'🚚 今天寄貨', tomorrow:'📦 明天送貨', pickup:'🙋 客戶自取' };
+const SHIP_METHOD_LABEL = { today:'寄貨', tomorrow:'送貨', pickup:'自取' };
+const SHIP_METHOD_LABEL_WITH_ICON = { today:'🚚 寄貨', tomorrow:'📦 送貨', pickup:'🙋 自取' };
+
+function formatDateSlash(dateStr){
+  if(!dateStr) return '';
+  const parts = dateStr.split('-');
+  if(parts.length !== 3) return dateStr;
+  return parts[0] + '/' + parts[1] + '/' + parts[2];
+}
+function shipMethodFullLabel(item){
+  if(!item.shipMethod) return '';
+  const dateStr = formatDateSlash(item.due);
+  return (dateStr ? dateStr : '') + SHIP_METHOD_LABEL[item.shipMethod];
+}
 
 let orders = []; // [{id, customer, items:[...]}]
 let materials = []; // [{id, name, unit, stock, batchNo, mfgDate, expDate}]
@@ -1169,7 +1182,7 @@ function renderList(){
         badges += '<span class="badge coa-badge">📄 需COA' + (item.coa === '需要(Email)' ? '(Email)' : '(隨貨)') + '</span>';
       }
       if(item.shipMethod){
-        badges += '<span class="badge ship-' + item.shipMethod + '">' + SHIP_METHOD_LABEL[item.shipMethod] + '</span>';
+        badges += '<span class="badge ship-' + item.shipMethod + '">' + shipMethodFullLabel(item) + '</span>';
       }
 
       const idx = STATUS.indexOf(item.status);
@@ -1763,7 +1776,7 @@ function renderShipLists(){
   }else{
     shippedAllEl.innerHTML = shippedAll.map(x=>{
       const dateStr = x.item.shippedAt ? new Date(x.item.shippedAt).toLocaleDateString('zh-TW') : '';
-      const methodTag = x.item.shipMethod ? '<span class="ship-list-tag">' + SHIP_METHOD_LABEL[x.item.shipMethod] + '</span>' : '';
+      const methodTag = x.item.shipMethod ? '<span class="ship-list-tag">' + shipMethodFullLabel(x.item) + '</span>' : '';
       const materialTag = x.item.materialBatchNo ? '<span class="ship-list-tag">原料批號 ' + escapeHtml(x.item.materialBatchNo) + '</span>' : '';
       return '<div class="ship-list-row"><div><div class="ship-list-name">' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '</div>' +
         '<div class="ship-list-meta">' + escapeHtml(x.order.orderNo || '') + (x.item.spec ? ' ・ ' + escapeHtml(x.item.spec) : '') + ' ・ 出貨日期 ' + dateStr + '</div>' +
@@ -1940,7 +1953,7 @@ async function exportBackup(){
         '確認及放行人員': item.releaseBy || '',
         '填寫人員': item.filledBy || '',
         '倉管出貨確認': item.warehouseConfirm || '',
-        '出貨方式': item.shipMethod ? SHIP_METHOD_LABEL[item.shipMethod] : '',
+        '出貨方式': item.shipMethod ? shipMethodFullLabel(item) : '',
         '出貨時間': item.shippedAt ? new Date(item.shippedAt).toLocaleString('zh-TW', { hour12:false }) : '',
         '建立時間': order.createdAt ? new Date(order.createdAt).toLocaleString('zh-TW', { hour12:false }) : ''
       });
