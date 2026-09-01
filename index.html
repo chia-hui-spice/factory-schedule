@@ -104,6 +104,7 @@
   .badge.stage.st-refill{ color:var(--amber); border-color:var(--amber); }
   .badge.stage.st-boxing{ color:var(--purple); border-color:var(--purple); }
   .badge.stage.st-shipped{ color:var(--teal); border-color:var(--teal); }
+  .badge.stage.st-qc{ color:var(--green); border-color:var(--green); }
 
   .item-meta{ display:flex; gap:8px 12px; flex-wrap:wrap; margin-bottom:8px; }
   .stock-info-row{
@@ -132,6 +133,7 @@
   .btn-forward.st-refill{ background:var(--amber); color:#0F1B14; }
   .btn-forward.st-boxing{ background:var(--purple); color:#fff; }
   .btn-forward.st-shipped{ background:var(--teal); color:#0F1B14; }
+  .btn-forward.st-qc{ background:var(--green); color:#0F1B14; }
   .btn-edit{ background:var(--panel); color:var(--ink); border:1px solid var(--line); flex:0 0 46px; }
   .btn-done-label{ background:transparent; color:var(--teal); border:1px dashed var(--teal); }
 
@@ -453,31 +455,47 @@
           <option value="無">無</option>
         </select>
       </div>
-      <div id="coaValuesSection" style="display:none;">
-        <div class="row2">
-          <div class="field">
-            <label>水分</label>
-            <input type="text" id="fCoaMoisture" placeholder="例如 5.2%">
+
+      <div id="stageHintQc" class="stage-hint">🔒 訂單進入「出貨確認」後才會開放品管確認（COA數值與確認人員）</div>
+      <div id="sectionQc">
+        <div class="section-label">品管確認</div>
+        <div class="field" id="coaConfirmByField">
+          <label>COA確認人員 <span style="color:var(--red);">*</span></label>
+          <select id="fCoaConfirmBy">
+            <option value="">請選擇</option>
+            <option value="謝牧華">謝牧華</option>
+            <option value="劉敏祝">劉敏祝</option>
+            <option value="自訂">自訂</option>
+          </select>
+          <input type="text" id="fCoaConfirmByCustom" placeholder="輸入姓名" style="margin-top:8px; display:none;">
+        </div>
+        <div id="coaValuesSection" style="display:none;">
+          <div class="row2">
+            <div class="field">
+              <label>水分</label>
+              <input type="text" id="fCoaMoisture" placeholder="例如 5.2%">
+            </div>
+            <div class="field">
+              <label>水活性</label>
+              <input type="text" id="fCoaWaterActivity" placeholder="例如 0.45">
+            </div>
+          </div>
+          <div class="row2">
+            <div class="field">
+              <label>總生菌數</label>
+              <input type="text" id="fCoaTotalPlateCount" placeholder="例如 <10 CFU/g">
+            </div>
+            <div class="field">
+              <label>大腸桿菌群</label>
+              <input type="text" id="fCoaColiform" placeholder="例如 陰性">
+            </div>
           </div>
           <div class="field">
-            <label>水活性</label>
-            <input type="text" id="fCoaWaterActivity" placeholder="例如 0.45">
+            <label>大腸桿菌</label>
+            <input type="text" id="fCoaEcoli" placeholder="例如 陰性">
           </div>
         </div>
-        <div class="row2">
-          <div class="field">
-            <label>總生菌數</label>
-            <input type="text" id="fCoaTotalPlateCount" placeholder="例如 <10 CFU/g">
-          </div>
-          <div class="field">
-            <label>大腸桿菌群</label>
-            <input type="text" id="fCoaColiform" placeholder="例如 陰性">
-          </div>
-        </div>
-        <div class="field">
-          <label>大腸桿菌</label>
-          <input type="text" id="fCoaEcoli" placeholder="例如 陰性">
-        </div>
+        <div id="noCoaNeededHint" style="display:none; font-size:13px; color:var(--ink-dim); padding:4px 0 8px 0;">此訂單不需要COA，無需品管確認</div>
       </div>
 
       <div id="stageHintPackaging" class="stage-hint">🔒 訂單進入「重填包裝」後才會開放選擇包裝區域與人員</div>
@@ -582,6 +600,7 @@
         <div class="stat-card amber"><div class="stat-num" id="statRefill">0</div><div class="stat-label">重填包裝</div></div>
         <div class="stat-card purple"><div class="stat-num" id="statBoxing">0</div><div class="stat-label">裝箱確認</div></div>
         <div class="stat-card teal"><div class="stat-num" id="statShipped">0</div><div class="stat-label">已出貨</div></div>
+        <div class="stat-card green"><div class="stat-num" id="statQc">0</div><div class="stat-label">品管</div></div>
         <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-label">品項總數</div></div>
       </div>
 
@@ -1019,9 +1038,9 @@ function showToastSafe(msg){
   setTimeout(()=> t.classList.remove('show'), 3000);
 }
 
-const STATUS = ['pending','inprogress','labeling','done','refill','boxing','shipped'];
-const STATUS_LABEL = { pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'重填包裝', boxing:'裝箱確認', shipped:'出貨確認' };
-const STATUS_FORWARD_LABEL = { pending:'庫存確認 →', inprogress:'排程生產 →', labeling:'標籤印製 →', done:'重填包裝 →', refill:'裝箱確認 →', boxing:'出貨確認 →' };
+const STATUS = ['pending','inprogress','labeling','done','refill','boxing','shipped','qc'];
+const STATUS_LABEL = { pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'重填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'品管' };
+const STATUS_FORWARD_LABEL = { pending:'庫存確認 →', inprogress:'排程生產 →', labeling:'標籤印製 →', done:'重填包裝 →', refill:'裝箱確認 →', boxing:'出貨確認 →', shipped:'品管 →' };
 const CHK_LABELS = { c1:'標籤品名核對', c2:'裝箱數量', c3:'包裝密封', c4:'生產/有效日期' };
 const SHIP_METHOD_LABEL = { today:'寄貨', tomorrow:'送貨', pickup:'自取' };
 const SHIP_METHOD_LABEL_WITH_ICON = { today:'🚚 寄貨', tomorrow:'📦 送貨', pickup:'🙋 自取' };
@@ -1156,13 +1175,14 @@ async function saveOrders(){
   }
 }
 
-function isOverdue(item){ return item.status !== 'shipped' && item.due < todayStr(); }
+function isShippedOrLater(item){ return item.status === 'shipped' || item.status === 'qc'; }
+function isOverdue(item){ return !isShippedOrLater(item) && item.due < todayStr(); }
 function isChecklistComplete(item){
   const c = item.checklist || {};
   return !!(c.c1 && c.c2 && c.c3 && c.c4);
 }
-function isTodayAtRisk(item){ const now = new Date(); return item.status !== 'shipped' && item.due === todayStr() && now.getHours() >= 15; }
-function isTomorrowRisk(item){ return item.status !== 'shipped' && item.due === tomorrowStr(); }
+function isTodayAtRisk(item){ const now = new Date(); return !isShippedOrLater(item) && item.due === todayStr() && now.getHours() >= 15; }
+function isTomorrowRisk(item){ return !isShippedOrLater(item) && item.due === tomorrowStr(); }
 function needsCoa(item){ return !!item.coa && item.coa !== '無'; }
 
 function escapeHtml(s){ const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
@@ -1226,7 +1246,7 @@ function renderList(){
       const idx = STATUS.indexOf(item.status);
       const canBack = idx > 0;
       let actionsHtml = '';
-      if(item.status !== 'shipped'){
+      if(item.status !== 'qc'){
         actionsHtml =
           (canBack ? '<button class="btn btn-back" data-act="back" data-oid="'+order.id+'" data-iid="'+item.id+'">‹</button>' : '') +
           '<button class="btn btn-forward st-' + STATUS[idx+1] + '" data-act="forward" data-oid="'+order.id+'" data-iid="'+item.id+'">' + STATUS_FORWARD_LABEL[item.status] + '</button>' +
@@ -1234,7 +1254,7 @@ function renderList(){
       }else{
         actionsHtml =
           '<button class="btn btn-back" data-act="back" data-oid="'+order.id+'" data-iid="'+item.id+'">‹</button>' +
-          '<button class="btn btn-done-label" disabled>已出貨</button>' +
+          '<button class="btn btn-done-label" disabled>已完成</button>' +
           '<button class="btn btn-edit" data-act="edit" data-oid="'+order.id+'" data-iid="'+item.id+'">✎</button>';
       }
 
@@ -1318,6 +1338,11 @@ function renderList(){
         if(!item.releaseBy) missing.push('確認及放行人員');
         if(!item.warehouseConfirm) missing.push('倉管出貨確認');
         showToast('請先完成「' + missing.join('、') + '」才能出貨');
+        openSheet(order, item);
+        return;
+      }
+      if(item.status === 'shipped' && needsCoa(item) && !item.coaConfirmBy){
+        showToast('此訂單需要COA，請先填寫「COA確認人員」才能完成品管');
         openSheet(order, item);
         return;
       }
@@ -1467,10 +1492,13 @@ let selectedPriority = 'normal';
 
 function updateStageVisibility(stage){
   const showBatch = stage !== 'pending';
+  const showQc = (STATUS.indexOf(stage) >= STATUS.indexOf('shipped')); // 出貨確認或以後
   const showPackaging = (STATUS.indexOf(stage) >= STATUS.indexOf('refill')); // 重填包裝或以後
   const showChecklist = (STATUS.indexOf(stage) >= STATUS.indexOf('boxing')); // 裝箱確認或以後
   document.getElementById('sectionBatch').style.display = showBatch ? '' : 'none';
   document.getElementById('stageHintBatch').style.display = showBatch ? 'none' : '';
+  document.getElementById('sectionQc').style.display = showQc ? '' : 'none';
+  document.getElementById('stageHintQc').style.display = showQc ? 'none' : '';
   document.getElementById('sectionPackaging').style.display = showPackaging ? '' : 'none';
   document.getElementById('stageHintPackaging').style.display = showPackaging ? 'none' : '';
   document.getElementById('sectionChecklist').style.display = showChecklist ? '' : 'none';
@@ -1481,6 +1509,8 @@ function updateCoaValuesVisibility(){
   const coaVal = document.getElementById('fCoa').value;
   const show = !!coaVal && coaVal !== '無';
   document.getElementById('coaValuesSection').style.display = show ? '' : 'none';
+  document.getElementById('coaConfirmByField').style.display = show ? '' : 'none';
+  document.getElementById('noCoaNeededHint').style.display = show ? 'none' : '';
 }
 document.getElementById('fCoa').addEventListener('change', updateCoaValuesVisibility);
 
@@ -1501,7 +1531,7 @@ function getPickerValue(selectId, customId){
   const custom = document.getElementById(customId);
   return select.value === '自訂' ? custom.value.trim() : select.value;
 }
-[['fReleaseBy','fReleaseByCustom'], ['fFilledBy','fFilledByCustom'], ['fWarehouseConfirm','fWarehouseConfirmCustom'], ['fPackagingStaff','fPackagingStaffCustom']].forEach(([selectId, customId])=>{
+[['fReleaseBy','fReleaseByCustom'], ['fFilledBy','fFilledByCustom'], ['fWarehouseConfirm','fWarehouseConfirmCustom'], ['fPackagingStaff','fPackagingStaffCustom'], ['fCoaConfirmBy','fCoaConfirmByCustom']].forEach(([selectId, customId])=>{
   document.getElementById(selectId).addEventListener('change', function(){
     document.getElementById(customId).style.display = (this.value === '自訂') ? '' : 'none';
     if(this.value !== '自訂') document.getElementById(customId).value = '';
@@ -1575,6 +1605,7 @@ function openSheet(order, item){
   document.getElementById('fPackagingArea').value = item ? (item.packagingArea || '') : '';
   populatePackagingStaffOptions(item ? (item.packagingArea || '') : '', item ? (item.packagingStaff || '') : '');
   document.getElementById('fCoa').value = item ? (item.coa || '') : (firstItem ? (firstItem.coa || '') : '');
+  setPickerValue('fCoaConfirmBy', 'fCoaConfirmByCustom', item ? (item.coaConfirmBy || '') : (firstItem ? (firstItem.coaConfirmBy || '') : ''));
   document.getElementById('fCoaMoisture').value = item ? (item.coaMoisture || '') : '';
   document.getElementById('fCoaWaterActivity').value = item ? (item.coaWaterActivity || '') : '';
   document.getElementById('fCoaTotalPlateCount').value = item ? (item.coaTotalPlateCount || '') : '';
@@ -1634,6 +1665,7 @@ async function handleSaveOrder(){
   const packagingArea = document.getElementById('fPackagingArea').value;
   const packagingStaff = getPickerValue('fPackagingStaff', 'fPackagingStaffCustom');
   const coa = document.getElementById('fCoa').value;
+  const coaConfirmBy = getPickerValue('fCoaConfirmBy', 'fCoaConfirmByCustom');
   const coaMoisture = document.getElementById('fCoaMoisture').value.trim();
   const coaWaterActivity = document.getElementById('fCoaWaterActivity').value.trim();
   const coaTotalPlateCount = document.getElementById('fCoaTotalPlateCount').value.trim();
@@ -1654,7 +1686,7 @@ async function handleSaveOrder(){
   if(missing.length > 0){ showToast('請填寫：' + missing.join('、')); return; }
 
   const itemPayload = {
-    product, spec, qty, due, origin, productExpDate, batchNo, trayBatchNo, materialBatchNo, materialMfgDate, materialExpDate, coa, note,
+    product, spec, qty, due, origin, productExpDate, batchNo, trayBatchNo, materialBatchNo, materialMfgDate, materialExpDate, coa, coaConfirmBy, note,
     coaMoisture, coaWaterActivity, coaTotalPlateCount, coaColiform, coaEcoli,
     fillFormDate, fillFormTime,
     releaseBy, filledBy, warehouseConfirm,
@@ -1783,14 +1815,14 @@ function computeStats(){
   const weekStart = startOfWeek();
   const todayStart = new Date(today).getTime();
   const all = allActiveItems();
-  const stats = { overdue:0, today:0, tomorrow:0, urgent:0, coa:0, pending:0, inprogress:0, labeling:0, done:0, refill:0, boxing:0, shipped:0, total: all.length, shippedToday:0, shippedWeek:0 };
+  const stats = { overdue:0, today:0, tomorrow:0, urgent:0, coa:0, pending:0, inprogress:0, labeling:0, done:0, refill:0, boxing:0, shipped:0, qc:0, total: all.length, shippedToday:0, shippedWeek:0 };
   all.forEach(x=>{
     const it = x.item;
     if(isOverdue(it)) stats.overdue++;
-    if(isTodayAtRisk(it) || (it.status !== 'shipped' && it.due === today)) stats.today++;
+    if(isTodayAtRisk(it) || (!isShippedOrLater(it) && it.due === today)) stats.today++;
     if(isTomorrowRisk(it)) stats.tomorrow++;
-    if(it.priority === 'urgent' && it.status !== 'shipped') stats.urgent++;
-    if(needsCoa(it) && it.status !== 'shipped') stats.coa++;
+    if(it.priority === 'urgent' && !isShippedOrLater(it)) stats.urgent++;
+    if(needsCoa(it) && !isShippedOrLater(it)) stats.coa++;
     if(it.status === 'pending') stats.pending++;
     if(it.status === 'inprogress') stats.inprogress++;
     if(it.status === 'labeling') stats.labeling++;
@@ -1798,7 +1830,8 @@ function computeStats(){
     if(it.status === 'refill') stats.refill++;
     if(it.status === 'boxing') stats.boxing++;
     if(it.status === 'shipped') stats.shipped++;
-    if(it.status === 'shipped' && it.shippedAt){
+    if(it.status === 'qc') stats.qc++;
+    if(isShippedOrLater(it) && it.shippedAt){
       if(it.shippedAt >= todayStart) stats.shippedToday++;
       if(it.shippedAt >= weekStart) stats.shippedWeek++;
     }
@@ -1820,6 +1853,7 @@ function renderReport(){
   document.getElementById('statRefill').textContent = s.refill;
   document.getElementById('statBoxing').textContent = s.boxing;
   document.getElementById('statShipped').textContent = s.shipped;
+  document.getElementById('statQc').textContent = s.qc;
   document.getElementById('statTotal').textContent = s.total;
   document.getElementById('statShippedToday').textContent = s.shippedToday;
   document.getElementById('statShippedWeek').textContent = s.shippedWeek;
@@ -1834,9 +1868,9 @@ function isShippedToday(item){
 
 function renderShipLists(){
   const all = allActiveItems();
-  const todayList = all.filter(x => x.item.status === 'shipped' && x.item.shipMethod === 'today' && isShippedToday(x.item));
-  const tomorrowList = all.filter(x => x.item.status === 'shipped' && x.item.shipMethod === 'tomorrow' && isShippedToday(x.item));
-  const pickupList = all.filter(x => x.item.status === 'shipped' && x.item.shipMethod === 'pickup' && isShippedToday(x.item));
+  const todayList = all.filter(x => isShippedOrLater(x.item) && x.item.shipMethod === 'today' && isShippedToday(x.item));
+  const tomorrowList = all.filter(x => isShippedOrLater(x.item) && x.item.shipMethod === 'tomorrow' && isShippedToday(x.item));
+  const pickupList = all.filter(x => isShippedOrLater(x.item) && x.item.shipMethod === 'pickup' && isShippedToday(x.item));
 
   const renderRows = (list)=>{
     if(list.length === 0) return '<div class="ship-list-empty">目前沒有品項</div>';
@@ -1855,7 +1889,7 @@ function renderShipLists(){
   const filterProduct = document.getElementById('shipFilterProduct').value.trim().toLowerCase();
   const filterMaterialBatch = document.getElementById('shipFilterMaterialBatch').value.trim().toLowerCase();
 
-  let shippedAll = all.filter(x => x.item.status === 'shipped');
+  let shippedAll = all.filter(x => isShippedOrLater(x.item));
 
   if(filterDate){
     shippedAll = shippedAll.filter(x => x.item.shippedAt && new Date(x.item.shippedAt).toISOString().slice(0,10) === filterDate);
@@ -1887,7 +1921,7 @@ function renderShipLists(){
         '<div class="ship-list-meta">' + escapeHtml(x.order.orderNo || '') + (x.item.spec ? ' ・ ' + escapeHtml(x.item.spec) : '') + ' ・ 出貨日期 ' + dateStr + '</div>' +
         methodTag + materialTag + '</div><div class="ship-list-qty">x' + x.item.qty + '</div></div>';
     }).join('');
-    if(!filterActive && all.filter(x=>x.item.status==='shipped').length > SHIPPED_ALL_LIMIT){
+    if(!filterActive && all.filter(x=>isShippedOrLater(x.item)).length > SHIPPED_ALL_LIMIT){
       shippedAllEl.innerHTML += '<div class="ship-list-empty">僅顯示最近 ' + SHIPPED_ALL_LIMIT + ' 筆</div>';
     }
   }
