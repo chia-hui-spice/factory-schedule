@@ -498,7 +498,7 @@
         <div id="noCoaNeededHint" style="display:none; font-size:13px; color:var(--ink-dim); padding:4px 0 8px 0;">此訂單不需要COA，無需品管確認</div>
       </div>
 
-      <div id="stageHintPackaging" class="stage-hint">🔒 訂單進入「重填包裝」後才會開放選擇包裝區域與人員</div>
+      <div id="stageHintPackaging" class="stage-hint">🔒 訂單進入「充填包裝」後才會開放選擇包裝區域與人員</div>
       <div id="sectionPackaging">
         <div class="section-label">包裝區域確認</div>
         <div class="field">
@@ -597,7 +597,7 @@
         <div class="stat-card amber"><div class="stat-num" id="statInprogress">0</div><div class="stat-label">庫存確認</div></div>
         <div class="stat-card purple"><div class="stat-num" id="statLabeling">0</div><div class="stat-label">排程生產</div></div>
         <div class="stat-card green"><div class="stat-num" id="statDone">0</div><div class="stat-label">標籤印製</div></div>
-        <div class="stat-card amber"><div class="stat-num" id="statRefill">0</div><div class="stat-label">重填包裝</div></div>
+        <div class="stat-card amber"><div class="stat-num" id="statRefill">0</div><div class="stat-label">充填包裝</div></div>
         <div class="stat-card purple"><div class="stat-num" id="statBoxing">0</div><div class="stat-label">裝箱確認</div></div>
         <div class="stat-card teal"><div class="stat-num" id="statShipped">0</div><div class="stat-label">已出貨</div></div>
         <div class="stat-card green"><div class="stat-num" id="statQc">0</div><div class="stat-label">品管</div></div>
@@ -1039,8 +1039,8 @@ function showToastSafe(msg){
 }
 
 const STATUS = ['pending','inprogress','labeling','done','refill','boxing','shipped','qc'];
-const STATUS_LABEL = { pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'重填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'品管' };
-const STATUS_FORWARD_LABEL = { pending:'庫存確認 →', inprogress:'排程生產 →', labeling:'標籤印製 →', done:'重填包裝 →', refill:'裝箱確認 →', boxing:'出貨確認 →', shipped:'品管 →' };
+const STATUS_LABEL = { pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'品管' };
+const STATUS_FORWARD_LABEL = { pending:'庫存確認 →', inprogress:'排程生產 →', labeling:'標籤印製 →', done:'充填包裝 →', refill:'裝箱確認 →', boxing:'出貨確認 →', shipped:'品管 →' };
 const CHK_LABELS = { c1:'標籤品名核對', c2:'裝箱數量', c3:'包裝密封', c4:'生產/有效日期' };
 const SHIP_METHOD_LABEL = { today:'寄貨', tomorrow:'送貨', pickup:'自取' };
 const SHIP_METHOD_LABEL_WITH_ICON = { today:'🚚 寄貨', tomorrow:'📦 送貨', pickup:'🙋 自取' };
@@ -1493,7 +1493,7 @@ let selectedPriority = 'normal';
 function updateStageVisibility(stage){
   const showBatch = stage !== 'pending';
   const showQc = (STATUS.indexOf(stage) >= STATUS.indexOf('shipped')); // 出貨確認或以後
-  const showPackaging = (STATUS.indexOf(stage) >= STATUS.indexOf('refill')); // 重填包裝或以後
+  const showPackaging = (STATUS.indexOf(stage) >= STATUS.indexOf('refill')); // 充填包裝或以後
   const showChecklist = (STATUS.indexOf(stage) >= STATUS.indexOf('boxing')); // 裝箱確認或以後
   document.getElementById('sectionBatch').style.display = showBatch ? '' : 'none';
   document.getElementById('stageHintBatch').style.display = showBatch ? 'none' : '';
