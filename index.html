@@ -106,6 +106,14 @@
   .badge.stage.st-shipped{ color:var(--teal); border-color:var(--teal); }
 
   .item-meta{ display:flex; gap:8px 12px; flex-wrap:wrap; margin-bottom:8px; }
+  .stock-info-row{
+    font-size:13px; color:var(--ink-dim); background:var(--panel); border:1px solid var(--line); border-radius:7px;
+    padding:6px 10px; margin-bottom:8px; cursor:pointer; display:flex; align-items:center; flex-wrap:wrap; gap:4px;
+  }
+  .stock-info-row b{ color:var(--ink); font-family:var(--mono); }
+  .stock-info-row b.need{ color:var(--red); }
+  .stock-info-row b.enough{ color:var(--teal); }
+  .stock-info-edit{ margin-left:auto; font-size:11.5px; color:var(--amber); white-space:nowrap; }
   .meta-item{ font-size:14.5px; color:var(--ink-dim); }
   .meta-item b{ color:var(--ink); font-family:var(--mono); font-weight:700; }
 
@@ -1012,6 +1020,7 @@ let materials = []; // [{id, name, unit, stock, batchNo, mfgDate, expDate}]
 let boms = []; // [{id, product, rows:[{materialId, qtyPerUnit}]}]
 let receipts = []; // [{id, materialId, materialName, qty, unit, supplier, batchNo, mfgDate, expDate, receivedDate, createdAt}]
 let finishedGoods = []; // [{id, product, unit, stock}]
+let pendingNewFgId = null; // 追蹤透過卡片快速編輯新建、但尚未確認儲存的成品項目
 let semiGoods = []; // [{id, name, unit, stock}]
 let semiBoms = []; // [{id, semiGoodId, rows:[{materialId, qtyPerUnit}]}]
 let currentTab = 'pending';
@@ -1221,9 +1230,21 @@ function renderList(){
         ? '<button type="button" class="split-btn" data-act="split" data-oid="'+order.id+'" data-iid="'+item.id+'">✂️ 拆分數量</button>'
         : '';
 
+      let stockInfoHtml = '';
+      if(item.status === 'inprogress'){
+        const fg = finishedGoods.find(f=>f.product === item.product);
+        const currentStock = fg ? (fg.stock||0) : 0;
+        const unit = fg ? (fg.unit||'') : '';
+        const stillNeed = Math.max(item.qty - currentStock, 0);
+        stockInfoHtml = '<div class="stock-info-row" data-stock-product="'+escapeHtml(item.product)+'">📦 目前成品庫存 <b>' + currentStock + '</b>' + (unit?' '+escapeHtml(unit):'') +
+          '　還需要生產 <b class="' + (stillNeed > 0 ? 'need' : 'enough') + '">' + stillNeed + '</b>' + (unit?' '+escapeHtml(unit):'') +
+          '<span class="stock-info-edit">✎ 點擊修改庫存</span></div>';
+      }
+
       itemsHtml += '<div class="item-row pri-' + item.priority + (overdue ? ' overdue' : '') + '">' +
         '<div class="item-top"><div><div class="item-product">' + escapeHtml(item.product) + (item.spec ? '<span class="item-spec"> ・ ' + escapeHtml(item.spec) + '</span>' : '') + '</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">' + badges + '</div></div>' +
         '<div class="item-meta">' + metaBits.join('') + '</div>' +
+        stockInfoHtml +
         '<div class="checklist-row">' + chkHtml + '</div>' +
         (item.note ? '<div class="item-note">' + escapeHtml(item.note) + '</div>' : '') +
         '<div class="item-actions">' + actionsHtml + '</div>' +
@@ -1332,6 +1353,18 @@ function renderList(){
       const order = orders.find(o=>o.id === badge.dataset.oid);
       const item = order && order.items.find(i=>i.id === badge.dataset.iid);
       if(order && item) openSheet(order, item);
+    };
+  });
+  wrap.querySelectorAll('[data-stock-product]').forEach(row=>{
+    row.onclick = ()=>{
+      const productName = row.dataset.stockProduct;
+      const existing = finishedGoods.find(f=>f.product === productName);
+      const fg = findOrCreateFinishedGood(productName);
+      pendingNewFgId = existing ? null : fg.id;
+      openFgForm(fg);
+      if(!existing){
+        document.getElementById('fgFormTitle').textContent = '設定成品庫存';
+      }
     };
   });
   wrap.querySelectorAll('[data-act="additem"]').forEach(btn=>{
@@ -2114,6 +2147,7 @@ function loadBomData(){
     renderFinishedGoodList();
     renderSemiGoodList();
     renderSemiBomList();
+    renderList();
   }, (err)=>{
     console.error(err);
   });
@@ -2267,7 +2301,7 @@ function renderFinishedGoodList(){
   listEl.querySelectorAll('[data-fgid]').forEach(el=>{
     el.onclick = ()=>{
       const f = finishedGoods.find(x=>x.id===el.dataset.fgid);
-      if(f) openFgForm(f);
+      if(f){ pendingNewFgId = null; openFgForm(f); }
     };
   });
 }
@@ -2292,8 +2326,14 @@ function openFgForm(f){
   document.getElementById('btnDeleteFg').style.display = f ? 'block' : 'none';
   fgFormOverlay.classList.add('show');
 }
-document.getElementById('btnAddFinishedGood').onclick = ()=> openFgForm(null);
-document.getElementById('btnCancelFg').onclick = ()=> fgFormOverlay.classList.remove('show');
+document.getElementById('btnAddFinishedGood').onclick = ()=>{ pendingNewFgId = null; openFgForm(null); };
+document.getElementById('btnCancelFg').onclick = ()=>{
+  if(pendingNewFgId){
+    finishedGoods = finishedGoods.filter(x=>x.id !== pendingNewFgId);
+    pendingNewFgId = null;
+  }
+  fgFormOverlay.classList.remove('show');
+};
 fgFormOverlay.onclick = (e)=>{ if(e.target === fgFormOverlay) fgFormOverlay.classList.remove('show'); };
 document.getElementById('btnSaveFg').onclick = async ()=>{
   const product = document.getElementById('fgProduct').value.trim();
@@ -2309,8 +2349,10 @@ document.getElementById('btnSaveFg').onclick = async ()=>{
     showToast('已新增成品');
   }
   await saveBomData();
+  pendingNewFgId = null;
   fgFormOverlay.classList.remove('show');
   renderFinishedGoodList();
+  renderList();
 };
 document.getElementById('btnDeleteFg').onclick = async ()=>{
   if(!editingFgId) return;
