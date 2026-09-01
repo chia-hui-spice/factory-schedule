@@ -101,6 +101,8 @@
   .badge.stage.st-inprogress{ color:var(--amber); border-color:var(--amber); }
   .badge.stage.st-labeling{ color:var(--purple); border-color:var(--purple); }
   .badge.stage.st-done{ color:var(--green); border-color:var(--green); }
+  .badge.stage.st-refill{ color:var(--amber); border-color:var(--amber); }
+  .badge.stage.st-boxing{ color:var(--purple); border-color:var(--purple); }
   .badge.stage.st-shipped{ color:var(--teal); border-color:var(--teal); }
 
   .item-meta{ display:flex; gap:8px 12px; flex-wrap:wrap; margin-bottom:8px; }
@@ -119,6 +121,8 @@
   .btn-forward{ background:var(--amber); color:var(--amber-ink); }
   .btn-forward.st-labeling{ background:var(--purple); color:#fff; }
   .btn-forward.st-done{ background:var(--green); color:#0F1B14; }
+  .btn-forward.st-refill{ background:var(--amber); color:#0F1B14; }
+  .btn-forward.st-boxing{ background:var(--purple); color:#fff; }
   .btn-forward.st-shipped{ background:var(--teal); color:#0F1B14; }
   .btn-edit{ background:var(--panel); color:var(--ink); border:1px solid var(--line); flex:0 0 46px; }
   .btn-done-label{ background:transparent; color:var(--teal); border:1px dashed var(--teal); }
@@ -369,7 +373,7 @@
         <input type="text" id="fOrigin" placeholder="產地">
       </div>
 
-      <div id="stageHintBatch" class="stage-hint">🔒 訂單進入「生產中」後才會開放填寫生產批號、包材批號等欄位</div>
+      <div id="stageHintBatch" class="stage-hint">🔒 訂單進入「庫存確認」後才會開放填寫生產批號、包材批號等欄位</div>
       <div id="sectionBatch">
         <div class="section-label">批號 / 日期</div>
         <div class="row3">
@@ -468,7 +472,7 @@
         </div>
       </div>
 
-      <div id="stageHintChecklist" class="stage-hint">🔒 訂單進入「已完成」後才會開放出貨前檢查與放行確認</div>
+      <div id="stageHintChecklist" class="stage-hint">🔒 訂單進入「裝箱確認」後才會開放出貨前檢查與放行確認</div>
       <div id="sectionChecklist">
         <div class="section-label" style="display:flex; align-items:center; justify-content:space-between; border-top:none; padding-top:0; margin-top:0;">
           <span>出貨前檢查項目及放行確認 <span style="color:var(--red);">*</span></span>
@@ -540,10 +544,12 @@
     <div class="report-tab-panel" id="reportPanelProgress" style="display:none;">
       <div class="report-section-title" style="margin-top:0;">生產進度（品項數）</div>
       <div class="stat-grid">
-        <div class="stat-card blue"><div class="stat-num" id="statPending">0</div><div class="stat-label">待生產</div></div>
-        <div class="stat-card amber"><div class="stat-num" id="statInprogress">0</div><div class="stat-label">生產中</div></div>
-        <div class="stat-card purple"><div class="stat-num" id="statLabeling">0</div><div class="stat-label">標籤印製</div></div>
-        <div class="stat-card green"><div class="stat-num" id="statDone">0</div><div class="stat-label">已完成</div></div>
+        <div class="stat-card blue"><div class="stat-num" id="statPending">0</div><div class="stat-label">訂單確認</div></div>
+        <div class="stat-card amber"><div class="stat-num" id="statInprogress">0</div><div class="stat-label">庫存確認</div></div>
+        <div class="stat-card purple"><div class="stat-num" id="statLabeling">0</div><div class="stat-label">排程生產</div></div>
+        <div class="stat-card green"><div class="stat-num" id="statDone">0</div><div class="stat-label">標籤印製</div></div>
+        <div class="stat-card amber"><div class="stat-num" id="statRefill">0</div><div class="stat-label">重填包裝</div></div>
+        <div class="stat-card purple"><div class="stat-num" id="statBoxing">0</div><div class="stat-label">裝箱確認</div></div>
         <div class="stat-card teal"><div class="stat-num" id="statShipped">0</div><div class="stat-label">已出貨</div></div>
         <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-label">品項總數</div></div>
       </div>
@@ -622,7 +628,7 @@
   <div class="sheet">
     <div class="sheet-handle"></div>
     <h2>進銷存管理</h2>
-    <div class="report-updated">生產中→標籤印製自動扣原料；標籤印製→已完成自動加成品(並依配方扣半成品)；已完成→出貨自動扣成品</div>
+    <div class="report-updated">庫存確認→排程生產自動扣原料；排程生產→標籤印製自動加成品(並依配方扣半成品)；標籤印製→出貨自動扣成品</div>
 
     <div class="report-tabs" id="bomTabs">
       <button type="button" class="report-tab active" data-bom-tab="receipts">📥 原料進貨</button>
@@ -932,7 +938,7 @@
       <label>要拆出多少數量？</label>
       <input type="number" id="splitQtyInput" min="1" placeholder="例如 40">
     </div>
-    <p style="font-size:12px; color:var(--ink-dim); line-height:1.5; margin:0 0 4px 0;">拆出的部分會變成同一張訂單裡的新品項，狀態重新從「待生產」開始，批號等資訊需要重新填寫。</p>
+    <p style="font-size:12px; color:var(--ink-dim); line-height:1.5; margin:0 0 4px 0;">拆出的部分會變成同一張訂單裡的新品項，狀態重新從「訂單確認」開始，批號等資訊需要重新填寫。</p>
     <div class="sheet-actions" style="margin-top:16px;">
       <button type="button" class="btn-secondary" id="splitCancelBtn">取消</button>
       <button type="button" class="btn-primary" id="splitConfirmBtn">確定拆分</button>
@@ -982,9 +988,9 @@ function showToastSafe(msg){
   setTimeout(()=> t.classList.remove('show'), 3000);
 }
 
-const STATUS = ['pending','inprogress','labeling','done','shipped'];
-const STATUS_LABEL = { pending:'待生產', inprogress:'生產中', labeling:'標籤印製', done:'已完成', shipped:'出貨' };
-const STATUS_FORWARD_LABEL = { pending:'開始生產 →', inprogress:'標籤印製 →', labeling:'完成 ✓', done:'出貨 →' };
+const STATUS = ['pending','inprogress','labeling','done','refill','boxing','shipped'];
+const STATUS_LABEL = { pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'重填包裝', boxing:'裝箱確認', shipped:'出貨確認' };
+const STATUS_FORWARD_LABEL = { pending:'庫存確認 →', inprogress:'排程生產 →', labeling:'標籤印製 →', done:'重填包裝 →', refill:'裝箱確認 →', boxing:'出貨確認 →' };
 const CHK_LABELS = { c1:'標籤品名核對', c2:'裝箱數量', c3:'包裝密封', c4:'生產/有效日期' };
 const SHIP_METHOD_LABEL = { today:'寄貨', tomorrow:'送貨', pickup:'自取' };
 const SHIP_METHOD_LABEL_WITH_ICON = { today:'🚚 寄貨', tomorrow:'📦 送貨', pickup:'🙋 自取' };
@@ -1250,11 +1256,11 @@ function renderList(){
         const missing = [];
         if(!item.filledBy) missing.push('填寫人員');
         if(!item.coa) missing.push('COA');
-        showToast('請先填寫「' + missing.join('、') + '」才能進入生產中');
+        showToast('請先填寫「' + missing.join('、') + '」才能進入庫存確認');
         openSheet(order, item);
         return;
       }
-      if(item.status === 'done' && (!item.releaseBy || !item.warehouseConfirm || !isChecklistComplete(item))){
+      if(item.status === 'boxing' && (!item.releaseBy || !item.warehouseConfirm || !isChecklistComplete(item))){
         const missing = [];
         if(!isChecklistComplete(item)) missing.push('出貨前檢查項目');
         if(!item.releaseBy) missing.push('確認及放行人員');
@@ -1272,7 +1278,7 @@ function renderList(){
 
       const wasInprogress = item.status === 'inprogress';
       const wasLabeling = item.status === 'labeling';
-      const wasDone = item.status === 'done';
+      const wasBoxing = item.status === 'boxing';
       item.status = nextStatus;
       if(item.status === 'done') item.completedAt = Date.now();
       if(item.status === 'shipped') item.shippedAt = Date.now();
@@ -1284,7 +1290,7 @@ function renderList(){
       if(wasLabeling && item.status === 'done'){
         await addFinishedGoodStock(item);
       }
-      if(wasDone && item.status === 'shipped'){
+      if(wasBoxing && item.status === 'shipped'){
         await deductFinishedGoodStock(item);
       }
     };
@@ -1309,7 +1315,7 @@ function renderList(){
       if(wasDone && item.status === 'labeling'){
         await deductFinishedGoodStock(item, true);
       }
-      if(wasShipped && item.status === 'done'){
+      if(wasShipped && item.status === 'boxing'){
         await addFinishedGoodStock(item, true);
       }
     };
@@ -1397,7 +1403,7 @@ let selectedPriority = 'normal';
 
 function updateStageVisibility(stage){
   const showBatch = stage !== 'pending';
-  const showChecklist = (STATUS.indexOf(stage) >= 3); // 已完成或以後
+  const showChecklist = (STATUS.indexOf(stage) >= STATUS.indexOf('boxing')); // 裝箱確認或以後
   document.getElementById('sectionBatch').style.display = showBatch ? '' : 'none';
   document.getElementById('stageHintBatch').style.display = showBatch ? 'none' : '';
   document.getElementById('sectionChecklist').style.display = showChecklist ? '' : 'none';
@@ -1682,7 +1688,7 @@ function computeStats(){
   const weekStart = startOfWeek();
   const todayStart = new Date(today).getTime();
   const all = allActiveItems();
-  const stats = { overdue:0, today:0, tomorrow:0, urgent:0, coa:0, pending:0, inprogress:0, labeling:0, done:0, shipped:0, total: all.length, shippedToday:0, shippedWeek:0 };
+  const stats = { overdue:0, today:0, tomorrow:0, urgent:0, coa:0, pending:0, inprogress:0, labeling:0, done:0, refill:0, boxing:0, shipped:0, total: all.length, shippedToday:0, shippedWeek:0 };
   all.forEach(x=>{
     const it = x.item;
     if(isOverdue(it)) stats.overdue++;
@@ -1694,6 +1700,8 @@ function computeStats(){
     if(it.status === 'inprogress') stats.inprogress++;
     if(it.status === 'labeling') stats.labeling++;
     if(it.status === 'done') stats.done++;
+    if(it.status === 'refill') stats.refill++;
+    if(it.status === 'boxing') stats.boxing++;
     if(it.status === 'shipped') stats.shipped++;
     if(it.status === 'shipped' && it.shippedAt){
       if(it.shippedAt >= todayStart) stats.shippedToday++;
@@ -1714,6 +1722,8 @@ function renderReport(){
   document.getElementById('statInprogress').textContent = s.inprogress;
   document.getElementById('statLabeling').textContent = s.labeling;
   document.getElementById('statDone').textContent = s.done;
+  document.getElementById('statRefill').textContent = s.refill;
+  document.getElementById('statBoxing').textContent = s.boxing;
   document.getElementById('statShipped').textContent = s.shipped;
   document.getElementById('statTotal').textContent = s.total;
   document.getElementById('statShippedToday').textContent = s.shippedToday;
