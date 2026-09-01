@@ -256,6 +256,16 @@
   .trash-empty{ text-align:center; padding:40px 20px; color:var(--ink-dim); font-size:16.5px; }
 
   .material-item{ background:var(--panel-raised); border:1.5px solid var(--line); border-radius:10px; padding:12px; margin-bottom:10px; cursor:pointer; }
+  .perm-checkbox-grid{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+  .perm-checkbox-item{
+    display:flex; align-items:center; gap:6px; background:var(--panel-raised); border:1.5px solid var(--line);
+    border-radius:8px; padding:8px 12px; cursor:pointer; font-size:14px; user-select:none;
+  }
+  .perm-checkbox-item input{ width:16px; height:16px; cursor:pointer; }
+  .perm-user-row{
+    display:flex; justify-content:space-between; align-items:center; background:var(--panel-raised);
+    border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:8px; cursor:pointer; font-size:14px;
+  }
   .material-item-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
   .material-item-name{ font-size:16px; font-weight:800; color:var(--ink); }
   .material-item-stock{ font-family:var(--mono); font-size:14px; font-weight:700; color:var(--teal); }
@@ -318,6 +328,7 @@
     </div>
     <button class="bell-btn quick-stat-btn" id="coaQuickBtn" title="需要COA的品項">📄<span class="quick-badge" id="coaQuickCount" style="display:none;">0</span></button>
     <button class="bell-btn quick-stat-btn" id="todayRiskQuickBtn" title="今日3點未出貨的品項">⏰<span class="quick-badge todayrisk-badge" id="todayRiskQuickCount" style="display:none;">0</span></button>
+    <button class="bell-btn" id="permBtn" title="權限管理" style="display:none;">🔐</button>
     <button class="bell-btn" id="bomBtn" title="進銷存管理">📦</button>
     <button class="bell-btn" id="signOutBtn" title="登出">👤</button>
     <button class="bell-btn" id="trashBtn" title="查看垃圾桶">🗑️</button>
@@ -799,6 +810,34 @@
   </div>
 </div>
 
+<div class="overlay" id="permOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>權限管理</h2>
+    <div class="report-updated">設定特定 Google 帳號能看到哪些分頁/功能按鈕。沒有特別設定的帳號預設可以看到全部。</div>
+
+    <div class="field">
+      <label>Google 帳號（Email）</label>
+      <input type="text" id="permEmail" placeholder="例如 abc@chia-hui.com.tw">
+    </div>
+
+    <div class="section-label">可看到的生產階段分頁</div>
+    <div id="permTabsCheckboxes" class="perm-checkbox-grid"></div>
+
+    <div class="section-label">可看到的功能按鈕</div>
+    <div id="permButtonsCheckboxes" class="perm-checkbox-grid"></div>
+
+    <div class="sheet-actions">
+      <button type="button" class="btn-secondary" id="btnCancelPerm">取消</button>
+      <button type="button" class="btn-primary" id="btnSavePerm">儲存</button>
+    </div>
+    <button type="button" class="btn-delete" id="btnResetPerm" style="display:none;">移除限制（恢復預設看全部）</button>
+
+    <div class="section-label">已設定限制的帳號</div>
+    <div id="permUserList"></div>
+  </div>
+</div>
+
 <div class="overlay" id="fgFormOverlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
@@ -1045,6 +1084,7 @@ const dataPrefix = isTestMode ? 'testData' : 'appData';
 const ordersDocRef = doc(db, dataPrefix, 'orders');
 const backupDocRef = doc(db, dataPrefix, 'backupState');
 const bomDataDocRef = doc(db, dataPrefix, 'bomData');
+const permissionsDocRef = doc(db, dataPrefix, 'permissions');
 // 正式資料的參照（測試模式下用於「合併到正式版」功能）
 const prodOrdersDocRef = doc(db, 'appData', 'orders');
 const prodBomDataDocRef = doc(db, 'appData', 'bomData');
@@ -1078,6 +1118,19 @@ function shipMethodFullLabel(item){
   const dateStr = formatDateSlash(item.due);
   return (dateStr ? dateStr : '') + SHIP_METHOD_LABEL[item.shipMethod];
 }
+
+const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
+const PERM_BUTTON_OPTIONS = [
+  { id: 'bomBtn', label: '📦 進銷存管理' },
+  { id: 'reportBtn', label: '📊 統計報表' },
+  { id: 'trashBtn', label: '🗑️ 垃圾桶' },
+  { id: 'bellBtn', label: '🔔 出貨提醒通知' },
+  { id: 'coaQuickBtn', label: '📄 需要COA快速入口' },
+  { id: 'todayRiskQuickBtn', label: '⏰ 今日3點未出貨快速入口' }
+];
+let permissions = {}; // { [email]: { tabs:[...STATUS keys], buttons:[...button ids] } }
+let currentUserEmail = null;
+let isCurrentUserAdmin = false;
 
 let orders = []; // [{id, customer, items:[...]}]
 let materials = []; // [{id, name, unit, stock, batchNo, mfgDate, expDate}]
@@ -1209,10 +1262,20 @@ function needsCoa(item){ return !!item.coa && item.coa !== '無'; }
 
 function escapeHtml(s){ const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
 
+function getAllowedTabs(){
+  if(isCurrentUserAdmin) return STATUS.slice();
+  const perm = permissions[currentUserEmail];
+  if(!perm || !perm.tabs) return STATUS.slice();
+  return STATUS.filter(s => perm.tabs.includes(s));
+}
 function renderTabs(){
   const tabsEl = document.getElementById('tabs');
   tabsEl.innerHTML = '';
-  STATUS.forEach(s=>{
+  const allowedTabs = getAllowedTabs();
+  if(allowedTabs.length > 0 && !allowedTabs.includes(currentTab)){
+    currentTab = allowedTabs[0];
+  }
+  allowedTabs.forEach(s=>{
     let count = 0;
     orders.forEach(o=> (o.items||[]).forEach(it=>{ if(!it.deleted && it.status===s) count++; }));
     const tab = document.createElement('div');
@@ -2301,6 +2364,117 @@ document.getElementById('btnMergeToProd').onclick = async ()=>{
 };
 
 // ---- BOM / 原料管理 ----
+// ---- 權限管理 ----
+function loadPermissions(){
+  onSnapshot(permissionsDocRef, (snap)=>{
+    permissions = snap.exists() ? (snap.data().map || {}) : {};
+    applyPermissions();
+  }, (err)=>{
+    console.error(err);
+  });
+}
+async function savePermissions(){
+  try{
+    await setDoc(permissionsDocRef, { map: permissions });
+  }catch(e){
+    console.error(e);
+    showToast('儲存權限失敗，請檢查網路');
+  }
+}
+
+function applyPermissions(){
+  document.getElementById('permBtn').style.display = isCurrentUserAdmin ? '' : 'none';
+
+  const perm = isCurrentUserAdmin ? null : permissions[currentUserEmail];
+  const allowedButtons = (perm && perm.buttons) ? perm.buttons : null; // null = 不限制
+
+  PERM_BUTTON_OPTIONS.forEach(opt=>{
+    const btn = document.getElementById(opt.id);
+    if(!btn) return;
+    const allowed = !allowedButtons || allowedButtons.includes(opt.id);
+    btn.style.display = allowed ? '' : 'none';
+  });
+
+  renderTabs();
+  renderList();
+}
+
+function renderPermCheckboxes(currentPerm){
+  const tabsWrap = document.getElementById('permTabsCheckboxes');
+  tabsWrap.innerHTML = STATUS.map(s=>{
+    const checked = !currentPerm || !currentPerm.tabs || currentPerm.tabs.includes(s);
+    return '<label class="perm-checkbox-item"><input type="checkbox" class="permTabCheckbox" value="'+s+'" '+(checked?'checked':'')+'>' + STATUS_LABEL[s] + '</label>';
+  }).join('');
+
+  const btnsWrap = document.getElementById('permButtonsCheckboxes');
+  btnsWrap.innerHTML = PERM_BUTTON_OPTIONS.map(opt=>{
+    const checked = !currentPerm || !currentPerm.buttons || currentPerm.buttons.includes(opt.id);
+    return '<label class="perm-checkbox-item"><input type="checkbox" class="permButtonCheckbox" value="'+opt.id+'" '+(checked?'checked':'')+'>' + opt.label + '</label>';
+  }).join('');
+}
+
+function renderPermUserList(){
+  const listEl = document.getElementById('permUserList');
+  const emails = Object.keys(permissions);
+  if(emails.length === 0){
+    listEl.innerHTML = '<div class="ship-list-empty">目前沒有任何帳號設定限制，大家都能看到全部</div>';
+    return;
+  }
+  listEl.innerHTML = emails.map(email=>{
+    return '<div class="perm-user-row" data-perm-email="'+escapeHtml(email)+'"><div>'+escapeHtml(email)+'</div><div style="color:var(--ink-dim); font-size:12px;">點擊編輯</div></div>';
+  }).join('');
+  listEl.querySelectorAll('[data-perm-email]').forEach(row=>{
+    row.onclick = ()=> openPermEditor(row.dataset.permEmail);
+  });
+}
+
+function openPermEditor(email){
+  document.getElementById('permEmail').value = email || '';
+  const currentPerm = email ? permissions[email] : null;
+  renderPermCheckboxes(currentPerm);
+  document.getElementById('btnResetPerm').style.display = (email && permissions[email]) ? 'block' : 'none';
+  document.getElementById('permOverlay').classList.add('show');
+}
+
+document.getElementById('permBtn').onclick = ()=>{
+  openPermEditor('');
+  renderPermUserList();
+};
+document.getElementById('btnCancelPerm').onclick = ()=> document.getElementById('permOverlay').classList.remove('show');
+document.getElementById('permOverlay').onclick = (e)=>{ if(e.target === document.getElementById('permOverlay')) document.getElementById('permOverlay').classList.remove('show'); };
+
+document.getElementById('btnSavePerm').onclick = async ()=>{
+  const email = document.getElementById('permEmail').value.trim().toLowerCase();
+  if(!email){ showToast('請填寫 Google 帳號'); return; }
+  if(ADMIN_EMAILS.includes(email)){ showToast('這個帳號已經是管理者，永遠都能看到全部，不需要另外設定'); return; }
+
+  const allowedTabs = Array.from(document.querySelectorAll('.permTabCheckbox:checked')).map(el=>el.value);
+  const allowedButtons = Array.from(document.querySelectorAll('.permButtonCheckbox:checked')).map(el=>el.value);
+
+  if(allowedTabs.length === 0){ showToast('至少要保留一個分頁可以看'); return; }
+
+  permissions[email] = { tabs: allowedTabs, buttons: allowedButtons };
+  await savePermissions();
+  showToast('已儲存 ' + email + ' 的權限設定');
+  renderPermUserList();
+  document.getElementById('btnResetPerm').style.display = 'block';
+  if(email === currentUserEmail) applyPermissions();
+};
+
+document.getElementById('btnResetPerm').onclick = async ()=>{
+  const email = document.getElementById('permEmail').value.trim().toLowerCase();
+  if(!email || !permissions[email]) return;
+  const ok = await showConfirm('移除限制後，這個帳號會恢復成可以看到全部分頁與功能。確定嗎？', '移除權限限制？');
+  if(!ok) return;
+  delete permissions[email];
+  await savePermissions();
+  showToast('已移除限制');
+  renderPermCheckboxes(null);
+  document.getElementById('btnResetPerm').style.display = 'none';
+  renderPermUserList();
+  if(email === currentUserEmail) applyPermissions();
+};
+
 function loadBomData(){
   onSnapshot(bomDataDocRef, (snap)=>{
     const data = snap.exists() ? snap.data() : {};
@@ -3231,14 +3405,16 @@ document.getElementById('signOutBtn').onclick = ()=> signOut(auth);
 
 onAuthStateChanged(auth, (user)=>{
   const gate = document.getElementById('loginGate');
-  if(!user){ appInitialized = false; gate.classList.remove('hidden'); return; }
+  if(!user){ appInitialized = false; currentUserEmail = null; isCurrentUserAdmin = false; gate.classList.remove('hidden'); return; }
   if(!isAllowedEmail(user.email)){
     showLoginError('此帳號（' + (user.email||'') + '）不在允許的名單內，僅限 @' + ALLOWED_EMAIL_DOMAIN + ' 的帳號使用。');
     signOut(auth);
     return;
   }
   gate.classList.add('hidden');
-  if(!appInitialized){ appInitialized = true; loadOrders(); loadBackupState(); loadBomData(); }
+  currentUserEmail = (user.email || '').toLowerCase();
+  isCurrentUserAdmin = ADMIN_EMAILS.includes(currentUserEmail);
+  if(!appInitialized){ appInitialized = true; loadOrders(); loadBackupState(); loadBomData(); loadPermissions(); }
 });
 </script>
 </body>
