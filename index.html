@@ -480,6 +480,29 @@
         </div>
       </div>
 
+      <div id="stageHintPackaging" class="stage-hint">🔒 訂單進入「重填包裝」後才會開放選擇包裝區域與人員</div>
+      <div id="sectionPackaging">
+        <div class="section-label">包裝區域確認</div>
+        <div class="field">
+          <label>包裝區域 <span style="color:var(--red);">*</span></label>
+          <select id="fPackagingArea">
+            <option value="">請選擇</option>
+            <option value="自動包裝區">自動包裝區</option>
+            <option value="大包裝區">大包裝區</option>
+            <option value="清真包裝區">清真包裝區</option>
+            <option value="醬料包裝區">醬料包裝區</option>
+            <option value="滷包包裝區">滷包包裝區</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>包裝人員 <span style="color:var(--red);">*</span></label>
+          <select id="fPackagingStaff">
+            <option value="">請先選擇包裝區域</option>
+          </select>
+          <input type="text" id="fPackagingStaffCustom" placeholder="輸入姓名" style="margin-top:8px; display:none;">
+        </div>
+      </div>
+
       <div id="stageHintChecklist" class="stage-hint">🔒 訂單進入「裝箱確認」後才會開放出貨前檢查與放行確認</div>
       <div id="sectionChecklist">
         <div class="section-label" style="display:flex; align-items:center; justify-content:space-between; border-top:none; padding-top:0; margin-top:0;">
@@ -1281,6 +1304,14 @@ function renderList(){
         openSheet(order, item);
         return;
       }
+      if(item.status === 'refill' && (!item.packagingArea || !item.packagingStaff)){
+        const missing = [];
+        if(!item.packagingArea) missing.push('包裝區域');
+        if(!item.packagingStaff) missing.push('包裝人員');
+        showToast('請先填寫「' + missing.join('、') + '」才能進入裝箱確認');
+        openSheet(order, item);
+        return;
+      }
       if(item.status === 'boxing' && (!item.releaseBy || !item.warehouseConfirm || !isChecklistComplete(item))){
         const missing = [];
         if(!isChecklistComplete(item)) missing.push('出貨前檢查項目');
@@ -1436,9 +1467,12 @@ let selectedPriority = 'normal';
 
 function updateStageVisibility(stage){
   const showBatch = stage !== 'pending';
+  const showPackaging = (STATUS.indexOf(stage) >= STATUS.indexOf('refill')); // 重填包裝或以後
   const showChecklist = (STATUS.indexOf(stage) >= STATUS.indexOf('boxing')); // 裝箱確認或以後
   document.getElementById('sectionBatch').style.display = showBatch ? '' : 'none';
   document.getElementById('stageHintBatch').style.display = showBatch ? 'none' : '';
+  document.getElementById('sectionPackaging').style.display = showPackaging ? '' : 'none';
+  document.getElementById('stageHintPackaging').style.display = showPackaging ? 'none' : '';
   document.getElementById('sectionChecklist').style.display = showChecklist ? '' : 'none';
   document.getElementById('stageHintChecklist').style.display = showChecklist ? 'none' : '';
 }
@@ -1467,11 +1501,34 @@ function getPickerValue(selectId, customId){
   const custom = document.getElementById(customId);
   return select.value === '自訂' ? custom.value.trim() : select.value;
 }
-[['fReleaseBy','fReleaseByCustom'], ['fFilledBy','fFilledByCustom'], ['fWarehouseConfirm','fWarehouseConfirmCustom']].forEach(([selectId, customId])=>{
+[['fReleaseBy','fReleaseByCustom'], ['fFilledBy','fFilledByCustom'], ['fWarehouseConfirm','fWarehouseConfirmCustom'], ['fPackagingStaff','fPackagingStaffCustom']].forEach(([selectId, customId])=>{
   document.getElementById(selectId).addEventListener('change', function(){
     document.getElementById(customId).style.display = (this.value === '自訂') ? '' : 'none';
     if(this.value !== '自訂') document.getElementById(customId).value = '';
   });
+});
+
+const PACKAGING_STAFF_BY_AREA = {
+  '自動包裝區': ['安娜','德迪'],
+  '大包裝區': ['陳鶯','潘秀子'],
+  '清真包裝區': ['Sonia'],
+  '醬料包裝區': ['張梅瓊','萬淑芳'],
+  '滷包包裝區': ['陳金安','湯秋香']
+};
+function populatePackagingStaffOptions(area, currentValue){
+  const select = document.getElementById('fPackagingStaff');
+  const names = PACKAGING_STAFF_BY_AREA[area] || [];
+  if(!area){
+    select.innerHTML = '<option value="">請先選擇包裝區域</option>';
+  }else{
+    select.innerHTML = '<option value="">請選擇</option>' +
+      names.map(n=>'<option value="'+escapeHtml(n)+'">'+escapeHtml(n)+'</option>').join('') +
+      '<option value="自訂">自訂</option>';
+  }
+  setPickerValue('fPackagingStaff', 'fPackagingStaffCustom', currentValue || '');
+}
+document.getElementById('fPackagingArea').addEventListener('change', function(){
+  populatePackagingStaffOptions(this.value, '');
 });
 
 function updateChecklistUI(){
@@ -1515,6 +1572,8 @@ function openSheet(order, item){
   document.getElementById('fMaterialMfgDate').value = item ? (item.materialMfgDate || '') : '';
   document.getElementById('fMaterialExpDate').value = item ? (item.materialExpDate || '') : '';
   document.getElementById('fShipMethod').value = item ? (item.shipMethod || '') : (firstItem ? (firstItem.shipMethod || '') : '');
+  document.getElementById('fPackagingArea').value = item ? (item.packagingArea || '') : '';
+  populatePackagingStaffOptions(item ? (item.packagingArea || '') : '', item ? (item.packagingStaff || '') : '');
   document.getElementById('fCoa').value = item ? (item.coa || '') : (firstItem ? (firstItem.coa || '') : '');
   document.getElementById('fCoaMoisture').value = item ? (item.coaMoisture || '') : '';
   document.getElementById('fCoaWaterActivity').value = item ? (item.coaWaterActivity || '') : '';
@@ -1572,6 +1631,8 @@ async function handleSaveOrder(){
   const materialMfgDate = document.getElementById('fMaterialMfgDate').value;
   const materialExpDate = document.getElementById('fMaterialExpDate').value;
   const shipMethod = document.getElementById('fShipMethod').value;
+  const packagingArea = document.getElementById('fPackagingArea').value;
+  const packagingStaff = getPickerValue('fPackagingStaff', 'fPackagingStaffCustom');
   const coa = document.getElementById('fCoa').value;
   const coaMoisture = document.getElementById('fCoaMoisture').value.trim();
   const coaWaterActivity = document.getElementById('fCoaWaterActivity').value.trim();
@@ -1599,6 +1660,7 @@ async function handleSaveOrder(){
     releaseBy, filledBy, warehouseConfirm,
     priority: selectedPriority,
     shipMethod,
+    packagingArea, packagingStaff,
     checklist: Object.assign({}, checklistState)
   };
 
