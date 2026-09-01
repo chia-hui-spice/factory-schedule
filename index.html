@@ -268,7 +268,7 @@
   .ship-list-qty{ font-family:var(--mono); font-size:16.5px; font-weight:700; color:var(--teal); flex:0 0 auto; }
   .ship-list-tag{ font-size:13px; font-weight:700; padding:2px 6px; border-radius:5px; background:var(--panel); border:1px solid var(--line); color:var(--ink-dim); white-space:nowrap; margin-top:4px; display:inline-block; }
   .receipt-thumb{ width:52px; height:52px; border-radius:8px; object-fit:cover; flex:0 0 52px; border:1px solid var(--line); cursor:pointer; }
-  .receipt-thumb-empty{ display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--ink-dim); background:var(--panel); text-align:center; cursor:default; }
+  .receipt-thumb-empty{ display:flex; align-items:center; justify-content:center; font-size:10px; line-height:1.3; color:var(--ink-dim); background:var(--panel); text-align:center; }
   .ship-list-empty{ font-size:15.5px; color:var(--ink-dim); padding:8px 2px 4px 2px; }
   .ship-filter-bar{ background:var(--panel-raised); border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:12px; }
 </style>
@@ -421,6 +421,15 @@
       <div class="field">
         <label>備註 / 包裝注意事項</label>
         <textarea id="fNote" placeholder="例如：全廠請務必儘速提供正確批號，以利標籤連動"></textarea>
+      </div>
+      <div class="field">
+        <label>出貨方式（可先選，之後出貨時也能改）</label>
+        <select id="fShipMethod">
+          <option value="">未定</option>
+          <option value="today">🚚 今天寄貨</option>
+          <option value="tomorrow">📦 明天送貨</option>
+          <option value="pickup">🙋 客戶自取</option>
+        </select>
       </div>
 
       <div class="field">
@@ -810,7 +819,9 @@
   <div class="sheet" style="text-align:center;">
     <div class="sheet-handle"></div>
     <img id="photoViewImg" style="max-width:100%; border-radius:10px;">
+    <input type="file" id="photoViewReplaceInput" accept="image/*" capture="environment" style="display:none;">
     <div class="sheet-actions" style="margin-top:16px;">
+      <button type="button" class="btn-secondary" id="btnReplacePhotoView" style="flex:1;">🔄 更換照片</button>
       <button type="button" class="btn-primary" id="btnClosePhotoView" style="flex:1;">關閉</button>
     </div>
   </div>
@@ -1240,7 +1251,7 @@ function renderList(){
         return;
       }
 
-      if(nextStatus === 'shipped'){
+      if(nextStatus === 'shipped' && !item.shipMethod){
         const choice = await showShipMethodChoice(order.customer + ' ・ ' + item.product);
         if(!choice) return; // 使用者取消
         item.shipMethod = choice;
@@ -1276,7 +1287,7 @@ function renderList(){
       const wasShipped = item.status === 'shipped';
       item.status = STATUS[idx-1];
       if(item.status !== 'done') delete item.completedAt;
-      if(item.status !== 'shipped'){ delete item.shippedAt; delete item.shipMethod; }
+      if(item.status !== 'shipped'){ delete item.shippedAt; }
       saveOrders(); render();
       showToast('已移至「' + STATUS_LABEL[item.status] + '」');
       if(wasLabeling && item.status === 'inprogress'){
@@ -1450,6 +1461,7 @@ function openSheet(order, item){
   document.getElementById('fMaterialBatchNo').value = item ? (item.materialBatchNo || '') : '';
   document.getElementById('fMaterialMfgDate').value = item ? (item.materialMfgDate || '') : '';
   document.getElementById('fMaterialExpDate').value = item ? (item.materialExpDate || '') : '';
+  document.getElementById('fShipMethod').value = item ? (item.shipMethod || '') : '';
   document.getElementById('fCoa').value = item ? (item.coa || '') : '';
   document.getElementById('fCoaMoisture').value = item ? (item.coaMoisture || '') : '';
   document.getElementById('fCoaWaterActivity').value = item ? (item.coaWaterActivity || '') : '';
@@ -1506,6 +1518,7 @@ async function handleSaveOrder(){
   const materialBatchNo = document.getElementById('fMaterialBatchNo').value.trim();
   const materialMfgDate = document.getElementById('fMaterialMfgDate').value;
   const materialExpDate = document.getElementById('fMaterialExpDate').value;
+  const shipMethod = document.getElementById('fShipMethod').value;
   const coa = document.getElementById('fCoa').value;
   const coaMoisture = document.getElementById('fCoaMoisture').value.trim();
   const coaWaterActivity = document.getElementById('fCoaWaterActivity').value.trim();
@@ -1532,6 +1545,7 @@ async function handleSaveOrder(){
     fillFormDate, fillFormTime,
     releaseBy, filledBy, warehouseConfirm,
     priority: selectedPriority,
+    shipMethod,
     checklist: Object.assign({}, checklistState)
   };
 
@@ -2558,6 +2572,36 @@ const photoViewOverlay = document.getElementById('photoViewOverlay');
 document.getElementById('btnClosePhotoView').onclick = ()=> photoViewOverlay.classList.remove('show');
 photoViewOverlay.onclick = (e)=>{ if(e.target === photoViewOverlay) photoViewOverlay.classList.remove('show'); };
 
+document.getElementById('btnReplacePhotoView').onclick = ()=>{
+  document.getElementById('photoViewReplaceInput').value = '';
+  document.getElementById('photoViewReplaceInput').click();
+};
+document.getElementById('photoViewReplaceInput').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file || !currentViewingReceiptId) return;
+  const r = receipts.find(x=>x.id===currentViewingReceiptId);
+  if(!r) return;
+
+  const btn = document.getElementById('btnReplacePhotoView');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '處理照片中...';
+  try{
+    const newPhotoData = await compressImageToBase64(file, 480, 0.5);
+    r.photoData = newPhotoData;
+    await saveBomData();
+    document.getElementById('photoViewImg').src = newPhotoData;
+    document.getElementById('photoViewImg').style.display = '';
+    renderReceiptList();
+    showToast('已更換照片');
+  }catch(err){
+    console.error(err);
+    showToast('照片處理失敗，請換一張照片再試一次');
+  }
+  btn.disabled = false;
+  btn.textContent = originalLabel;
+});
+
 function compressImageToBase64(file, maxWidth, quality){
   return new Promise((resolve, reject)=>{
     const img = new Image();
@@ -2667,8 +2711,8 @@ function renderReceiptList(){
   const sorted = [...receipts].sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
   listEl.innerHTML = sorted.map(r=>{
     const thumb = r.photoData
-      ? '<img src="'+r.photoData+'" class="receipt-thumb" data-photo="'+r.photoData+'">'
-      : '<div class="receipt-thumb receipt-thumb-empty">無照片</div>';
+      ? '<img src="'+r.photoData+'" class="receipt-thumb" data-photo-rid="'+r.id+'">'
+      : '<div class="receipt-thumb receipt-thumb-empty" data-photo-rid="'+r.id+'">點擊<br>補照片</div>';
     const namePrefix = r.materialCode ? escapeHtml(r.materialCode) + ' ・ ' : '';
     const pieceInfo = (r.pieces && r.spec) ? ' （'+r.pieces+'件 × '+r.spec+'）' : '';
     return '<div class="ship-list-row">' +
@@ -2678,12 +2722,20 @@ function renderReceiptList(){
       '<div class="ship-list-meta">供應商 '+escapeHtml(r.supplier||'－')+' ・ 批號 '+escapeHtml(r.batchNo||'－')+' ・ 進貨日 '+(r.receivedDate||'－')+'</div>' +
     '</div></div>';
   }).join('');
-  listEl.querySelectorAll('[data-photo]').forEach(img=>{
-    img.onclick = ()=>{
-      document.getElementById('photoViewImg').src = img.dataset.photo;
-      document.getElementById('photoViewOverlay').classList.add('show');
-    };
+  listEl.querySelectorAll('[data-photo-rid]').forEach(el=>{
+    el.style.cursor = 'pointer';
+    el.onclick = ()=> openPhotoView(el.dataset.photoRid);
   });
+}
+
+let currentViewingReceiptId = null;
+function openPhotoView(receiptId){
+  currentViewingReceiptId = receiptId;
+  const r = receipts.find(x=>x.id===receiptId);
+  const img = document.getElementById('photoViewImg');
+  img.style.display = (r && r.photoData) ? '' : 'none';
+  img.src = (r && r.photoData) ? r.photoData : '';
+  document.getElementById('photoViewOverlay').classList.add('show');
 }
 
 // ---- BOM 設定 ----
