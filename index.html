@@ -1443,6 +1443,7 @@ function openSheet(order, item){
 
   const isNewOrder = !order;
   const isNewItem = order && !item;
+  const firstItem = (isNewItem && order.items && order.items.length > 0) ? order.items[0] : null;
 
   document.getElementById('sheetTitle').textContent = isNewOrder ? '新增訂單' : (isNewItem ? '新增品項' : '編輯品項');
   document.getElementById('sheetSub').textContent = isNewOrder ? '' : ('訂單編號 ' + (order.orderNo || '') + '　客戶：' + (order.customer || ''));
@@ -1453,7 +1454,7 @@ function openSheet(order, item){
   document.getElementById('fProduct').value = item ? item.product : '';
   document.getElementById('fSpec').value = item ? (item.spec || '') : '';
   document.getElementById('fQty').value = item ? item.qty : '';
-  document.getElementById('fDue').value = item ? item.due : todayStr();
+  document.getElementById('fDue').value = item ? item.due : (firstItem ? firstItem.due : todayStr());
   document.getElementById('fOrigin').value = item ? (item.origin || '') : '';
   document.getElementById('fProductExpDate').value = item ? (item.productExpDate || '') : '';
   document.getElementById('fBatchNo').value = item ? (item.batchNo || '') : '';
@@ -1461,20 +1462,20 @@ function openSheet(order, item){
   document.getElementById('fMaterialBatchNo').value = item ? (item.materialBatchNo || '') : '';
   document.getElementById('fMaterialMfgDate').value = item ? (item.materialMfgDate || '') : '';
   document.getElementById('fMaterialExpDate').value = item ? (item.materialExpDate || '') : '';
-  document.getElementById('fShipMethod').value = item ? (item.shipMethod || '') : '';
-  document.getElementById('fCoa').value = item ? (item.coa || '') : '';
+  document.getElementById('fShipMethod').value = item ? (item.shipMethod || '') : (firstItem ? (firstItem.shipMethod || '') : '');
+  document.getElementById('fCoa').value = item ? (item.coa || '') : (firstItem ? (firstItem.coa || '') : '');
   document.getElementById('fCoaMoisture').value = item ? (item.coaMoisture || '') : '';
   document.getElementById('fCoaWaterActivity').value = item ? (item.coaWaterActivity || '') : '';
   document.getElementById('fCoaTotalPlateCount').value = item ? (item.coaTotalPlateCount || '') : '';
   document.getElementById('fCoaColiform').value = item ? (item.coaColiform || '') : '';
   document.getElementById('fCoaEcoli').value = item ? (item.coaEcoli || '') : '';
   updateCoaValuesVisibility();
-  document.getElementById('fNote').value = item ? (item.note || '') : '';
+  document.getElementById('fNote').value = item ? (item.note || '') : (firstItem ? (firstItem.note || '') : '');
   setPickerValue('fReleaseBy', 'fReleaseByCustom', item ? (item.releaseBy || '') : '');
-  setPickerValue('fFilledBy', 'fFilledByCustom', item ? (item.filledBy || '') : '');
+  setPickerValue('fFilledBy', 'fFilledByCustom', item ? (item.filledBy || '') : (firstItem ? (firstItem.filledBy || '') : ''));
   setPickerValue('fWarehouseConfirm', 'fWarehouseConfirmCustom', item ? (item.warehouseConfirm || '') : '');
 
-  selectedPriority = item ? item.priority : 'normal';
+  selectedPriority = item ? item.priority : (firstItem ? firstItem.priority : 'normal');
   updatePriorityUI();
 
   checklistState = (item && item.checklist) ? Object.assign({c1:false,c2:false,c3:false,c4:false}, item.checklist) : {c1:false,c2:false,c3:false,c4:false};
