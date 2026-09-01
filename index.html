@@ -1102,7 +1102,7 @@ function showToastSafe(msg){
 
 const STATUS = ['pending','inprogress','labeling','done','refill','boxing','shipped','qc'];
 const STATUS_LABEL = { pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'品管' };
-const STATUS_FORWARD_LABEL = { pending:'庫存確認 →', inprogress:'排程生產 →', labeling:'標籤印製 →', done:'充填包裝 →', refill:'裝箱確認 →', boxing:'出貨確認 →', shipped:'品管 →' };
+const STATUS_FORWARD_LABEL = { pending:'訂單確認完成', inprogress:'庫存確認完成', labeling:'排程生產完成', done:'標籤印製完成', refill:'充填包裝完成', boxing:'裝箱確認完成', shipped:'出貨確認完成' };
 const CHK_LABELS = { c1:'標籤品名核對', c2:'裝箱數量', c3:'包裝密封', c4:'生產/有效日期' };
 const SHIP_METHOD_LABEL = { today:'寄貨', tomorrow:'送貨', pickup:'自取' };
 const SHIP_METHOD_LABEL_WITH_ICON = { today:'🚚 寄貨', tomorrow:'📦 送貨', pickup:'🙋 自取' };
