@@ -196,6 +196,12 @@
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
   .alert-item{ background:rgba(229,84,77,0.12); border:1.5px solid var(--red); border-radius:10px; padding:10px 12px; display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .alert-dismiss-all-row{ display:flex; justify-content:flex-end; margin-bottom:6px; }
+  .alert-dismiss-all-row button{
+    background:var(--panel-raised); border:1px solid var(--line); color:var(--ink-dim);
+    font-size:12px; font-weight:700; padding:6px 12px; border-radius:20px; cursor:pointer;
+  }
+  .alert-dismiss-all-row button:active{ opacity:0.7; }
   .alert-item.tomorrow{ background:rgba(242,183,5,0.12); border-color:var(--amber); }
   .alert-item.overdue-item{ background:var(--red); border-color:var(--red); }
   .alert-item.overdue-item .alert-text{ color:#fff; }
@@ -1297,7 +1303,8 @@ function renderList(){
   const matchingOrders = orders.filter(o => (o.items||[]).some(it => !it.deleted && it.status === currentTab));
 
   if(matchingOrders.length === 0){
-    listEl.innerHTML = '<div class="empty"><div class="empty-tag">🏷️</div><p>目前「' + STATUS_LABEL[currentTab] + '」沒有品項<br>點右下角 + 新增一筆</p></div>';
+    const hint = (currentTab === 'pending') ? '<br>點右下角 + 新增一筆' : '';
+    listEl.innerHTML = '<div class="empty"><div class="empty-tag">🏷️</div><p>目前「' + STATUS_LABEL[currentTab] + '」沒有品項' + hint + '</p></div>';
     return;
   }
 
@@ -1925,6 +1932,10 @@ function renderAlertBanner(){
   }
   banner.classList.add('show');
   let html = '';
+  const dismissAllCount = overdueAlerts.length + todayAlerts.length + tomorrowAlerts.length;
+  if(dismissAllCount > 1){
+    html += '<div class="alert-dismiss-all-row"><button data-dismiss-all="1">✕ 全部關閉（' + dismissAllCount + '則出貨提醒）</button></div>';
+  }
   overdueAlerts.forEach(x=>{
     const days = Math.max(1, Math.round((new Date(todayStr()) - new Date(x.item.due)) / 86400000));
     html += '<div class="alert-item overdue-item"><div class="alert-text"><b>🚨 已逾期 ' + days + ' 天未出貨：</b>' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '（交期 ' + x.item.due + '）</div><button class="alert-jump" data-jump="' + x.item.status + '">查看</button><button data-dismiss="overdue-' + x.item.id + '">✕</button></div>';
@@ -1942,6 +1953,15 @@ function renderAlertBanner(){
   banner.querySelectorAll('[data-backup-now]').forEach(btn=> btn.onclick = exportBackup);
   banner.querySelectorAll('[data-dismiss]').forEach(btn=> btn.onclick = ()=>{ dismissedIds.add(btn.dataset.dismiss); renderAlertBanner(); });
   banner.querySelectorAll('[data-jump]').forEach(btn=> btn.onclick = ()=>{ currentTab = btn.dataset.jump; render(); });
+  const dismissAllBtn = banner.querySelector('[data-dismiss-all]');
+  if(dismissAllBtn){
+    dismissAllBtn.onclick = ()=>{
+      overdueAlerts.forEach(x=> dismissedIds.add('overdue-' + x.item.id));
+      todayAlerts.forEach(x=> dismissedIds.add('3pm-' + x.item.id));
+      tomorrowAlerts.forEach(x=> dismissedIds.add('tmrw-' + x.item.id));
+      renderAlertBanner();
+    };
+  }
 }
 
 function checkShipmentAlerts(){
