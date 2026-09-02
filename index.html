@@ -337,13 +337,11 @@
         <div class="subtitle"><span class="sync-dot"></span>共用資料・自動同步</div>
       </div>
     </div>
-    <button class="bell-btn quick-stat-btn" id="coaQuickBtn" title="需要COA的品項">📄<span class="quick-badge" id="coaQuickCount" style="display:none;">0</span></button>
-    <button class="bell-btn quick-stat-btn" id="todayRiskQuickBtn" title="今日3點未出貨的品項">⏰<span class="quick-badge todayrisk-badge" id="todayRiskQuickCount" style="display:none;">0</span></button>
     <button class="bell-btn" id="permBtn" title="權限管理" style="display:none;">🔐</button>
     <button class="bell-btn" id="bomBtn" title="進銷存管理">📦</button>
     <button class="bell-btn" id="signOutBtn" title="登出">👤</button>
     <button class="bell-btn" id="trashBtn" title="查看垃圾桶">🗑️</button>
-    <button class="bell-btn" id="reportBtn" title="查看統計報表">📊</button>
+    <button class="bell-btn quick-stat-btn" id="reportBtn" title="查看統計報表">📊<span class="quick-badge todayrisk-badge" id="reportAlertCount" style="display:none;">0</span></button>
     <button class="bell-btn" id="bellBtn" title="開啟出貨提醒通知">🔔</button>
   </div>
   <div class="alert-banner" id="alertBanner"></div>
@@ -1143,9 +1141,7 @@ const PERM_BUTTON_OPTIONS = [
   { id: 'bomBtn', label: '📦 進銷存管理' },
   { id: 'reportBtn', label: '📊 統計報表' },
   { id: 'trashBtn', label: '🗑️ 垃圾桶' },
-  { id: 'bellBtn', label: '🔔 出貨提醒通知' },
-  { id: 'coaQuickBtn', label: '📄 需要COA快速入口' },
-  { id: 'todayRiskQuickBtn', label: '⏰ 今日3點未出貨快速入口' }
+  { id: 'bellBtn', label: '🔔 出貨提醒通知' }
 ];
 let permissions = {}; // { [email]: { tabs:[...STATUS keys], buttons:[...button ids] } }
 let currentUserEmail = null;
@@ -1326,7 +1322,7 @@ function renderList(){
   const wrap = document.getElementById('orderList');
 
   matchingOrders.forEach(order=>{
-    const activeItems = (order.items||[]).filter(it=>!it.deleted);
+    const activeItems = (order.items||[]).filter(it=>!it.deleted && it.status===currentTab);
     const card = document.createElement('div');
     card.className = 'order-card';
 
@@ -1641,14 +1637,11 @@ function updateQuickStatBadges(){
   const coaFillableIdx = STATUS.indexOf('done');
   const coaCount = all.filter(x => needsCoa(x.item) && STATUS.indexOf(x.item.status) >= coaFillableIdx && !x.item.coaConfirmBy).length;
   const todayRiskCount = all.filter(x => isTodayAtRisk(x.item)).length;
+  const combinedCount = coaCount + todayRiskCount;
 
-  const coaBadge = document.getElementById('coaQuickCount');
-  coaBadge.textContent = coaCount;
-  coaBadge.style.display = coaCount > 0 ? '' : 'none';
-
-  const todayBadge = document.getElementById('todayRiskQuickCount');
-  todayBadge.textContent = todayRiskCount;
-  todayBadge.style.display = todayRiskCount > 0 ? '' : 'none';
+  const badge = document.getElementById('reportAlertCount');
+  badge.textContent = combinedCount;
+  badge.style.display = combinedCount > 0 ? '' : 'none';
 }
 
 // ---- sheet / form ----
@@ -2261,12 +2254,6 @@ function openReportWithDetail(key){
   document.querySelectorAll('.stat-card[data-detail]').forEach(c=> c.classList.toggle('active-detail', c.dataset.detail === key));
   renderStatDetail(key);
 }
-document.getElementById('coaQuickBtn').onclick = ()=>{
-  renderReport(); renderBackupInfo();
-  switchReportTab('coaPending');
-  reportOverlay.classList.add('show');
-};
-document.getElementById('todayRiskQuickBtn').onclick = ()=> openReportWithDetail('todayrisk');
 
 // ---- 備份 ----
 let backupState = null;
