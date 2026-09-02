@@ -600,6 +600,7 @@
 
     <div class="report-tabs" id="reportTabs">
       <button type="button" class="report-tab active" data-report-tab="alerts">⚠ 警示</button>
+      <button type="button" class="report-tab" data-report-tab="coaPending">📄 COA待處理</button>
       <button type="button" class="report-tab" data-report-tab="progress">📈 生產進度</button>
       <button type="button" class="report-tab" data-report-tab="shipping">🚚 出貨清單</button>
       <button type="button" class="report-tab" data-report-tab="backup">💾 備份</button>
@@ -618,6 +619,13 @@
         <div class="report-section-title" id="statDetailTitle"></div>
         <div id="statDetailList"></div>
       </div>
+    </div>
+
+    <div class="report-tab-panel" id="reportPanelCoaPending" style="display:none;">
+      <div class="report-section-title" style="margin-top:0;">📄 目前可以填寫COA的訂單（已過標籤印製，尚未確認）</div>
+      <div id="coaPendingList"></div>
+      <div class="report-section-title">✅ COA已確認完成</div>
+      <div id="coaDoneList"></div>
     </div>
 
     <div class="report-tab-panel" id="reportPanelProgress" style="display:none;">
@@ -2029,6 +2037,50 @@ function renderReport(){
   document.getElementById('statShippedWeek').textContent = s.shippedWeek;
   document.getElementById('reportUpdated').textContent = '更新時間 ' + new Date().toLocaleString('zh-TW', { hour12:false });
   renderShipLists();
+  renderCoaPendingList();
+}
+
+function renderCoaPendingList(){
+  const pendingEl = document.getElementById('coaPendingList');
+  const doneEl = document.getElementById('coaDoneList');
+  if(!pendingEl || !doneEl) return;
+
+  const all = allActiveItems();
+  const coaFillableIdx = STATUS.indexOf('done'); // 排程生產完成(標籤印製)後才算可以填
+  const relevant = all.filter(x => needsCoa(x.item) && STATUS.indexOf(x.item.status) >= coaFillableIdx);
+  const pending = relevant.filter(x => !x.item.coaConfirmBy);
+  const done = relevant.filter(x => !!x.item.coaConfirmBy);
+
+  function rowHtml(x){
+    const coaTypeTag = '<span class="ship-list-tag">' + escapeHtml(x.item.coa) + '</span>';
+    const stageTag = '<span class="ship-list-tag">' + STATUS_LABEL[x.item.status] + '</span>';
+    const confirmBit = x.item.coaConfirmBy ? ('<span class="ship-list-tag">確認人 ' + escapeHtml(x.item.coaConfirmBy) + '</span>') : '';
+    return '<div class="ship-list-row" data-jump-oid="'+x.order.id+'" data-jump-iid="'+x.item.id+'" data-jump-status="'+x.item.status+'" style="cursor:pointer;">' +
+      '<div><div class="ship-list-name">' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '</div>' +
+      '<div class="ship-list-meta">' + escapeHtml(x.order.orderNo || '') + (x.item.spec ? ' ・ ' + escapeHtml(x.item.spec) : '') + '</div>' +
+      coaTypeTag + stageTag + confirmBit +
+      '</div><div class="ship-list-qty">x' + x.item.qty + '</div></div>';
+  }
+
+  pendingEl.innerHTML = pending.length === 0
+    ? '<div class="ship-list-empty">目前沒有可以填寫的COA訂單</div>'
+    : pending.map(rowHtml).join('');
+  doneEl.innerHTML = done.length === 0
+    ? '<div class="ship-list-empty">目前還沒有已確認完成的COA</div>'
+    : done.map(rowHtml).join('');
+
+  [pendingEl, doneEl].forEach(el=>{
+    el.querySelectorAll('[data-jump-oid]').forEach(row=>{
+      row.onclick = ()=>{
+        const order = orders.find(o=>o.id===row.dataset.jumpOid);
+        const item = order && order.items.find(i=>i.id===row.dataset.jumpIid);
+        if(order && item){
+          reportOverlay.classList.remove('show');
+          openSheet(order, item);
+        }
+      };
+    });
+  });
 }
 
 function isShippedToday(item){
@@ -2111,6 +2163,7 @@ document.getElementById('shipFilterClearBtn').onclick = ()=>{
 const reportOverlay = document.getElementById('reportOverlay');
 const REPORT_PANELS = {
   alerts: 'reportPanelAlerts',
+  coaPending: 'reportPanelCoaPending',
   progress: 'reportPanelProgress',
   shipping: 'reportPanelShipping',
   backup: 'reportPanelBackup'
