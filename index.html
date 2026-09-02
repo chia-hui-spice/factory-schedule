@@ -486,7 +486,7 @@
         </select>
       </div>
 
-      <div id="stageHintQc" class="stage-hint">🔒 訂單進入「出貨確認」後才會開放品管確認（COA數值與確認人員）</div>
+      <div id="stageHintQc" class="stage-hint">🔒 訂單進入「排程生產完成」後才會開放品管確認（COA數值與確認人員）</div>
       <div id="sectionQc">
         <div class="section-label">品管確認</div>
         <div class="field" id="coaConfirmByField">
@@ -1649,7 +1649,7 @@ let selectedPriority = 'normal';
 
 function updateStageVisibility(stage){
   const showBatch = stage !== 'pending';
-  const showQc = (STATUS.indexOf(stage) >= STATUS.indexOf('shipped')); // 出貨確認或以後
+  const showQc = (STATUS.indexOf(stage) >= STATUS.indexOf('done')); // 排程生產完成(標籤印製)或以後
   const showPackaging = (STATUS.indexOf(stage) >= STATUS.indexOf('refill')); // 充填包裝或以後
   const showChecklist = (STATUS.indexOf(stage) >= STATUS.indexOf('boxing')); // 裝箱確認或以後
   document.getElementById('sectionBatch').style.display = showBatch ? '' : 'none';
