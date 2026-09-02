@@ -3386,8 +3386,7 @@ function isMobileDevice(){ return /iPhone|iPad|iPod|Android/i.test(navigator.use
 document.getElementById('googleSignInBtn').onclick = async ()=>{
   document.getElementById('loginError').style.display = 'none';
   try{
-    if(isMobileDevice()) await signInWithRedirect(auth, googleProvider);
-    else await signInWithPopup(auth, googleProvider);
+    await signInWithPopup(auth, googleProvider);
   }catch(e){ console.error(e); handleAuthError(e); }
 };
 
