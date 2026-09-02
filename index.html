@@ -638,6 +638,7 @@
         <div class="stat-card teal"><div class="stat-num" id="statShipped">0</div><div class="stat-label">已出貨</div></div>
         <div class="stat-card green"><div class="stat-num" id="statQc">0</div><div class="stat-label">品管</div></div>
         <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-label">品項總數</div></div>
+        <div class="stat-card"><div class="stat-num" id="statOrderCount">0</div><div class="stat-label">訂單總數</div></div>
       </div>
 
       <div class="report-section-title">出貨量</div>
@@ -2027,6 +2028,7 @@ function renderReport(){
   document.getElementById('statShipped').textContent = s.shipped;
   document.getElementById('statQc').textContent = s.qc;
   document.getElementById('statTotal').textContent = s.total;
+  document.getElementById('statOrderCount').textContent = orders.filter(o => (o.items||[]).some(it=>!it.deleted)).length;
   document.getElementById('statShippedToday').textContent = s.shippedToday;
   document.getElementById('statShippedWeek').textContent = s.shippedWeek;
   document.getElementById('reportUpdated').textContent = '更新時間 ' + new Date().toLocaleString('zh-TW', { hour12:false });
