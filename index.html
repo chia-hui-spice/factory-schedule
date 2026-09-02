@@ -613,7 +613,7 @@
         <div class="stat-card danger clickable" data-detail="today"><div class="stat-num" id="statToday">0</div><div class="stat-label">今日應出貨</div></div>
         <div class="stat-card amber clickable" data-detail="tomorrow"><div class="stat-num" id="statTomorrow">0</div><div class="stat-label">明日應出貨</div></div>
         <div class="stat-card clickable" data-detail="urgent"><div class="stat-num" id="statUrgent">0</div><div class="stat-label">急件進行中</div></div>
-        <div class="stat-card blue clickable" data-detail="coa"><div class="stat-num" id="statCoa">0</div><div class="stat-label">需要COA</div></div>
+        <div class="stat-card blue clickable" id="statCoaCard"><div class="stat-num" id="statCoa">0</div><div class="stat-label">需要COA</div></div>
       </div>
       <div id="statDetailPanel" style="display:none;">
         <div class="report-section-title" id="statDetailTitle"></div>
@@ -1638,7 +1638,8 @@ function render(){
 
 function updateQuickStatBadges(){
   const all = allActiveItems();
-  const coaCount = all.filter(x => needsCoa(x.item) && x.item.status !== 'shipped').length;
+  const coaFillableIdx = STATUS.indexOf('done');
+  const coaCount = all.filter(x => needsCoa(x.item) && STATUS.indexOf(x.item.status) >= coaFillableIdx && !x.item.coaConfirmBy).length;
   const todayRiskCount = all.filter(x => isTodayAtRisk(x.item)).length;
 
   const coaBadge = document.getElementById('coaQuickCount');
@@ -2000,7 +2001,7 @@ function computeStats(){
     if(isTodayAtRisk(it) || (!isShippedOrLater(it) && it.due === today)) stats.today++;
     if(isTomorrowRisk(it)) stats.tomorrow++;
     if(it.priority === 'urgent' && !isShippedOrLater(it)) stats.urgent++;
-    if(needsCoa(it) && !isShippedOrLater(it)) stats.coa++;
+    if(needsCoa(it) && STATUS.indexOf(it.status) >= STATUS.indexOf('done') && !it.coaConfirmBy) stats.coa++;
     if(it.status === 'pending') stats.pending++;
     if(it.status === 'inprogress') stats.inprogress++;
     if(it.status === 'labeling') stats.labeling++;
@@ -2196,7 +2197,6 @@ const STAT_DETAIL_CONFIG = {
   today:    { title: '⚠ 今日應出貨的品項', filter: (item)=> isTodayAtRisk(item) || (item.status !== 'shipped' && item.due === todayStr()) },
   tomorrow: { title: '⏰ 明日應出貨的品項', filter: (item)=> isTomorrowRisk(item) },
   urgent:   { title: '🔴 急件進行中的品項', filter: (item)=> item.priority === 'urgent' && item.status !== 'shipped' },
-  coa:      { title: '📄 需要COA的品項', filter: (item)=> needsCoa(item) && item.status !== 'shipped' },
   todayrisk:{ title: '⏰ 今日3點未出貨的品項', filter: (item)=> isTodayAtRisk(item) }
 };
 
@@ -2248,6 +2248,10 @@ document.querySelectorAll('.stat-card[data-detail]').forEach(card=>{
     renderStatDetail(key);
   };
 });
+document.getElementById('statCoaCard').onclick = ()=>{
+  renderReport();
+  switchReportTab('coaPending');
+};
 
 function openReportWithDetail(key){
   renderReport(); renderBackupInfo();
@@ -2257,7 +2261,11 @@ function openReportWithDetail(key){
   document.querySelectorAll('.stat-card[data-detail]').forEach(c=> c.classList.toggle('active-detail', c.dataset.detail === key));
   renderStatDetail(key);
 }
-document.getElementById('coaQuickBtn').onclick = ()=> openReportWithDetail('coa');
+document.getElementById('coaQuickBtn').onclick = ()=>{
+  renderReport(); renderBackupInfo();
+  switchReportTab('coaPending');
+  reportOverlay.classList.add('show');
+};
 document.getElementById('todayRiskQuickBtn').onclick = ()=> openReportWithDetail('todayrisk');
 
 // ---- 備份 ----
