@@ -2213,16 +2213,20 @@ function renderStatDetail(key){
   }else{
     listEl.innerHTML = matched.map(x=>{
       const badge = '<span class="ship-list-tag">' + STATUS_LABEL[x.item.status] + '</span>';
-      return '<div class="ship-list-row" data-jump-oid="'+x.order.id+'" data-jump-status="'+x.item.status+'" style="cursor:pointer;">' +
+      return '<div class="ship-list-row" data-jump-oid="'+x.order.id+'" data-jump-iid="'+x.item.id+'" style="cursor:pointer;">' +
         '<div><div class="ship-list-name">' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '</div>' +
         '<div class="ship-list-meta">' + escapeHtml(x.order.orderNo || '') + (x.item.spec ? ' ・ ' + escapeHtml(x.item.spec) : '') + ' ・ 出貨日 ' + x.item.due + '</div>' +
         badge + '</div><div class="ship-list-qty">x' + x.item.qty + '</div></div>';
     }).join('');
     listEl.querySelectorAll('[data-jump-oid]').forEach(row=>{
       row.onclick = ()=>{
-        currentTab = row.dataset.jumpStatus;
+        const order = orders.find(o=>o.id===row.dataset.jumpOid);
+        const item = order && order.items.find(i=>i.id===row.dataset.jumpIid);
+        if(!order || !item) return;
+        currentTab = item.status;
         render();
         reportOverlay.classList.remove('show');
+        openSheet(order, item);
       };
     });
   }
