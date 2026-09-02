@@ -601,6 +601,7 @@
       <button type="button" class="report-tab" data-report-tab="coaPending">📄 COA待處理</button>
       <button type="button" class="report-tab" data-report-tab="progress">📈 生產進度</button>
       <button type="button" class="report-tab" data-report-tab="shipping">🚚 出貨清單</button>
+      <button type="button" class="report-tab" data-report-tab="search">🔍 訂單查詢</button>
       <button type="button" class="report-tab" data-report-tab="backup">💾 備份</button>
     </div>
 
@@ -683,6 +684,24 @@
         <button type="button" class="split-btn" id="shipFilterClearBtn" style="margin-top:10px;">清除篩選</button>
       </div>
       <div id="shippedAllList"></div>
+    </div>
+
+    <div class="report-tab-panel" id="reportPanelSearch" style="display:none;">
+      <div class="report-section-title" style="margin-top:0;">🔍 依填寫日期查詢訂單</div>
+      <div class="ship-filter-bar">
+        <div class="row2" style="margin-bottom:8px;">
+          <div class="field" style="margin-bottom:0;">
+            <label>填寫日期</label>
+            <input type="date" id="searchFillDate">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>客戶（可留空）</label>
+            <input type="text" id="searchCustomer" placeholder="輸入客戶名稱關鍵字">
+          </div>
+        </div>
+        <button type="button" class="split-btn" id="searchClearBtn" style="margin-top:10px;">清除搜尋</button>
+      </div>
+      <div id="orderSearchList"></div>
     </div>
 
     <div class="report-tab-panel" id="reportPanelBackup" style="display:none;">
@@ -2034,6 +2053,7 @@ function renderReport(){
   document.getElementById('reportUpdated').textContent = '更新時間 ' + new Date().toLocaleString('zh-TW', { hour12:false });
   renderShipLists();
   renderCoaPendingList();
+  renderOrderSearchList();
 }
 
 function renderCoaPendingList(){
@@ -2078,6 +2098,61 @@ function renderCoaPendingList(){
     });
   });
 }
+
+function renderOrderSearchList(){
+  const listEl = document.getElementById('orderSearchList');
+  if(!listEl) return;
+
+  const fillDate = document.getElementById('searchFillDate').value;
+  const customerKeyword = document.getElementById('searchCustomer').value.trim().toLowerCase();
+
+  if(!fillDate && !customerKeyword){
+    listEl.innerHTML = '<div class="ship-list-empty">請輸入填寫日期或客戶名稱開始查詢</div>';
+    return;
+  }
+
+  let results = allActiveItems();
+  if(fillDate){
+    results = results.filter(x => x.item.fillFormDate === fillDate);
+  }
+  if(customerKeyword){
+    results = results.filter(x => (x.order.customer || '').toLowerCase().includes(customerKeyword));
+  }
+  results.sort((a,b)=> (a.item.fillFormDate||'').localeCompare(b.item.fillFormDate||''));
+
+  if(results.length === 0){
+    listEl.innerHTML = '<div class="ship-list-empty">沒有符合條件的訂單</div>';
+    return;
+  }
+
+  listEl.innerHTML = results.map(x=>{
+    const stageTag = '<span class="ship-list-tag">' + STATUS_LABEL[x.item.status] + '</span>';
+    const dateTag = x.item.fillFormDate ? ('<span class="ship-list-tag">填寫日期 ' + x.item.fillFormDate + '</span>') : '';
+    return '<div class="ship-list-row" data-jump-oid="'+x.order.id+'" data-jump-iid="'+x.item.id+'" style="cursor:pointer;">' +
+      '<div><div class="ship-list-name">' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '</div>' +
+      '<div class="ship-list-meta">' + escapeHtml(x.order.orderNo || '') + (x.item.spec ? ' ・ ' + escapeHtml(x.item.spec) : '') + '</div>' +
+      stageTag + dateTag +
+      '</div><div class="ship-list-qty">x' + x.item.qty + '</div></div>';
+  }).join('');
+
+  listEl.querySelectorAll('[data-jump-oid]').forEach(row=>{
+    row.onclick = ()=>{
+      const order = orders.find(o=>o.id===row.dataset.jumpOid);
+      const item = order && order.items.find(i=>i.id===row.dataset.jumpIid);
+      if(order && item){
+        reportOverlay.classList.remove('show');
+        openSheet(order, item);
+      }
+    };
+  });
+}
+document.getElementById('searchFillDate').addEventListener('input', renderOrderSearchList);
+document.getElementById('searchCustomer').addEventListener('input', renderOrderSearchList);
+document.getElementById('searchClearBtn').onclick = ()=>{
+  document.getElementById('searchFillDate').value = '';
+  document.getElementById('searchCustomer').value = '';
+  renderOrderSearchList();
+};
 
 function isShippedToday(item){
   if(!item.shippedAt) return false;
@@ -2162,6 +2237,7 @@ const REPORT_PANELS = {
   coaPending: 'reportPanelCoaPending',
   progress: 'reportPanelProgress',
   shipping: 'reportPanelShipping',
+  search: 'reportPanelSearch',
   backup: 'reportPanelBackup'
 };
 function switchReportTab(key){
