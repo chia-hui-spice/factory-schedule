@@ -115,6 +115,11 @@
   .stock-info-row b.need{ color:var(--red); }
   .stock-info-row b.enough{ color:var(--teal); }
   .stock-info-edit{ margin-left:auto; font-size:11.5px; color:var(--amber); white-space:nowrap; }
+  .coa-notice-row{
+    font-size:13px; color:var(--ink); background:rgba(242,183,5,0.12); border:1.5px solid var(--amber);
+    border-radius:7px; padding:8px 10px; margin-bottom:8px; line-height:1.5;
+  }
+  .coa-notice-row b{ color:var(--amber); }
   .meta-item{ font-size:14.5px; color:var(--ink-dim); }
   .meta-item b{ color:var(--ink); font-family:var(--mono); font-weight:700; }
 
@@ -1373,10 +1378,16 @@ function renderList(){
           '<span class="stock-info-edit">✎ 點擊修改庫存</span></div>' + fastTrackBtn;
       }
 
+      let coaNoticeHtml = '';
+      if(item.status === 'labeling' && needsCoa(item)){
+        coaNoticeHtml = '<div class="coa-notice-row">📄 此訂單客戶<b>需要COA</b>' + (item.coa === '需要(Email)' ? '（Email寄送）' : '（隨貨附）') + '，出貨確認後將進入品管抽樣確認</div>';
+      }
+
       itemsHtml += '<div class="item-row pri-' + item.priority + (overdue ? ' overdue' : '') + '">' +
         '<div class="item-top"><div><div class="item-product">' + escapeHtml(item.product) + (item.spec ? '<span class="item-spec"> ・ ' + escapeHtml(item.spec) + '</span>' : '') + '</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">' + badges + '</div></div>' +
         '<div class="item-meta">' + metaBits.join('') + '</div>' +
         stockInfoHtml +
+        coaNoticeHtml +
         '<div class="checklist-row">' + chkHtml + '</div>' +
         (item.note ? '<div class="item-note">' + escapeHtml(item.note) + '</div>' : '') +
         '<div class="item-actions">' + actionsHtml + '</div>' +
@@ -1605,7 +1616,10 @@ function renderList(){
   });
 }
 
-function render(){ renderTabs(); renderList(); renderAlertBanner(); updateQuickStatBadges(); }
+function render(){
+  renderTabs(); renderList(); renderAlertBanner(); updateQuickStatBadges();
+  document.getElementById('fabAdd').style.display = (currentTab === 'pending') ? '' : 'none';
+}
 
 function updateQuickStatBadges(){
   const all = allActiveItems();
