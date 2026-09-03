@@ -409,7 +409,16 @@
       </div>
       <div class="field">
         <label>產地</label>
-        <input type="text" id="fOrigin" placeholder="產地">
+        <select id="fOrigin">
+          <option value="">請選擇</option>
+          <option value="台灣TW">台灣 TW</option>
+          <option value="中國">中國 CN</option>
+          <option value="印度">印度 IN</option>
+          <option value="巴基斯坦">巴基斯坦 PK</option>
+          <option value="摩洛哥">摩洛哥 MA</option>
+          <option value="自訂">自訂</option>
+        </select>
+        <input type="text" id="fOriginCustom" placeholder="輸入產地" style="margin-top:8px; display:none;">
       </div>
 
       <div id="stageHintBatch" class="stage-hint">🔒 訂單進入「庫存確認」後才會開放填寫生產批號、包材批號等欄位</div>
@@ -1753,7 +1762,7 @@ function getPickerValue(selectId, customId){
   const custom = document.getElementById(customId);
   return select.value === '自訂' ? custom.value.trim() : select.value;
 }
-[['fReleaseBy','fReleaseByCustom'], ['fFilledBy','fFilledByCustom'], ['fWarehouseConfirm','fWarehouseConfirmCustom'], ['fPackagingStaff','fPackagingStaffCustom'], ['fCoaConfirmBy','fCoaConfirmByCustom']].forEach(([selectId, customId])=>{
+[['fReleaseBy','fReleaseByCustom'], ['fFilledBy','fFilledByCustom'], ['fWarehouseConfirm','fWarehouseConfirmCustom'], ['fPackagingStaff','fPackagingStaffCustom'], ['fCoaConfirmBy','fCoaConfirmByCustom'], ['fOrigin','fOriginCustom']].forEach(([selectId, customId])=>{
   document.getElementById(selectId).addEventListener('change', function(){
     document.getElementById(customId).style.display = (this.value === '自訂') ? '' : 'none';
     if(this.value !== '自訂') document.getElementById(customId).value = '';
@@ -1816,7 +1825,7 @@ function openSheet(order, item){
   document.getElementById('fSpec').value = item ? (item.spec || '') : '';
   document.getElementById('fQty').value = item ? item.qty : '';
   document.getElementById('fDue').value = item ? item.due : (firstItem ? firstItem.due : todayStr());
-  document.getElementById('fOrigin').value = item ? (item.origin || '') : '';
+  setPickerValue('fOrigin', 'fOriginCustom', item ? (item.origin || '') : '');
   document.getElementById('fProductExpDate').value = item ? (item.productExpDate || '') : '';
   document.getElementById('fBatchNo').value = item ? (item.batchNo || '') : '';
   document.getElementById('fTrayBatchNo').value = item ? (item.trayBatchNo || '') : '';
@@ -1876,7 +1885,7 @@ async function handleSaveOrder(){
   const spec = document.getElementById('fSpec').value.trim();
   const qty = parseInt(document.getElementById('fQty').value, 10);
   const due = document.getElementById('fDue').value;
-  const origin = document.getElementById('fOrigin').value.trim();
+  const origin = getPickerValue('fOrigin', 'fOriginCustom');
   const productExpDate = document.getElementById('fProductExpDate').value;
   const batchNo = document.getElementById('fBatchNo').value.trim();
   const trayBatchNo = document.getElementById('fTrayBatchNo').value.trim();
