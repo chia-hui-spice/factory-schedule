@@ -301,6 +301,7 @@
   .badge.ship-tomorrow{ background:var(--panel); border:1px solid var(--teal); color:var(--teal); }
   .badge.ship-pickup{ background:var(--panel); border:1px solid var(--purple); color:var(--purple); }
   .badge.coa-badge{ background:var(--panel); border:1px solid var(--blue); color:var(--blue); }
+  .badge.split-origin-badge{ background:var(--panel); border:1px solid var(--purple); color:var(--purple); cursor:pointer; }
 
   .ship-list-row{
     background:var(--panel-raised); border:1px solid var(--line); border-radius:8px;
@@ -956,7 +957,7 @@
     </div>
     <div class="field">
       <label>標籤照片 <span style="color:var(--red);">*</span></label>
-      <input type="file" id="mrPhoto" accept="image/*" capture="environment">
+      <input type="file" id="mrPhoto" accept="image/*">
       <div id="mrPhotoPreview" style="margin-top:8px; display:none;">
         <img id="mrPhotoPreviewImg" style="max-width:100%; border-radius:8px; border:1px solid var(--line); margin-bottom:8px;">
         <button type="button" class="split-btn" id="btnChangePhoto">🔄 更換照片</button>
@@ -973,7 +974,7 @@
   <div class="sheet" style="text-align:center;">
     <div class="sheet-handle"></div>
     <img id="photoViewImg" style="max-width:100%; border-radius:10px;">
-    <input type="file" id="photoViewReplaceInput" accept="image/*" capture="environment" style="display:none;">
+    <input type="file" id="photoViewReplaceInput" accept="image/*" style="display:none;">
     <div class="sheet-actions" style="margin-top:16px;">
       <button type="button" class="btn-secondary" id="btnReplacePhotoView" style="flex:1;">🔄 更換照片</button>
       <button type="button" class="btn-primary" id="btnClosePhotoView" style="flex:1;">關閉</button>
@@ -1139,7 +1140,7 @@ function showToastSafe(msg){
 
 const STATUS = ['pending','inprogress','labeling','done','refill','boxing','shipped','qc'];
 const STATUS_LABEL = { pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'品管' };
-const STATUS_FORWARD_LABEL = { pending:'訂單確認完成', inprogress:'庫存確認完成', labeling:'排程生產完成', done:'標籤印製完成', refill:'充填包裝完成', boxing:'裝箱確認完成', shipped:'出貨確認完成' };
+const STATUS_FORWARD_LABEL = { pending:'訂單確認完成', inprogress:'庫存確認無庫存請生產', labeling:'排程生產完成', done:'標籤印製完成', refill:'充填包裝完成', boxing:'裝箱確認完成', shipped:'出貨確認完成' };
 const CHK_LABELS = { c1:'標籤品名核對', c2:'裝箱數量', c3:'包裝密封', c4:'生產/有效日期' };
 const SHIP_METHOD_LABEL = { today:'寄貨', tomorrow:'送貨', pickup:'自取' };
 const SHIP_METHOD_LABEL_WITH_ICON = { today:'🚚 寄貨', tomorrow:'📦 送貨', pickup:'🙋 自取' };
@@ -1207,8 +1208,24 @@ function showConfirm(message, title){
   const overlay = document.getElementById('confirmOverlay');
   document.getElementById('confirmTitle').textContent = title || '確定嗎？';
   document.getElementById('confirmMessage').textContent = message;
+  document.getElementById('confirmCancelBtn').style.display = '';
   overlay.classList.add('show');
   return new Promise((resolve)=>{ confirmResolver = resolve; });
+}
+function showAlert(message, title){
+  const overlay = document.getElementById('confirmOverlay');
+  document.getElementById('confirmTitle').textContent = title || '提示';
+  document.getElementById('confirmMessage').textContent = message;
+  document.getElementById('confirmMessage').style.whiteSpace = 'pre-line';
+  document.getElementById('confirmCancelBtn').style.display = 'none';
+  overlay.classList.add('show');
+  return new Promise((resolve)=>{
+    confirmResolver = (result)=>{
+      document.getElementById('confirmCancelBtn').style.display = '';
+      document.getElementById('confirmMessage').style.whiteSpace = '';
+      resolve(result);
+    };
+  });
 }
 function closeConfirm(result){
   document.getElementById('confirmOverlay').classList.remove('show');
@@ -1362,6 +1379,9 @@ function renderList(){
       }
       if(item.shipMethod){
         badges += '<span class="badge ship-' + item.shipMethod + '">' + shipMethodFullLabel(item) + '</span>';
+      }
+      if(item.originalQty && item.originalQty !== item.qty){
+        badges += '<span class="badge split-origin-badge" data-split-group="'+escapeHtml(item.splitGroupId||'')+'" data-oid="'+order.id+'">🔗 原訂購共' + item.originalQty + '</span>';
       }
 
       const idx = STATUS.indexOf(item.status);
@@ -1542,6 +1562,17 @@ function renderList(){
       if(order && item) openSheet(order, item);
     };
   });
+  wrap.querySelectorAll('[data-split-group]').forEach(badge=>{
+    badge.onclick = (e)=>{
+      e.stopPropagation();
+      const order = orders.find(o=>o.id === badge.dataset.oid);
+      const groupId = badge.dataset.splitGroup;
+      if(!order || !groupId) return;
+      const siblings = order.items.filter(i=>!i.deleted && i.splitGroupId === groupId);
+      const lines = siblings.map(i=> '・ ' + i.qty + ' → 目前「' + STATUS_LABEL[i.status] + '」').join('\n');
+      showAlert('這張品項是從同一筆訂單拆分出來的，相關品項：\n\n' + lines);
+    };
+  });
   wrap.querySelectorAll('[data-stock-product]').forEach(row=>{
     row.onclick = ()=>{
       const productName = row.dataset.stockProduct;
@@ -1581,9 +1612,13 @@ function renderList(){
         item.stockPreDeducted = true;
         showToast('已直接送去裝箱確認');
       }else{
+        const originalTotal = item.originalQty || item.qty;
+        const splitGroupId = item.splitGroupId || ('sg_' + Date.now() + '_' + Math.random().toString(36).slice(2,7));
         const newItem = Object.assign({}, item, {
           id: 'i_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
           qty: fulfillQty,
+          originalQty: originalTotal,
+          splitGroupId: splitGroupId,
           status: 'boxing',
           stockPreDeducted: true,
           releaseBy: '', warehouseConfirm: '', checklist: {c1:false,c2:false,c3:false,c4:false},
@@ -1592,6 +1627,8 @@ function renderList(){
         });
         order.items.push(newItem);
         item.qty = item.qty - fulfillQty;
+        item.originalQty = originalTotal;
+        item.splitGroupId = splitGroupId;
         showToast('已拆出 ' + fulfillQty + ' ' + (fg.unit||'') + ' 直接送去裝箱確認，剩下 ' + item.qty + ' 留在庫存確認繼續生產');
       }
 
@@ -1629,9 +1666,13 @@ function renderList(){
         showToast('拆分數量必須介於 1 到 ' + (item.qty - 1) + ' 之間');
         return;
       }
+      const originalTotal = item.originalQty || item.qty;
+      const splitGroupId = item.splitGroupId || ('sg_' + Date.now() + '_' + Math.random().toString(36).slice(2,7));
       const newItem = Object.assign({}, item, {
         id: 'i_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
         qty: splitQty,
+        originalQty: originalTotal,
+        splitGroupId: splitGroupId,
         status: 'pending',
         batchNo: '', trayBatchNo: '', materialBatchNo: '', materialMfgDate: '', materialExpDate: '', productExpDate: '',
         checklist: { c1:false, c2:false, c3:false, c4:false },
@@ -1640,6 +1681,8 @@ function renderList(){
       });
       delete newItem.shipMethod; delete newItem.shippedAt; delete newItem.completedAt; delete newItem.deletedAt;
       item.qty = item.qty - splitQty;
+      item.originalQty = originalTotal;
+      item.splitGroupId = splitGroupId;
       order.items.push(newItem);
       await saveOrders(); render();
       showToast('已拆分出 ' + splitQty + ' 件為新品項');
@@ -3162,6 +3205,7 @@ document.getElementById('btnReplacePhotoView').onclick = ()=>{
 document.getElementById('photoViewReplaceInput').addEventListener('change', async (e)=>{
   const file = e.target.files[0];
   if(!file || !currentViewingReceiptId) return;
+  if(!checkPhotoFileSize(file)){ e.target.value = ''; return; }
   const r = receipts.find(x=>x.id===currentViewingReceiptId);
   if(!r) return;
 
@@ -3210,6 +3254,15 @@ function compressImageToBase64(file, maxWidth, quality){
   });
 }
 
+const MAX_PHOTO_FILE_SIZE = 20 * 1024 * 1024; // 20MB，避免手機高畫質原始照片讓瀏覽器處理不動
+function checkPhotoFileSize(file){
+  if(file && file.size > MAX_PHOTO_FILE_SIZE){
+    showToast('這張照片檔案太大了（超過20MB），請換一張較小的照片，或用「拍照」重新拍一張');
+    return false;
+  }
+  return true;
+}
+
 function refreshPhotoPreview(file){
   const preview = document.getElementById('mrPhotoPreview');
   const img = document.getElementById('mrPhotoPreviewImg');
@@ -3219,7 +3272,13 @@ function refreshPhotoPreview(file){
   preview.style.display = '';
 }
 document.getElementById('mrPhoto').addEventListener('change', (e)=>{
-  refreshPhotoPreview(e.target.files[0]);
+  const file = e.target.files[0];
+  if(file && !checkPhotoFileSize(file)){
+    e.target.value = '';
+    document.getElementById('mrPhotoPreview').style.display = 'none';
+    return;
+  }
+  refreshPhotoPreview(file);
 });
 document.getElementById('btnChangePhoto').onclick = ()=>{
   document.getElementById('mrPhoto').value = '';
