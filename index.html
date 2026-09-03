@@ -170,6 +170,12 @@
   .field{ margin-bottom:14px; }
   .field label{ display:block; font-size:15.5px; color:var(--ink-dim); margin-bottom:6px; font-weight:600; }
   .field input, .field select, .field textarea{ width:100%; background:var(--panel-raised); border:1.5px solid var(--line); border-radius:8px; padding:11px 12px; color:var(--ink); font-size:18.5px; font-family:var(--sans); }
+  .flex-date-wrap{ display:flex; gap:8px; }
+  .flex-date-wrap input{ flex:1; }
+  .flex-date-btn{
+    flex:0 0 46px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel-raised);
+    font-size:19px; cursor:pointer; color:var(--ink);
+  }
   .field input:focus, .field select:focus, .field textarea:focus{ outline:2px solid var(--amber); border-color:var(--amber); }
   .field textarea{ resize:vertical; min-height:60px; }
   .row2{ display:flex; gap:10px; }
@@ -369,7 +375,11 @@
       <div class="row3">
         <div class="field">
           <label>填寫日期</label>
-          <input type="date" id="fFillFormDate">
+          <div class="flex-date-wrap">
+            <input type="text" id="fFillFormDate" placeholder="YYYY/MM/DD" inputmode="numeric">
+            <button type="button" class="flex-date-btn" data-native="fFillFormDate_native">📅</button>
+          </div>
+          <input type="date" id="fFillFormDate_native" style="display:none;">
         </div>
         <div class="field">
           <label>填寫時間</label>
@@ -427,17 +437,33 @@
         <div class="row2">
           <div class="field">
             <label>產品製造日期</label>
-            <input type="date" id="fProductMfgDate">
+            <div class="flex-date-wrap">
+              <input type="text" id="fProductMfgDate" placeholder="YYYY/MM/DD" inputmode="numeric">
+              <button type="button" class="flex-date-btn" data-native="fProductMfgDate_native">📅</button>
+            </div>
+            <input type="date" id="fProductMfgDate_native" style="display:none;">
           </div>
           <div class="field">
-            <label>包裝日期（月日4碼，例如 0103）</label>
-            <input type="text" id="fPackagingDate" placeholder="例如 0103" maxlength="4" inputmode="numeric" pattern="[0-9]{4}">
+            <label>包裝日期（選月/日，自動組成4碼）</label>
+            <div style="display:flex; gap:8px;">
+              <select id="fPackagingMonth" style="flex:1;">
+                <option value="">月</option>
+              </select>
+              <select id="fPackagingDay" style="flex:1;">
+                <option value="">日</option>
+              </select>
+            </div>
+            <input type="hidden" id="fPackagingDate">
           </div>
         </div>
         <div class="row2">
           <div class="field">
             <label>產品有效日期</label>
-            <input type="date" id="fProductExpDate">
+            <div class="flex-date-wrap">
+              <input type="text" id="fProductExpDate" placeholder="YYYY/MM/DD" inputmode="numeric">
+              <button type="button" class="flex-date-btn" data-native="fProductExpDate_native">📅</button>
+            </div>
+            <input type="date" id="fProductExpDate_native" style="display:none;">
           </div>
           <div class="field">
             <label>包材批號</label>
@@ -453,11 +479,19 @@
         <div class="row2">
           <div class="field">
             <label>原料製造日期</label>
-            <input type="date" id="fMaterialMfgDate">
+            <div class="flex-date-wrap">
+              <input type="text" id="fMaterialMfgDate" placeholder="YYYY/MM/DD" inputmode="numeric">
+              <button type="button" class="flex-date-btn" data-native="fMaterialMfgDate_native">📅</button>
+            </div>
+            <input type="date" id="fMaterialMfgDate_native" style="display:none;">
           </div>
           <div class="field">
             <label>原料有效日期</label>
-            <input type="date" id="fMaterialExpDate">
+            <div class="flex-date-wrap">
+              <input type="text" id="fMaterialExpDate" placeholder="YYYY/MM/DD" inputmode="numeric">
+              <button type="button" class="flex-date-btn" data-native="fMaterialExpDate_native">📅</button>
+            </div>
+            <input type="date" id="fMaterialExpDate_native" style="display:none;">
           </div>
         </div>
       </div>
@@ -477,7 +511,11 @@
       <div class="row2">
         <div class="field">
           <label>預計需求出貨日期</label>
-          <input type="date" id="fDue" required>
+          <div class="flex-date-wrap">
+            <input type="text" id="fDue" placeholder="YYYY/MM/DD" inputmode="numeric" required>
+            <button type="button" class="flex-date-btn" data-native="fDue_native">📅</button>
+          </div>
+          <input type="date" id="fDue_native" style="display:none;">
         </div>
         <div class="field">
           <label>出貨方式（可先選，之後也能改）</label>
@@ -1751,9 +1789,92 @@ function updateCoaValuesVisibility(){
   document.getElementById('noCoaNeededHint').style.display = show ? 'none' : '';
 }
 document.getElementById('fCoa').addEventListener('change', updateCoaValuesVisibility);
-document.getElementById('fPackagingDate').addEventListener('input', function(){
-  this.value = this.value.replace(/[^0-9]/g, '').slice(0, 4);
-});
+
+// ---- 包裝日期：月/日下拉選單 ----
+(function initPackagingDateSelects(){
+  const monthSel = document.getElementById('fPackagingMonth');
+  const daySel = document.getElementById('fPackagingDay');
+  for(let m=1; m<=12; m++){
+    const v = String(m).padStart(2,'0');
+    monthSel.innerHTML += '<option value="'+v+'">'+m+'月</option>';
+  }
+  for(let d=1; d<=31; d++){
+    const v = String(d).padStart(2,'0');
+    daySel.innerHTML += '<option value="'+v+'">'+d+'日</option>';
+  }
+  function syncHidden(){
+    const m = monthSel.value, d = daySel.value;
+    document.getElementById('fPackagingDate').value = (m && d) ? (m + d) : '';
+  }
+  monthSel.addEventListener('change', syncHidden);
+  daySel.addEventListener('change', syncHidden);
+})();
+function setPackagingDateSelects(value){
+  const monthSel = document.getElementById('fPackagingMonth');
+  const daySel = document.getElementById('fPackagingDay');
+  if(value && value.length === 4){
+    monthSel.value = value.slice(0,2);
+    daySel.value = value.slice(2,4);
+  }else{
+    monthSel.value = '';
+    daySel.value = '';
+  }
+  document.getElementById('fPackagingDate').value = value || '';
+}
+
+// ---- 彈性日期輸入：可打字(YYYY/MM/DD)也可用日期選擇器 ----
+function setupFlexDate(textId){
+  const text = document.getElementById(textId);
+  const native = document.getElementById(textId + '_native');
+  const btn = document.querySelector('[data-native="'+textId+'_native"]');
+  if(!text || !native) return;
+
+  text.addEventListener('input', function(){
+    let digits = this.value.replace(/[^\d]/g, '').slice(0,8);
+    let out = digits;
+    if(digits.length > 4) out = digits.slice(0,4) + '/' + digits.slice(4,6) + (digits.length > 6 ? '/' + digits.slice(6,8) : '');
+    this.value = out;
+    if(digits.length === 8){
+      native.value = digits.slice(0,4) + '-' + digits.slice(4,6) + '-' + digits.slice(6,8);
+    }else{
+      native.value = '';
+    }
+  });
+  native.addEventListener('change', function(){
+    if(this.value){
+      const parts = this.value.split('-');
+      text.value = parts[0] + '/' + parts[1] + '/' + parts[2];
+    }
+  });
+  if(btn){
+    btn.onclick = ()=>{
+      if(native.showPicker){ native.showPicker(); }
+      else{ native.focus(); native.click(); }
+    };
+  }
+}
+function getFlexDateValue(textId){
+  const native = document.getElementById(textId + '_native');
+  if(native && native.value) return native.value;
+  const text = document.getElementById(textId);
+  const digits = (text && text.value || '').replace(/[^\d]/g, '');
+  if(digits.length === 8) return digits.slice(0,4) + '-' + digits.slice(4,6) + '-' + digits.slice(6,8);
+  return '';
+}
+function setFlexDateValue(textId, value){
+  const text = document.getElementById(textId);
+  const native = document.getElementById(textId + '_native');
+  if(!text || !native) return;
+  if(value){
+    const parts = value.split('-');
+    text.value = parts[0] + '/' + parts[1] + '/' + parts[2];
+    native.value = value;
+  }else{
+    text.value = '';
+    native.value = '';
+  }
+}
+['fFillFormDate','fDue','fProductMfgDate','fProductExpDate','fMaterialMfgDate','fMaterialExpDate'].forEach(setupFlexDate);
 
 function setPickerValue(selectId, customId, value){
   const select = document.getElementById(selectId);
@@ -1829,20 +1950,20 @@ function openSheet(order, item){
   document.getElementById('sheetSub').textContent = isNewOrder ? '' : ('訂單編號 ' + (order.orderNo || '') + '　客戶：' + (order.customer || ''));
 
   document.getElementById('fCustomer').value = order ? (order.customer || '') : '';
-  document.getElementById('fFillFormDate').value = item ? (item.fillFormDate || todayStr()) : todayStr();
+  setFlexDateValue('fFillFormDate', item ? (item.fillFormDate || todayStr()) : todayStr());
   document.getElementById('fFillFormTime').value = item ? (item.fillFormTime || nowTimeStr()) : nowTimeStr();
   document.getElementById('fProduct').value = item ? item.product : '';
   document.getElementById('fSpec').value = item ? (item.spec || '') : '';
   document.getElementById('fQty').value = item ? item.qty : '';
-  document.getElementById('fDue').value = item ? item.due : (firstItem ? firstItem.due : todayStr());
+  setFlexDateValue('fDue', item ? item.due : (firstItem ? firstItem.due : todayStr()));
   setPickerValue('fOrigin', 'fOriginCustom', item ? (item.origin || '') : '');
-  document.getElementById('fProductExpDate').value = item ? (item.productExpDate || '') : '';
-  document.getElementById('fProductMfgDate').value = item ? (item.productMfgDate || '') : '';
-  document.getElementById('fPackagingDate').value = item ? (item.packagingDate || '') : '';
+  setFlexDateValue('fProductExpDate', item ? (item.productExpDate || '') : '');
+  setFlexDateValue('fProductMfgDate', item ? (item.productMfgDate || '') : '');
+  setPackagingDateSelects(item ? (item.packagingDate || '') : '');
   document.getElementById('fTrayBatchNo').value = item ? (item.trayBatchNo || '') : '';
   document.getElementById('fMaterialBatchNo').value = item ? (item.materialBatchNo || '') : '';
-  document.getElementById('fMaterialMfgDate').value = item ? (item.materialMfgDate || '') : '';
-  document.getElementById('fMaterialExpDate').value = item ? (item.materialExpDate || '') : '';
+  setFlexDateValue('fMaterialMfgDate', item ? (item.materialMfgDate || '') : '');
+  setFlexDateValue('fMaterialExpDate', item ? (item.materialExpDate || '') : '');
   document.getElementById('fShipMethod').value = item ? (item.shipMethod || '') : (firstItem ? (firstItem.shipMethod || '') : '');
   document.getElementById('fPackagingArea').value = item ? (item.packagingArea || '') : '';
   populatePackagingStaffOptions(item ? (item.packagingArea || '') : '', item ? (item.packagingStaff || '') : '');
@@ -1895,15 +2016,15 @@ async function handleSaveOrder(){
   const product = document.getElementById('fProduct').value.trim();
   const spec = document.getElementById('fSpec').value.trim();
   const qty = parseInt(document.getElementById('fQty').value, 10);
-  const due = document.getElementById('fDue').value;
+  const due = getFlexDateValue('fDue');
   const origin = getPickerValue('fOrigin', 'fOriginCustom');
-  const productExpDate = document.getElementById('fProductExpDate').value;
-  const productMfgDate = document.getElementById('fProductMfgDate').value;
+  const productExpDate = getFlexDateValue('fProductExpDate');
+  const productMfgDate = getFlexDateValue('fProductMfgDate');
   const packagingDate = document.getElementById('fPackagingDate').value.trim();
   const trayBatchNo = document.getElementById('fTrayBatchNo').value.trim();
   const materialBatchNo = document.getElementById('fMaterialBatchNo').value.trim();
-  const materialMfgDate = document.getElementById('fMaterialMfgDate').value;
-  const materialExpDate = document.getElementById('fMaterialExpDate').value;
+  const materialMfgDate = getFlexDateValue('fMaterialMfgDate');
+  const materialExpDate = getFlexDateValue('fMaterialExpDate');
   const shipMethod = document.getElementById('fShipMethod').value;
   const packagingArea = document.getElementById('fPackagingArea').value;
   const packagingStaff = getPickerValue('fPackagingStaff', 'fPackagingStaffCustom');
@@ -1915,7 +2036,7 @@ async function handleSaveOrder(){
   const coaColiform = document.getElementById('fCoaColiform').value.trim();
   const coaEcoli = document.getElementById('fCoaEcoli').value.trim();
   const note = document.getElementById('fNote').value.trim();
-  const fillFormDate = document.getElementById('fFillFormDate').value;
+  const fillFormDate = getFlexDateValue('fFillFormDate');
   const fillFormTime = document.getElementById('fFillFormTime').value;
   const releaseBy = getPickerValue('fReleaseBy', 'fReleaseByCustom');
   const filledBy = getPickerValue('fFilledBy', 'fFilledByCustom');
