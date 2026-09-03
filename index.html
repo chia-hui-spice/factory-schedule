@@ -424,11 +424,17 @@
       <div id="stageHintBatch" class="stage-hint">🔒 訂單進入「庫存確認」後才會開放填寫生產批號、包材批號等欄位</div>
       <div id="sectionBatch">
         <div class="section-label">批號 / 日期</div>
-        <div class="row3">
+        <div class="row2">
           <div class="field">
-            <label>產品製造日期-包裝日期</label>
-            <input type="text" id="fBatchNo" placeholder="例如 B20260820-0820">
+            <label>產品製造日期</label>
+            <input type="date" id="fProductMfgDate">
           </div>
+          <div class="field">
+            <label>包裝日期（月日4碼，例如 0103）</label>
+            <input type="text" id="fPackagingDate" placeholder="例如 0103" maxlength="4" inputmode="numeric" pattern="[0-9]{4}">
+          </div>
+        </div>
+        <div class="row2">
           <div class="field">
             <label>產品有效日期</label>
             <input type="date" id="fProductExpDate">
@@ -1413,7 +1419,8 @@ function renderList(){
       ['c1','c2','c3','c4'].forEach(k=>{ chkHtml += '<span class="chk-pill' + (chk[k] ? ' on' : '') + '">' + CHK_LABELS[k] + (chk[k] ? ' ✓' : '') + '</span>'; });
 
       const metaBits = [];
-      if(item.batchNo) metaBits.push('<div class="meta-item">批號 <b>' + escapeHtml(item.batchNo) + '</b></div>');
+      if(item.productMfgDate) metaBits.push('<div class="meta-item">製造日期 <b>' + item.productMfgDate + '</b></div>');
+      if(item.packagingDate) metaBits.push('<div class="meta-item">包裝日期 <b>' + item.packagingDate + '</b></div>');
       if(item.materialBatchNo) metaBits.push('<div class="meta-item">原料批號 <b>' + escapeHtml(item.materialBatchNo) + '</b></div>');
       metaBits.push('<div class="meta-item">數量 <b>' + item.qty + '</b></div>');
       metaBits.push('<div class="meta-item">出貨日 <b>' + item.due + '</b></div>');
@@ -1683,7 +1690,7 @@ function renderList(){
         originalQty: originalTotal,
         splitGroupId: splitGroupId,
         status: 'pending',
-        batchNo: '', trayBatchNo: '', materialBatchNo: '', materialMfgDate: '', materialExpDate: '', productExpDate: '',
+        productMfgDate: '', packagingDate: '', trayBatchNo: '', materialBatchNo: '', materialMfgDate: '', materialExpDate: '', productExpDate: '',
         checklist: { c1:false, c2:false, c3:false, c4:false },
         releaseBy: '', shipMethod: undefined, shippedAt: undefined, completedAt: undefined,
         deleted: false, deletedAt: undefined
@@ -1744,6 +1751,9 @@ function updateCoaValuesVisibility(){
   document.getElementById('noCoaNeededHint').style.display = show ? 'none' : '';
 }
 document.getElementById('fCoa').addEventListener('change', updateCoaValuesVisibility);
+document.getElementById('fPackagingDate').addEventListener('input', function(){
+  this.value = this.value.replace(/[^0-9]/g, '').slice(0, 4);
+});
 
 function setPickerValue(selectId, customId, value){
   const select = document.getElementById(selectId);
@@ -1827,7 +1837,8 @@ function openSheet(order, item){
   document.getElementById('fDue').value = item ? item.due : (firstItem ? firstItem.due : todayStr());
   setPickerValue('fOrigin', 'fOriginCustom', item ? (item.origin || '') : '');
   document.getElementById('fProductExpDate').value = item ? (item.productExpDate || '') : '';
-  document.getElementById('fBatchNo').value = item ? (item.batchNo || '') : '';
+  document.getElementById('fProductMfgDate').value = item ? (item.productMfgDate || '') : '';
+  document.getElementById('fPackagingDate').value = item ? (item.packagingDate || '') : '';
   document.getElementById('fTrayBatchNo').value = item ? (item.trayBatchNo || '') : '';
   document.getElementById('fMaterialBatchNo').value = item ? (item.materialBatchNo || '') : '';
   document.getElementById('fMaterialMfgDate').value = item ? (item.materialMfgDate || '') : '';
@@ -1887,7 +1898,8 @@ async function handleSaveOrder(){
   const due = document.getElementById('fDue').value;
   const origin = getPickerValue('fOrigin', 'fOriginCustom');
   const productExpDate = document.getElementById('fProductExpDate').value;
-  const batchNo = document.getElementById('fBatchNo').value.trim();
+  const productMfgDate = document.getElementById('fProductMfgDate').value;
+  const packagingDate = document.getElementById('fPackagingDate').value.trim();
   const trayBatchNo = document.getElementById('fTrayBatchNo').value.trim();
   const materialBatchNo = document.getElementById('fMaterialBatchNo').value.trim();
   const materialMfgDate = document.getElementById('fMaterialMfgDate').value;
@@ -1917,7 +1929,7 @@ async function handleSaveOrder(){
   if(missing.length > 0){ showToast('請填寫：' + missing.join('、')); return; }
 
   const itemPayload = {
-    product, spec, qty, due, origin, productExpDate, batchNo, trayBatchNo, materialBatchNo, materialMfgDate, materialExpDate, coa, coaConfirmBy, note,
+    product, spec, qty, due, origin, productExpDate, productMfgDate, packagingDate, trayBatchNo, materialBatchNo, materialMfgDate, materialExpDate, coa, coaConfirmBy, note,
     coaMoisture, coaWaterActivity, coaTotalPlateCount, coaColiform, coaEcoli,
     fillFormDate, fillFormTime,
     releaseBy, filledBy, warehouseConfirm,
@@ -2423,7 +2435,8 @@ async function exportBackup(){
         '出貨日期': item.due || '',
         '優先度': item.priority === 'urgent' ? '急件' : '一般',
         '狀態': item.deleted ? '已刪除(垃圾桶)' : (STATUS_LABEL[item.status] || item.status),
-        '產品製造日期-包裝日期': item.batchNo || '',
+        '產品製造日期': item.productMfgDate || '',
+        '包裝日期': item.packagingDate || '',
         '產品有效日期': item.productExpDate || '',
         '包材批號': item.trayBatchNo || '',
         '原料進貨批號': item.materialBatchNo || '',
