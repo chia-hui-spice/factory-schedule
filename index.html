@@ -940,7 +940,7 @@
     <div class="section-label">可看到的功能按鈕</div>
     <div id="permButtonsCheckboxes" class="perm-checkbox-grid"></div>
 
-    <div class="section-label">限定產線（只影響「庫存確認」分頁看到的品項）</div>
+    <div class="section-label">限定產線（只影響「排程生產」分頁看到的品項）</div>
     <div class="field">
       <select id="permProductionZone">
         <option value="">不限制（看得到所有產線）</option>
@@ -1424,7 +1424,7 @@ function renderTabs(){
 }
 
 function itemMatchesZoneFilter(item){
-  if(currentTab !== 'inprogress' || !currentZoneFilter) return true;
+  if(currentTab !== 'labeling' || !currentZoneFilter) return true;
   return item.productionZone === currentZoneFilter;
 }
 
@@ -1794,7 +1794,7 @@ function render(){
 
 function renderZoneFilterBar(){
   const bar = document.getElementById('zoneFilterBar');
-  if(currentTab !== 'inprogress'){
+  if(currentTab !== 'labeling'){
     bar.style.display = 'none';
     return;
   }
