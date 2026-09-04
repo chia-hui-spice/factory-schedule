@@ -1950,7 +1950,7 @@ function openSheet(order, item){
   setPickerValue('fOrigin', 'fOriginCustom', item ? (item.origin || '') : '');
   setFlexDateValue('fProductExpDate', item ? (item.productExpDate || '') : '');
   setFlexDateValue('fProductMfgDate', item ? (item.productMfgDate || '') : '');
-  setPackagingDateSelects(item ? (item.packagingDate || '') : '');
+  setPackagingDateSelects(item ? (item.packagingDate || '') : (todayStr().slice(5,7) + todayStr().slice(8,10)));
   document.getElementById('fTrayBatchNo').value = item ? (item.trayBatchNo || '') : '';
   document.getElementById('fMaterialBatchNo').value = item ? (item.materialBatchNo || '') : '';
   setFlexDateValue('fMaterialMfgDate', item ? (item.materialMfgDate || '') : '');
