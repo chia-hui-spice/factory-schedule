@@ -56,6 +56,12 @@
   .quick-badge.todayrisk-badge{ background:var(--red); animation:pulseTodayRisk 1.6s ease-in-out infinite; }
 
   .tabs{ display:flex; gap:6px; overflow-x:auto; padding-bottom:12px; }
+  .zone-filter-bar{ display:flex; gap:6px; overflow-x:auto; padding:12px 0; }
+  .zone-filter-pill{
+    flex:0 0 auto; padding:8px 14px; border-radius:20px; border:1.5px solid var(--line);
+    background:var(--panel-raised); color:var(--ink-dim); font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;
+  }
+  .zone-filter-pill.active{ border-color:var(--amber); color:var(--amber); background:rgba(242,183,5,0.1); }
   .tab{ flex:0 0 auto; min-width:88px; background:var(--panel); border:1.5px solid var(--line); border-radius:10px 10px 0 0; padding:12px 12px; text-align:center; cursor:pointer; user-select:none; border-bottom:none; }
   .tab.active{ background:var(--panel-raised); border-color:var(--ink-dim); }
   .tab-label{ font-size:14.5px; font-weight:700; color:var(--ink-dim); white-space:nowrap; }
@@ -364,6 +370,7 @@
 </header>
 
 <main>
+  <div id="zoneFilterBar" style="display:none;"></div>
   <div id="listArea"></div>
 </main>
 
@@ -576,6 +583,23 @@
           </div>
         </div>
         <div id="noCoaNeededHint" style="display:none; font-size:13px; color:var(--ink-dim); padding:4px 0 8px 0;">此訂單不需要COA，無需品管確認</div>
+      </div>
+
+      <div id="stageHintProductionZone" class="stage-hint">🔒 訂單進入「排程生產」後才會開放選擇產線</div>
+      <div id="sectionProductionZone">
+        <div class="section-label">分區排產</div>
+        <div class="field">
+          <label>生產線 <span style="color:var(--red);">*</span></label>
+          <select id="fProductionZone">
+            <option value="">請選擇</option>
+            <option value="自動包裝區產線">自動包裝區產線</option>
+            <option value="大包裝區產線">大包裝區產線</option>
+            <option value="小包裝區產線">小包裝區產線</option>
+            <option value="滷包包裝區產線">滷包包裝區產線</option>
+            <option value="醬料包裝區產線">醬料包裝區產線</option>
+            <option value="清真包裝區產線">清真包裝區產線</option>
+          </select>
+        </div>
       </div>
 
       <div id="stageHintPackaging" class="stage-hint">🔒 訂單進入「充填包裝」後才會開放選擇包裝區域與人員</div>
@@ -916,6 +940,13 @@
     <div class="section-label">可看到的功能按鈕</div>
     <div id="permButtonsCheckboxes" class="perm-checkbox-grid"></div>
 
+    <div class="section-label">限定產線（只影響「排程生產」分頁看到的品項）</div>
+    <div class="field">
+      <select id="permProductionZone">
+        <option value="">不限制（看得到所有產線）</option>
+      </select>
+    </div>
+
     <div class="sheet-actions">
       <button type="button" class="btn-secondary" id="btnCancelPerm">取消</button>
       <button type="button" class="btn-primary" id="btnSavePerm">儲存</button>
@@ -1228,6 +1259,8 @@ let pendingNewFgId = null; // 追蹤透過卡片快速編輯新建、但尚未�
 let semiGoods = []; // [{id, name, unit, stock}]
 let semiBoms = []; // [{id, semiGoodId, rows:[{materialId, qtyPerUnit}]}]
 let currentTab = 'pending';
+const PRODUCTION_ZONES = ['自動包裝區產線','大包裝區產線','小包裝區產線','滷包包裝區產線','醬料包裝區產線','清真包裝區產線'];
+let currentZoneFilter = null; // null = 全部
 let editingOrderId = null; // 目前編輯表單所屬的訂單 id（null = 新訂單）
 let editingItemId = null;  // 目前編輯的品項 id（null = 新品項）
 let checklistState = { c1:false, c2:false, c3:false, c4:false };
@@ -1390,19 +1423,25 @@ function renderTabs(){
   });
 }
 
+function itemMatchesZoneFilter(item){
+  if(currentTab !== 'labeling' || !currentZoneFilter) return true;
+  return item.productionZone === currentZoneFilter;
+}
+
 function renderList(){
   const listEl = document.getElementById('listArea');
-  const matchingOrders = orders.filter(o => (o.items||[]).some(it => !it.deleted && it.status === currentTab));
+  const matchingOrders = orders.filter(o => (o.items||[]).some(it => !it.deleted && it.status === currentTab && itemMatchesZoneFilter(it)));
 
   if(matchingOrders.length === 0){
     const hint = (currentTab === 'pending') ? '<br>點右下角 + 新增一筆' : '';
-    listEl.innerHTML = '<div class="empty"><div class="empty-tag">🏷️</div><p>目前「' + STATUS_LABEL[currentTab] + '」沒有品項' + hint + '</p></div>';
+    const zoneHint = (currentTab === 'labeling' && currentZoneFilter) ? '（「' + escapeHtml(currentZoneFilter) + '」目前沒有品項）' : '';
+    listEl.innerHTML = '<div class="empty"><div class="empty-tag">🏷️</div><p>目前「' + STATUS_LABEL[currentTab] + '」沒有品項' + zoneHint + hint + '</p></div>';
     return;
   }
 
   matchingOrders.sort((a,b)=>{
-    const aMin = Math.min(...a.items.filter(it=>!it.deleted && it.status===currentTab).map(it=>it.due||'9999'));
-    const bMin = Math.min(...b.items.filter(it=>!it.deleted && it.status===currentTab).map(it=>it.due||'9999'));
+    const aMin = Math.min(...a.items.filter(it=>!it.deleted && it.status===currentTab && itemMatchesZoneFilter(it)).map(it=>it.due||'9999'));
+    const bMin = Math.min(...b.items.filter(it=>!it.deleted && it.status===currentTab && itemMatchesZoneFilter(it)).map(it=>it.due||'9999'));
     return String(aMin).localeCompare(String(bMin));
   });
 
@@ -1410,7 +1449,7 @@ function renderList(){
   const wrap = document.getElementById('orderList');
 
   matchingOrders.forEach(order=>{
-    const activeItems = (order.items||[]).filter(it=>!it.deleted && it.status===currentTab);
+    const activeItems = (order.items||[]).filter(it=>!it.deleted && it.status===currentTab && itemMatchesZoneFilter(it));
     const card = document.createElement('div');
     card.className = 'order-card';
 
@@ -1455,6 +1494,7 @@ function renderList(){
       ['c1','c2','c3','c4'].forEach(k=>{ chkHtml += '<span class="chk-pill' + (chk[k] ? ' on' : '') + '">' + CHK_LABELS[k] + (chk[k] ? ' ✓' : '') + '</span>'; });
 
       const metaBits = [];
+      if(item.productionZone) metaBits.push('<div class="meta-item">產線 <b>' + escapeHtml(item.productionZone) + '</b></div>');
       if(item.productMfgDate) metaBits.push('<div class="meta-item">製造日期 <b>' + item.productMfgDate + '</b></div>');
       if(item.packagingDate) metaBits.push('<div class="meta-item">包裝日期 <b>' + item.packagingDate + '</b></div>');
       if(item.materialBatchNo) metaBits.push('<div class="meta-item">原料批號 <b>' + escapeHtml(item.materialBatchNo) + '</b></div>');
@@ -1524,6 +1564,11 @@ function renderList(){
         if(!item.filledBy) missing.push('填寫人員');
         if(!item.coa) missing.push('COA');
         showToast('請先填寫「' + missing.join('、') + '」才能進入庫存確認');
+        openSheet(order, item);
+        return;
+      }
+      if(item.status === 'labeling' && !item.productionZone){
+        showToast('請先選擇「生產線」才能進入標籤印製');
         openSheet(order, item);
         return;
       }
@@ -1743,8 +1788,35 @@ function renderList(){
 }
 
 function render(){
-  renderTabs(); renderList(); renderAlertBanner(); updateQuickStatBadges();
+  renderTabs(); renderZoneFilterBar(); renderList(); renderAlertBanner(); updateQuickStatBadges();
   document.getElementById('fabAdd').style.display = (currentTab === 'pending') ? '' : 'none';
+}
+
+function renderZoneFilterBar(){
+  const bar = document.getElementById('zoneFilterBar');
+  if(currentTab !== 'labeling'){
+    bar.style.display = 'none';
+    return;
+  }
+  bar.style.display = '';
+
+  const myPerm = (!isCurrentUserAdmin && permissions[currentUserEmail]) ? permissions[currentUserEmail] : null;
+  const myZoneLock = myPerm && myPerm.productionZone;
+  if(myZoneLock){
+    currentZoneFilter = myZoneLock;
+    bar.innerHTML = '<span class="zone-filter-pill active" style="cursor:default;">🔒 ' + escapeHtml(myZoneLock) + '</span>';
+    return;
+  }
+
+  const pills = ['<button type="button" class="zone-filter-pill' + (!currentZoneFilter ? ' active' : '') + '" data-zone="">全部</button>']
+    .concat(PRODUCTION_ZONES.map(z => '<button type="button" class="zone-filter-pill' + (currentZoneFilter===z ? ' active' : '') + '" data-zone="'+escapeHtml(z)+'">'+escapeHtml(z)+'</button>'));
+  bar.innerHTML = pills.join('');
+  bar.querySelectorAll('[data-zone]').forEach(btn=>{
+    btn.onclick = ()=>{
+      currentZoneFilter = btn.dataset.zone || null;
+      render();
+    };
+  });
 }
 
 function updateQuickStatBadges(){
@@ -1767,12 +1839,15 @@ let selectedPriority = 'normal';
 function updateStageVisibility(stage){
   const showBatch = stage !== 'pending';
   const showQc = (STATUS.indexOf(stage) >= STATUS.indexOf('done')); // 排程生產完成(標籤印製)或以後
+  const showProductionZone = (STATUS.indexOf(stage) >= STATUS.indexOf('labeling')); // 排程生產或以後
   const showPackaging = (STATUS.indexOf(stage) >= STATUS.indexOf('refill')); // 充填包裝或以後
   const showChecklist = (STATUS.indexOf(stage) >= STATUS.indexOf('boxing')); // 裝箱確認或以後
   document.getElementById('sectionBatch').style.display = showBatch ? '' : 'none';
   document.getElementById('stageHintBatch').style.display = showBatch ? 'none' : '';
   document.getElementById('sectionQc').style.display = showQc ? '' : 'none';
   document.getElementById('stageHintQc').style.display = showQc ? 'none' : '';
+  document.getElementById('sectionProductionZone').style.display = showProductionZone ? '' : 'none';
+  document.getElementById('stageHintProductionZone').style.display = showProductionZone ? 'none' : '';
   document.getElementById('sectionPackaging').style.display = showPackaging ? '' : 'none';
   document.getElementById('stageHintPackaging').style.display = showPackaging ? 'none' : '';
   document.getElementById('sectionChecklist').style.display = showChecklist ? '' : 'none';
@@ -1956,6 +2031,7 @@ function openSheet(order, item){
   setFlexDateValue('fMaterialMfgDate', item ? (item.materialMfgDate || '') : '');
   setFlexDateValue('fMaterialExpDate', item ? (item.materialExpDate || '') : '');
   document.getElementById('fShipMethod').value = item ? (item.shipMethod || '') : (firstItem ? (firstItem.shipMethod || '') : '');
+  document.getElementById('fProductionZone').value = item ? (item.productionZone || '') : '';
   document.getElementById('fPackagingArea').value = item ? (item.packagingArea || '') : '';
   populatePackagingStaffOptions(item ? (item.packagingArea || '') : '', item ? (item.packagingStaff || '') : '');
   document.getElementById('fCoa').value = item ? (item.coa || '') : (firstItem ? (firstItem.coa || '') : '');
@@ -2017,6 +2093,7 @@ async function handleSaveOrder(){
   const materialMfgDate = getFlexDateValue('fMaterialMfgDate');
   const materialExpDate = getFlexDateValue('fMaterialExpDate');
   const shipMethod = document.getElementById('fShipMethod').value;
+  const productionZone = document.getElementById('fProductionZone').value;
   const packagingArea = document.getElementById('fPackagingArea').value;
   const packagingStaff = getPickerValue('fPackagingStaff', 'fPackagingStaffCustom');
   const coa = document.getElementById('fCoa').value;
@@ -2047,7 +2124,7 @@ async function handleSaveOrder(){
     releaseBy, filledBy, warehouseConfirm,
     priority: selectedPriority,
     shipMethod,
-    packagingArea, packagingStaff,
+    productionZone, packagingArea, packagingStaff,
     checklist: Object.assign({}, checklistState)
   };
 
@@ -2752,6 +2829,11 @@ function renderPermCheckboxes(currentPerm){
     const checked = !currentPerm || !currentPerm.buttons || currentPerm.buttons.includes(opt.id);
     return '<label class="perm-checkbox-item"><input type="checkbox" class="permButtonCheckbox" value="'+opt.id+'" '+(checked?'checked':'')+'>' + opt.label + '</label>';
   }).join('');
+
+  const zoneSel = document.getElementById('permProductionZone');
+  zoneSel.innerHTML = '<option value="">不限制（看得到所有產線）</option>' +
+    PRODUCTION_ZONES.map(z=>'<option value="'+escapeHtml(z)+'">'+escapeHtml(z)+'</option>').join('');
+  zoneSel.value = (currentPerm && currentPerm.productionZone) ? currentPerm.productionZone : '';
 }
 
 function renderPermUserList(){
@@ -2791,10 +2873,11 @@ document.getElementById('btnSavePerm').onclick = async ()=>{
 
   const allowedTabs = Array.from(document.querySelectorAll('.permTabCheckbox:checked')).map(el=>el.value);
   const allowedButtons = Array.from(document.querySelectorAll('.permButtonCheckbox:checked')).map(el=>el.value);
+  const productionZone = document.getElementById('permProductionZone').value;
 
   if(allowedTabs.length === 0){ showToast('至少要保留一個分頁可以看'); return; }
 
-  permissions[email] = { tabs: allowedTabs, buttons: allowedButtons };
+  permissions[email] = { tabs: allowedTabs, buttons: allowedButtons, productionZone: productionZone || null };
   await savePermissions();
   showToast('已儲存 ' + email + ' 的權限設定');
   renderPermUserList();
