@@ -2040,7 +2040,7 @@ function openSheet(order, item){
   setFlexDateValue('fMaterialMfgDate', item ? (item.materialMfgDate || '') : '');
   setFlexDateValue('fMaterialExpDate', item ? (item.materialExpDate || '') : '');
   document.getElementById('fShipMethod').value = item ? (item.shipMethod || '') : (firstItem ? (firstItem.shipMethod || '') : '');
-  document.getElementById('fProductionZone').value = item ? (item.productionZone || '') : '';
+  document.getElementById('fProductionZone').value = item ? (item.productionZone || '') : (firstItem ? (firstItem.productionZone || '') : '');
   document.getElementById('fPackagingArea').value = item ? (item.packagingArea || '') : '';
   populatePackagingStaffOptions(item ? (item.packagingArea || '') : '', item ? (item.packagingStaff || '') : '');
   document.getElementById('fCoa').value = item ? (item.coa || '') : (firstItem ? (firstItem.coa || '') : '');
