@@ -170,15 +170,15 @@
   .field{ margin-bottom:14px; }
   .field label{ display:block; font-size:15.5px; color:var(--ink-dim); margin-bottom:6px; font-weight:600; }
   .field input, .field select, .field textarea{ width:100%; background:var(--panel-raised); border:1.5px solid var(--line); border-radius:8px; padding:11px 12px; color:var(--ink); font-size:18.5px; font-family:var(--sans); }
-  .flex-date-wrap{ display:flex; gap:8px; }
-  .flex-date-wrap input{ flex:1; }
+  .flex-date-wrap{ display:flex; gap:8px; flex-wrap:wrap; }
+  .flex-date-wrap input{ flex:1 1 140px; min-width:140px; }
   .flex-date-wrap input.flex-date-native-btn{
-    flex:0 0 46px; width:46px; padding:0 2px; text-align:center;
-    color:transparent; background:var(--panel-raised); border:1.5px solid var(--line);
-    border-radius:8px; font-size:13px; cursor:pointer;
+    flex:1 1 130px; min-width:130px; padding:9px 8px;
+    background:var(--panel-raised); border:1.5px solid var(--line);
+    border-radius:8px; font-size:15px; cursor:pointer; color:var(--ink);
   }
   .flex-date-wrap input.flex-date-native-btn::-webkit-calendar-picker-indicator{
-    opacity:1; cursor:pointer; filter:invert(0.85); margin:0; padding:0;
+    opacity:1; cursor:pointer; filter:invert(0.85);
   }
   .field input:focus, .field select:focus, .field textarea:focus{ outline:2px solid var(--amber); border-color:var(--amber); }
   .field textarea{ resize:vertical; min-height:60px; }
