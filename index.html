@@ -585,7 +585,7 @@
         <div id="noCoaNeededHint" style="display:none; font-size:13px; color:var(--ink-dim); padding:4px 0 8px 0;">此訂單不需要COA，無需品管確認</div>
       </div>
 
-      <div id="stageHintProductionZone" class="stage-hint">🔒 訂單進入「排程生產」後才會開放選擇產線</div>
+      <div id="stageHintProductionZone" class="stage-hint">🔒 訂單進入「庫存確認」後才會開放選擇產線</div>
       <div id="sectionProductionZone">
         <div class="section-label">分區排產</div>
         <div class="field">
@@ -940,7 +940,7 @@
     <div class="section-label">可看到的功能按鈕</div>
     <div id="permButtonsCheckboxes" class="perm-checkbox-grid"></div>
 
-    <div class="section-label">限定產線（只影響「排程生產」分頁看到的品項）</div>
+    <div class="section-label">限定產線（只影響「庫存確認」分頁看到的品項）</div>
     <div class="field">
       <select id="permProductionZone">
         <option value="">不限制（看得到所有產線）</option>
@@ -1424,7 +1424,7 @@ function renderTabs(){
 }
 
 function itemMatchesZoneFilter(item){
-  if(currentTab !== 'labeling' || !currentZoneFilter) return true;
+  if(currentTab !== 'inprogress' || !currentZoneFilter) return true;
   return item.productionZone === currentZoneFilter;
 }
 
@@ -1567,8 +1567,8 @@ function renderList(){
         openSheet(order, item);
         return;
       }
-      if(item.status === 'labeling' && !item.productionZone){
-        showToast('請先選擇「生產線」才能進入標籤印製');
+      if(item.status === 'inprogress' && !item.productionZone){
+        showToast('請先選擇「生產線」才能進入排程生產');
         openSheet(order, item);
         return;
       }
@@ -1794,7 +1794,7 @@ function render(){
 
 function renderZoneFilterBar(){
   const bar = document.getElementById('zoneFilterBar');
-  if(currentTab !== 'labeling'){
+  if(currentTab !== 'inprogress'){
     bar.style.display = 'none';
     return;
   }
@@ -1839,7 +1839,7 @@ let selectedPriority = 'normal';
 function updateStageVisibility(stage){
   const showBatch = stage !== 'pending';
   const showQc = (STATUS.indexOf(stage) >= STATUS.indexOf('done')); // 排程生產完成(標籤印製)或以後
-  const showProductionZone = (STATUS.indexOf(stage) >= STATUS.indexOf('labeling')); // 排程生產或以後
+  const showProductionZone = (STATUS.indexOf(stage) >= STATUS.indexOf('inprogress')); // 庫存確認或以後
   const showPackaging = (STATUS.indexOf(stage) >= STATUS.indexOf('refill')); // 充填包裝或以後
   const showChecklist = (STATUS.indexOf(stage) >= STATUS.indexOf('boxing')); // 裝箱確認或以後
   document.getElementById('sectionBatch').style.display = showBatch ? '' : 'none';
