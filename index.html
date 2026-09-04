@@ -172,13 +172,13 @@
   .field input, .field select, .field textarea{ width:100%; background:var(--panel-raised); border:1.5px solid var(--line); border-radius:8px; padding:11px 12px; color:var(--ink); font-size:18.5px; font-family:var(--sans); }
   .flex-date-wrap{ display:flex; gap:8px; }
   .flex-date-wrap input{ flex:1; }
-  .flex-date-btn{
-    flex:0 0 46px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel-raised);
-    font-size:19px; cursor:pointer; color:var(--ink);
+  .flex-date-wrap input.flex-date-native-btn{
+    flex:0 0 46px; width:46px; padding:0 2px; text-align:center;
+    color:transparent; background:var(--panel-raised); border:1.5px solid var(--line);
+    border-radius:8px; font-size:13px; cursor:pointer;
   }
-  .visually-hidden-date{
-    position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
-    clip:rect(0,0,0,0); white-space:nowrap; border:0; opacity:0;
+  .flex-date-wrap input.flex-date-native-btn::-webkit-calendar-picker-indicator{
+    opacity:1; cursor:pointer; filter:invert(0.85); margin:0; padding:0;
   }
   .field input:focus, .field select:focus, .field textarea:focus{ outline:2px solid var(--amber); border-color:var(--amber); }
   .field textarea{ resize:vertical; min-height:60px; }
@@ -380,10 +380,9 @@
         <div class="field">
           <label>填寫日期</label>
           <div class="flex-date-wrap">
-            <input type="text" id="fFillFormDate" placeholder="YYYY/MM/DD" inputmode="numeric">
-            <button type="button" class="flex-date-btn" data-native="fFillFormDate_native">📅</button>
-          </div>
-          <input type="date" id="fFillFormDate_native" class="visually-hidden-date">
+              <input type="text" id="fFillFormDate" placeholder="YYYY/MM/DD" inputmode="numeric">
+              <input type="date" id="fFillFormDate_native" class="flex-date-native-btn">
+            </div>
         </div>
         <div class="field">
           <label>填寫時間</label>
@@ -443,9 +442,8 @@
             <label>產品製造日期</label>
             <div class="flex-date-wrap">
               <input type="text" id="fProductMfgDate" placeholder="YYYY/MM/DD" inputmode="numeric">
-              <button type="button" class="flex-date-btn" data-native="fProductMfgDate_native">📅</button>
+              <input type="date" id="fProductMfgDate_native" class="flex-date-native-btn">
             </div>
-            <input type="date" id="fProductMfgDate_native" class="visually-hidden-date">
           </div>
           <div class="field">
             <label>包裝日期（選月/日，自動組成4碼）</label>
@@ -465,9 +463,8 @@
             <label>產品有效日期</label>
             <div class="flex-date-wrap">
               <input type="text" id="fProductExpDate" placeholder="YYYY/MM/DD" inputmode="numeric">
-              <button type="button" class="flex-date-btn" data-native="fProductExpDate_native">📅</button>
+              <input type="date" id="fProductExpDate_native" class="flex-date-native-btn">
             </div>
-            <input type="date" id="fProductExpDate_native" class="visually-hidden-date">
           </div>
           <div class="field">
             <label>包材批號</label>
@@ -485,17 +482,15 @@
             <label>原料製造日期</label>
             <div class="flex-date-wrap">
               <input type="text" id="fMaterialMfgDate" placeholder="YYYY/MM/DD" inputmode="numeric">
-              <button type="button" class="flex-date-btn" data-native="fMaterialMfgDate_native">📅</button>
+              <input type="date" id="fMaterialMfgDate_native" class="flex-date-native-btn">
             </div>
-            <input type="date" id="fMaterialMfgDate_native" class="visually-hidden-date">
           </div>
           <div class="field">
             <label>原料有效日期</label>
             <div class="flex-date-wrap">
               <input type="text" id="fMaterialExpDate" placeholder="YYYY/MM/DD" inputmode="numeric">
-              <button type="button" class="flex-date-btn" data-native="fMaterialExpDate_native">📅</button>
+              <input type="date" id="fMaterialExpDate_native" class="flex-date-native-btn">
             </div>
-            <input type="date" id="fMaterialExpDate_native" class="visually-hidden-date">
           </div>
         </div>
       </div>
@@ -516,10 +511,9 @@
         <div class="field">
           <label>預計需求出貨日期</label>
           <div class="flex-date-wrap">
-            <input type="text" id="fDue" placeholder="YYYY/MM/DD" inputmode="numeric" required>
-            <button type="button" class="flex-date-btn" data-native="fDue_native">📅</button>
-          </div>
-          <input type="date" id="fDue_native" class="visually-hidden-date">
+              <input type="text" id="fDue" placeholder="YYYY/MM/DD" inputmode="numeric" required>
+              <input type="date" id="fDue_native" class="flex-date-native-btn">
+            </div>
         </div>
         <div class="field">
           <label>出貨方式（可先選，之後也能改）</label>
@@ -1830,7 +1824,6 @@ function setPackagingDateSelects(value){
 function setupFlexDate(textId){
   const text = document.getElementById(textId);
   const native = document.getElementById(textId + '_native');
-  const btn = document.querySelector('[data-native="'+textId+'_native"]');
   if(!text || !native) return;
 
   text.addEventListener('input', function(){
@@ -1850,15 +1843,6 @@ function setupFlexDate(textId){
       text.value = parts[0] + '/' + parts[1] + '/' + parts[2];
     }
   });
-  if(btn){
-    btn.onclick = ()=>{
-      try{
-        if(native.showPicker){ native.showPicker(); return; }
-      }catch(e){ /* 若瀏覽器不支援或拋出例外，退回下面的備援方式 */ }
-      native.focus();
-      native.click();
-    };
-  }
 }
 function getFlexDateValue(textId){
   const native = document.getElementById(textId + '_native');
