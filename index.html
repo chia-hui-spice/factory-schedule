@@ -1514,7 +1514,7 @@ function renderList(){
         const stillNeed = Math.max(item.qty - currentStock, 0);
         const fulfillQty = Math.min(currentStock, item.qty);
         const fastTrackBtn = fulfillQty > 0
-          ? '<button type="button" class="fast-track-btn" data-act="faststock" data-oid="'+order.id+'" data-iid="'+item.id+'">⚡ 用現有庫存 '+fulfillQty+(unit?' '+escapeHtml(unit):'')+' 直接送裝箱確認</button>'
+          ? '<button type="button" class="fast-track-btn" data-act="faststock" data-oid="'+order.id+'" data-iid="'+item.id+'">⚡ 用現有庫存 '+fulfillQty+(unit?' '+escapeHtml(unit):'')+' 直接送出貨確認</button>'
           : '';
         stockInfoHtml = '<div class="stock-info-row" data-stock-product="'+escapeHtml(item.product)+'">📦 目前成品庫存 <b>' + currentStock + '</b>' + (unit?' '+escapeHtml(unit):'') +
           '　還需要生產 <b class="' + (stillNeed > 0 ? 'need' : 'enough') + '">' + stillNeed + '</b>' + (unit?' '+escapeHtml(unit):'') +
@@ -1696,18 +1696,27 @@ function renderList(){
 
       const isFullCover = fulfillQty >= item.qty;
       const msg = isFullCover
-        ? '這張品項需要 ' + item.qty + ' ' + (fg.unit||'') + '，庫存現有 ' + currentStock + ' ' + (fg.unit||'') + '，足夠全部直接送去裝箱確認，不用再走生產流程。確定嗎？'
-        : '用現有庫存 ' + fulfillQty + ' ' + (fg.unit||'') + ' 拆成新品項直接送去裝箱確認，剩下 ' + (item.qty - fulfillQty) + ' ' + (fg.unit||'') + ' 留在這裡繼續走生產流程。確定嗎？';
+        ? '這張品項需要 ' + item.qty + ' ' + (fg.unit||'') + '，庫存現有 ' + currentStock + ' ' + (fg.unit||'') + '，足夠全部直接送去出貨確認，不用再走生產流程與裝箱前檢查。確定嗎？'
+        : '用現有庫存 ' + fulfillQty + ' ' + (fg.unit||'') + ' 拆成新品項直接送去出貨確認，剩下 ' + (item.qty - fulfillQty) + ' ' + (fg.unit||'') + ' 留在這裡繼續走生產流程。確定嗎？';
       const ok = await showConfirm(msg, '用現有庫存直接出貨？');
       if(!ok) return;
+
+      let shipMethod = item.shipMethod;
+      if(!shipMethod){
+        const choice = await showShipMethodChoice(order.customer + ' ・ ' + item.product);
+        if(!choice) return; // 使用者取消
+        shipMethod = choice;
+      }
 
       // 扣除即將被領用的成品庫存(視為預留給這批貨)
       fg.stock = Math.round(((fg.stock||0) - fulfillQty) * 1000) / 1000;
 
       if(isFullCover){
-        item.status = 'boxing';
+        item.status = 'shipped';
         item.stockPreDeducted = true;
-        showToast('已直接送去裝箱確認');
+        item.shipMethod = shipMethod;
+        item.shippedAt = Date.now();
+        showToast('已直接送去出貨確認');
       }else{
         const originalTotal = item.originalQty || item.qty;
         const splitGroupId = item.splitGroupId || ('sg_' + Date.now() + '_' + Math.random().toString(36).slice(2,7));
@@ -1716,17 +1725,19 @@ function renderList(){
           qty: fulfillQty,
           originalQty: originalTotal,
           splitGroupId: splitGroupId,
-          status: 'boxing',
+          status: 'shipped',
           stockPreDeducted: true,
+          shipMethod: shipMethod,
+          shippedAt: Date.now(),
           releaseBy: '', warehouseConfirm: '', checklist: {c1:false,c2:false,c3:false,c4:false},
-          completedAt: undefined, shippedAt: undefined,
+          completedAt: undefined,
           packagingArea: '', packagingStaff: ''
         });
         order.items.push(newItem);
         item.qty = item.qty - fulfillQty;
         item.originalQty = originalTotal;
         item.splitGroupId = splitGroupId;
-        showToast('已拆出 ' + fulfillQty + ' ' + (fg.unit||'') + ' 直接送去裝箱確認，剩下 ' + item.qty + ' 留在庫存確認繼續生產');
+        showToast('已拆出 ' + fulfillQty + ' ' + (fg.unit||'') + ' 直接送去出貨確認，剩下 ' + item.qty + ' 留在庫存確認繼續生產');
       }
 
       await saveBomData();
