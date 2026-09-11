@@ -2121,6 +2121,7 @@ function openSheet(order, item){
 
 const STAGE_LOCK_EXEMPT_SECTION = {
   inprogress: 'sectionProductionZone',
+  labeling: 'sectionBatch',
   refill: 'sectionPackaging',
   done: 'sectionQc',
   boxing: 'sectionChecklist',
@@ -2128,6 +2129,7 @@ const STAGE_LOCK_EXEMPT_SECTION = {
 };
 const STAGE_LOCK_EXEMPT_HINT = {
   inprogress: 'stageHintProductionZone',
+  labeling: 'stageHintBatch',
   refill: 'stageHintPackaging',
   done: 'stageHintQc',
   boxing: 'stageHintChecklist',
