@@ -2120,12 +2120,14 @@ function openSheet(order, item){
 }
 
 const STAGE_LOCK_EXEMPT_SECTION = {
+  inprogress: 'sectionProductionZone',
   refill: 'sectionPackaging',
   done: 'sectionQc',
   boxing: 'sectionChecklist',
   shipped: 'sectionWarehouseConfirm'
 };
 const STAGE_LOCK_EXEMPT_HINT = {
+  inprogress: 'stageHintProductionZone',
   refill: 'stageHintPackaging',
   done: 'stageHintQc',
   boxing: 'stageHintChecklist',
