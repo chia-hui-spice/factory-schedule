@@ -650,21 +650,26 @@
             <option value="">請選擇</option>
             <option value="張春雪">張春雪</option>
             <option value="楊秋燕">楊秋燕</option>
+            <option value="陳鶯">陳鶯</option>
+            <option value="葳娜亞">葳娜亞</option>
+            <option value="陳金安">陳金安</option>
+            <option value="張梅瓊">張梅瓊</option>
+            <option value="索妮雅">索妮雅</option>
+            <option value="劉美足">劉美足</option>
             <option value="自訂">自訂</option>
           </select>
           <input type="text" id="fReleaseByCustom" placeholder="輸入姓名" style="margin-top:8px; display:none;">
         </div>
       </div>
 
-      <div id="stageHintWarehouseConfirm" class="stage-hint">🔒 訂單進入「出貨確認」後才會開放倉管出貨確認</div>
+      <div id="stageHintWarehouseConfirm" class="stage-hint">🔒 訂單進入「出貨確認」後才會開放倉管會計出貨確認</div>
       <div id="sectionWarehouseConfirm">
-        <div class="section-label">倉管出貨確認</div>
+        <div class="section-label">倉管會計出貨確認</div>
         <div class="field">
-          <label>倉管出貨確認 <span style="color:var(--red);">*</span></label>
+          <label>倉管會計出貨確認 <span style="color:var(--red);">*</span></label>
           <select id="fWarehouseConfirm">
             <option value="">請選擇</option>
-            <option value="張春雪">張春雪</option>
-            <option value="楊秋燕">楊秋燕</option>
+            <option value="潘麗娟">潘麗娟</option>
             <option value="自訂">自訂</option>
           </select>
           <input type="text" id="fWarehouseConfirmCustom" placeholder="輸入姓名" style="margin-top:8px; display:none;">
@@ -1613,7 +1618,7 @@ function renderList(){
       }
       if(item.status === 'shipped'){
         const missing = [];
-        if(!item.warehouseConfirm && !item.stockPreDeducted) missing.push('倉管出貨確認');
+        if(!item.warehouseConfirm && !item.stockPreDeducted) missing.push('倉管會計出貨確認');
         if(needsCoa(item) && !item.coaConfirmBy) missing.push('COA確認人員');
         if(missing.length > 0){
           showToast('請先填寫「' + missing.join('、') + '」才能完成品管');
@@ -2725,7 +2730,7 @@ async function exportBackup(){
         '生產/有效日期核對': item.checklist && item.checklist.c4 ? 'V' : '',
         '裝箱確認及放行人員': item.releaseBy || '',
         '填寫人員': item.filledBy || '',
-        '倉管出貨確認': item.warehouseConfirm || '',
+        '倉管會計出貨確認': item.warehouseConfirm || '',
         '出貨方式': item.shipMethod ? shipMethodFullLabel(item) : '',
         '出貨時間': item.shippedAt ? new Date(item.shippedAt).toLocaleString('zh-TW', { hour12:false }) : '',
         '建立時間': order.createdAt ? new Date(order.createdAt).toLocaleString('zh-TW', { hour12:false }) : ''
