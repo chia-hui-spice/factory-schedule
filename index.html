@@ -576,24 +576,13 @@
         </div>
       </div>
 
-      <div id="stageHintPackaging" class="stage-hint">🔒 訂單進入「充填包裝」後才會開放選擇包裝區域與人員</div>
+      <div id="stageHintPackaging" class="stage-hint">🔒 訂單進入「充填包裝」後才會開放選擇包裝人員</div>
       <div id="sectionPackaging">
         <div class="section-label">包裝區域確認</div>
         <div class="field">
-          <label>包裝區域 <span style="color:var(--red);">*</span></label>
-          <select id="fPackagingArea">
-            <option value="">請選擇</option>
-            <option value="自動包裝區">自動包裝區</option>
-            <option value="大包裝區">大包裝區</option>
-            <option value="清真包裝區">清真包裝區</option>
-            <option value="醬料包裝區">醬料包裝區</option>
-            <option value="滷包包裝區">滷包包裝區</option>
-          </select>
-        </div>
-        <div class="field">
           <label>包裝人員 <span style="color:var(--red);">*</span></label>
           <select id="fPackagingStaff">
-            <option value="">請先選擇包裝區域</option>
+            <option value="">請選擇</option>
           </select>
           <input type="text" id="fPackagingStaffCustom" placeholder="輸入姓名" style="margin-top:8px; display:none;">
         </div>
@@ -1272,7 +1261,7 @@ let semiGoods = []; // [{id, name, unit, stock}]
 let semiBoms = []; // [{id, semiGoodId, rows:[{materialId, qtyPerUnit}]}]
 let currentTab = 'pending';
 let currentEditingStage = 'pending';
-const PRODUCTION_ZONES = ['自動包裝區產線','大包裝區產線','小包裝區產線','滷包包裝區產線','醬料包裝區產線','清真包裝區產線','調味粉產線','醬料產線','原料產線'];
+const PRODUCTION_ZONES = ['自動包裝區產線','大包裝區產線','小包裝區產線','滷包包裝區產線','醬料包裝區產線','清真包裝區產線','調味粉產線','半成品樣品產線','原料產線'];
 let currentZoneFilter = null; // null = 全部
 let editingOrderId = null; // 目前編輯表單所屬的訂單 id（null = 新訂單）
 let editingItemId = null;  // 目前編輯的品項 id（null = 新品項）
@@ -1590,11 +1579,8 @@ function renderList(){
         openSheet(order, item);
         return;
       }
-      if(item.status === 'refill' && (!item.packagingArea || !item.packagingStaff)){
-        const missing = [];
-        if(!item.packagingArea) missing.push('包裝區域');
-        if(!item.packagingStaff) missing.push('包裝人員');
-        showToast('請先填寫「' + missing.join('、') + '」才能進入裝箱確認');
+      if(item.status === 'refill' && !item.packagingStaff){
+        showToast('請先填寫「包裝人員」才能進入裝箱確認');
         openSheet(order, item);
         return;
       }
@@ -1748,7 +1734,7 @@ function renderList(){
           shippedAt: Date.now(),
           releaseBy: '', warehouseConfirm: '', checklist: {c1:false,c2:false,c3:false,c4:false},
           completedAt: undefined,
-          packagingArea: '', packagingStaff: '',
+          packagingStaff: '',
           productionZones: (item.productionZones || []).slice()
         });
         order.items.push(newItem);
@@ -2036,28 +2022,29 @@ function getPickerValue(selectId, customId){
   });
 });
 
-const PACKAGING_STAFF_BY_AREA = {
-  '自動包裝區': ['安娜','德迪'],
-  '大包裝區': ['陳鶯','潘秀子'],
-  '清真包裝區': ['Sonia'],
-  '醬料包裝區': ['張梅瓊','萬淑芳'],
-  '滷包包裝區': ['陳金安','湯秋香']
+const PACKAGING_STAFF_BY_ZONE = {
+  '自動包裝區產線': ['安娜','德迪'],
+  '大包裝區產線': ['陳鶯','潘秀子'],
+  '清真包裝區產線': ['Sonia','曼多','羅尼'],
+  '醬料包裝區產線': ['張梅瓊','萬淑芳'],
+  '滷包包裝區產線': ['陳金安'],
+  '小包裝區產線': ['德迪'],
+  '調味粉產線': ['劉美足','尼寧'],
+  '原料產線': ['李燕束'],
+  '半成品樣品產線': ['陳張葵珠']
 };
-function populatePackagingStaffOptions(area, currentValue){
+function populatePackagingStaffOptions(zones, currentValue){
   const select = document.getElementById('fPackagingStaff');
-  const names = PACKAGING_STAFF_BY_AREA[area] || [];
-  if(!area){
-    select.innerHTML = '<option value="">請先選擇包裝區域</option>';
-  }else{
-    select.innerHTML = '<option value="">請選擇</option>' +
-      names.map(n=>'<option value="'+escapeHtml(n)+'">'+escapeHtml(n)+'</option>').join('') +
-      '<option value="自訂">自訂</option>';
-  }
+  const zoneList = zones || [];
+  let names = [];
+  zoneList.forEach(z=>{
+    (PACKAGING_STAFF_BY_ZONE[z] || []).forEach(n=>{ if(!names.includes(n)) names.push(n); });
+  });
+  select.innerHTML = '<option value="">請選擇</option>' +
+    names.map(n=>'<option value="'+escapeHtml(n)+'">'+escapeHtml(n)+'</option>').join('') +
+    '<option value="自訂">自訂</option>';
   setPickerValue('fPackagingStaff', 'fPackagingStaffCustom', currentValue || '');
 }
-document.getElementById('fPackagingArea').addEventListener('change', function(){
-  populatePackagingStaffOptions(this.value, '');
-});
 
 function updateChecklistUI(){
   document.querySelectorAll('.check-item').forEach(el=>{
@@ -2103,8 +2090,7 @@ function openSheet(order, item){
   document.getElementById('fShipMethod').value = item ? (item.shipMethod || '') : '';
   setFlexDateValue('fActualShipDate', (item && item.actualShipDate) ? item.actualShipDate : (todayStr()));
   setProductionZoneCheckboxes(item ? (item.productionZones || []) : (firstItem ? (firstItem.productionZones || []) : []));
-  document.getElementById('fPackagingArea').value = item ? (item.packagingArea || '') : '';
-  populatePackagingStaffOptions(item ? (item.packagingArea || '') : '', item ? (item.packagingStaff || '') : '');
+  populatePackagingStaffOptions(item ? (item.productionZones || []) : [], item ? (item.packagingStaff || '') : '');
   document.getElementById('fCoa').value = item ? (item.coa || '') : (firstItem ? (firstItem.coa || '') : '');
   setPickerValue('fCoaConfirmBy', 'fCoaConfirmByCustom', item ? (item.coaConfirmBy || '') : (firstItem ? (firstItem.coaConfirmBy || '') : ''));
   document.getElementById('fCoaMoisture').value = item ? (item.coaMoisture || '') : '';
@@ -2199,7 +2185,6 @@ async function handleSaveOrder(){
   const shipMethod = document.getElementById('fShipMethod').value;
   const actualShipDate = getFlexDateValue('fActualShipDate');
   const productionZones = getProductionZoneCheckboxes();
-  const packagingArea = document.getElementById('fPackagingArea').value;
   const packagingStaff = getPickerValue('fPackagingStaff', 'fPackagingStaffCustom');
   const coa = document.getElementById('fCoa').value;
   const coaConfirmBy = getPickerValue('fCoaConfirmBy', 'fCoaConfirmByCustom');
@@ -2229,7 +2214,7 @@ async function handleSaveOrder(){
     releaseBy, filledBy, warehouseConfirm,
     priority: selectedPriority,
     shipMethod, actualShipDate,
-    productionZones, packagingArea, packagingStaff,
+    productionZones, packagingStaff,
     checklist: Object.assign({}, checklistState)
   };
 
