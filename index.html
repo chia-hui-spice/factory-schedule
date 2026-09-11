@@ -386,6 +386,7 @@
     <div class="sheet-handle"></div>
     <h2 id="sheetTitle">新增訂單</h2>
     <div class="sheet-sub" id="sheetSub"></div>
+    <button type="button" id="btnShowMoreFields" style="display:none; width:100%; margin-bottom:12px; padding:10px; border-radius:8px; border:1.5px dashed var(--line); background:var(--panel-raised); color:var(--ink-dim); font-size:16.2px; font-weight:700; cursor:pointer;">▾ 顯示更多欄位（優先度/備註、品管確認、分區排產、包裝區域確認、出貨前檢查）</button>
     <form id="orderForm" novalidate>
 
       <div class="row3">
@@ -493,17 +494,19 @@
         </div>
       </div>
 
-      <div class="section-label">優先度 / 備註</div>
-      <div class="field">
-        <label>優先度</label>
-        <div class="pri-toggle">
-          <div class="pri-opt selected" data-p="normal" id="priNormal">一般</div>
-          <div class="pri-opt" data-p="urgent" id="priUrgent">急件</div>
+      <div id="sectionPriorityNote">
+        <div class="section-label">優先度 / 備註</div>
+        <div class="field">
+          <label>優先度</label>
+          <div class="pri-toggle">
+            <div class="pri-opt selected" data-p="normal" id="priNormal">一般</div>
+            <div class="pri-opt" data-p="urgent" id="priUrgent">急件</div>
+          </div>
         </div>
-      </div>
-      <div class="field">
-        <label>備註 / 包裝注意事項</label>
-        <textarea id="fNote" placeholder="例如：全廠請務必儘速提供正確批號，以利標籤連動"></textarea>
+        <div class="field">
+          <label>備註 / 包裝注意事項</label>
+          <textarea id="fNote" placeholder="例如：全廠請務必儘速提供正確批號，以利標籤連動"></textarea>
+        </div>
       </div>
       <div class="field">
         <label>預計需求出貨日期</label>
@@ -1289,6 +1292,7 @@ let pendingNewFgId = null; // 追蹤透過卡片快速編輯新建、但尚未�
 let semiGoods = []; // [{id, name, unit, stock}]
 let semiBoms = []; // [{id, semiGoodId, rows:[{materialId, qtyPerUnit}]}]
 let currentTab = 'pending';
+let currentEditingStage = 'pending';
 const PRODUCTION_ZONES = ['自動包裝區產線','大包裝區產線','小包裝區產線','滷包包裝區產線','醬料包裝區產線','清真包裝區產線'];
 let currentZoneFilter = null; // null = 全部
 let editingOrderId = null; // 目前編輯表單所屬的訂單 id（null = 新訂單）
@@ -1886,19 +1890,36 @@ function updateStageVisibility(stage){
   const showPackaging = (STATUS.indexOf(stage) >= STATUS.indexOf('refill')); // 充填包裝或以後
   const showChecklist = (STATUS.indexOf(stage) >= STATUS.indexOf('boxing')); // 裝箱確認或以後
   const showWarehouseConfirm = (STATUS.indexOf(stage) >= STATUS.indexOf('shipped')); // 出貨確認或以後
+
+  // 到了出貨確認階段，資訊量已經很多了，預設收合較早期填過的區塊，減少畫面雜訊
+  const shouldCollapseEarlier = (stage === 'shipped') && !showMoreFieldsExpanded;
+  const showPriorityNote = !shouldCollapseEarlier;
+  const showQcFinal = showQc && !shouldCollapseEarlier;
+  const showProductionZoneFinal = showProductionZone && !shouldCollapseEarlier;
+  const showPackagingFinal = showPackaging && !shouldCollapseEarlier;
+  const showChecklistFinal = showChecklist && !shouldCollapseEarlier;
+
+  document.getElementById('btnShowMoreFields').style.display = shouldCollapseEarlier ? '' : 'none';
+
+  document.getElementById('sectionPriorityNote').style.display = showPriorityNote ? '' : 'none';
   document.getElementById('sectionBatch').style.display = showBatch ? '' : 'none';
   document.getElementById('stageHintBatch').style.display = showBatch ? 'none' : '';
-  document.getElementById('sectionQc').style.display = showQc ? '' : 'none';
+  document.getElementById('sectionQc').style.display = showQcFinal ? '' : 'none';
   document.getElementById('stageHintQc').style.display = showQc ? 'none' : '';
-  document.getElementById('sectionProductionZone').style.display = showProductionZone ? '' : 'none';
+  document.getElementById('sectionProductionZone').style.display = showProductionZoneFinal ? '' : 'none';
   document.getElementById('stageHintProductionZone').style.display = showProductionZone ? 'none' : '';
-  document.getElementById('sectionPackaging').style.display = showPackaging ? '' : 'none';
+  document.getElementById('sectionPackaging').style.display = showPackagingFinal ? '' : 'none';
   document.getElementById('stageHintPackaging').style.display = showPackaging ? 'none' : '';
-  document.getElementById('sectionChecklist').style.display = showChecklist ? '' : 'none';
+  document.getElementById('sectionChecklist').style.display = showChecklistFinal ? '' : 'none';
   document.getElementById('stageHintChecklist').style.display = showChecklist ? 'none' : '';
   document.getElementById('sectionWarehouseConfirm').style.display = showWarehouseConfirm ? '' : 'none';
   document.getElementById('stageHintWarehouseConfirm').style.display = showWarehouseConfirm ? 'none' : '';
 }
+let showMoreFieldsExpanded = false;
+document.getElementById('btnShowMoreFields').onclick = ()=>{
+  showMoreFieldsExpanded = true;
+  updateStageVisibility(currentEditingStage);
+};
 
 function updateCoaValuesVisibility(){
   const coaVal = document.getElementById('fCoa').value;
@@ -2101,7 +2122,9 @@ function openSheet(order, item){
   checklistState = (item && item.checklist) ? Object.assign({c1:false,c2:false,c3:false,c4:false}, item.checklist) : {c1:false,c2:false,c3:false,c4:false};
   updateChecklistUI();
 
-  updateStageVisibility(item ? item.status : 'pending');
+  currentEditingStage = item ? item.status : 'pending';
+  showMoreFieldsExpanded = false;
+  updateStageVisibility(currentEditingStage);
 
   document.getElementById('btnDelete').style.display = item ? 'block' : 'none';
   overlay.classList.add('show');
