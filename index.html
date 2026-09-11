@@ -581,6 +581,8 @@
             <option value="滷包包裝區產線">滷包包裝區產線</option>
             <option value="醬料包裝區產線">醬料包裝區產線</option>
             <option value="清真包裝區產線">清真包裝區產線</option>
+            <option value="調味粉樣品產線">調味粉樣品產線</option>
+            <option value="醬料樣品產線">醬料樣品產線</option>
           </select>
         </div>
         <div class="field">
@@ -1293,7 +1295,7 @@ let semiGoods = []; // [{id, name, unit, stock}]
 let semiBoms = []; // [{id, semiGoodId, rows:[{materialId, qtyPerUnit}]}]
 let currentTab = 'pending';
 let currentEditingStage = 'pending';
-const PRODUCTION_ZONES = ['自動包裝區產線','大包裝區產線','小包裝區產線','滷包包裝區產線','醬料包裝區產線','清真包裝區產線'];
+const PRODUCTION_ZONES = ['自動包裝區產線','大包裝區產線','小包裝區產線','滷包包裝區產線','醬料包裝區產線','清真包裝區產線','調味粉樣品產線','醬料樣品產線'];
 let currentZoneFilter = null; // null = 全部
 let editingOrderId = null; // 目前編輯表單所屬的訂單 id（null = 新訂單）
 let editingItemId = null;  // 目前編輯的品項 id（null = 新品項）
@@ -1398,6 +1400,7 @@ function showToast(msg){
   setTimeout(()=> t.classList.remove('show'), 1800);
 }
 
+let firstOrdersSnapshotHandled = false;
 function loadOrders(){
   onSnapshot(ordersDocRef, async (snap)=>{
     orders = (snap.exists() && snap.data().list) ? snap.data().list : [];
@@ -1405,6 +1408,10 @@ function loadOrders(){
     await purgeExpiredTrash();
     render();
     checkShipmentAlerts();
+    if(!firstOrdersSnapshotHandled){
+      firstOrdersSnapshotHandled = true;
+      autoBackupIfNeeded();
+    }
   }, (err)=>{
     console.error(err);
     showToast('連線 Firebase 失敗，請檢查設定與網路');
@@ -2709,8 +2716,15 @@ async function loadBackupState(){
   catch(e){ backupState = null; }
 }
 async function markBackupDone(){
-  backupState = { lastBackupAt: Date.now(), lastBackupYearMonth: currentYearMonth() };
+  backupState = { lastBackupAt: Date.now(), lastBackupYearMonth: currentYearMonth(), lastBackupDate: todayStr() };
   try{ await setDoc(backupDocRef, backupState); }catch(e){}
+}
+async function autoBackupIfNeeded(){
+  if(backupState && backupState.lastBackupDate === todayStr()) return; // 今天已經有人備份過了
+  if(orders.length === 0) return; // 還沒有資料可以備份
+  try{
+    await exportBackup();
+  }catch(e){ console.error(e); }
 }
 function backupNeeded(){ if(!isNearMonthEnd()) return false; return !backupState || backupState.lastBackupYearMonth !== currentYearMonth(); }
 function renderBackupInfo(){
@@ -3955,7 +3969,7 @@ getRedirectResult(auth).catch((e)=>{ console.error(e); handleAuthError(e); });
 
 document.getElementById('signOutBtn').onclick = ()=> signOut(auth);
 
-onAuthStateChanged(auth, (user)=>{
+onAuthStateChanged(auth, async (user)=>{
   const gate = document.getElementById('loginGate');
   if(!user){ appInitialized = false; currentUserEmail = null; isCurrentUserAdmin = false; gate.classList.remove('hidden'); return; }
   if(!isAllowedEmail(user.email)){
@@ -3966,7 +3980,13 @@ onAuthStateChanged(auth, (user)=>{
   gate.classList.add('hidden');
   currentUserEmail = (user.email || '').toLowerCase();
   isCurrentUserAdmin = ADMIN_EMAILS.includes(currentUserEmail);
-  if(!appInitialized){ appInitialized = true; loadOrders(); loadBackupState(); loadBomData(); loadPermissions(); }
+  if(!appInitialized){
+    appInitialized = true;
+    await loadBackupState();
+    loadOrders();
+    loadBomData();
+    loadPermissions();
+  }
 });
 </script>
 </body>
