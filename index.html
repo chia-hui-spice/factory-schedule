@@ -645,7 +645,7 @@
         <div class="check-item" data-chk="c3"><div class="check-box">✓</div><div class="check-text">包裝密封完整無歪斜及漏粉</div></div>
         <div class="check-item" data-chk="c4"><div class="check-box">✓</div><div class="check-text">生產日期有效日期是否印製正確</div></div>
         <div class="field" style="margin-top:14px;">
-          <label>確認及放行人員 <span style="color:var(--red);">*</span></label>
+          <label>裝箱確認及放行人員 <span style="color:var(--red);">*</span></label>
           <select id="fReleaseBy">
             <option value="">請選擇</option>
             <option value="張春雪">張春雪</option>
@@ -654,6 +654,11 @@
           </select>
           <input type="text" id="fReleaseByCustom" placeholder="輸入姓名" style="margin-top:8px; display:none;">
         </div>
+      </div>
+
+      <div id="stageHintWarehouseConfirm" class="stage-hint">🔒 訂單進入「出貨確認」後才會開放倉管出貨確認</div>
+      <div id="sectionWarehouseConfirm">
+        <div class="section-label">倉管出貨確認</div>
         <div class="field">
           <label>倉管出貨確認 <span style="color:var(--red);">*</span></label>
           <select id="fWarehouseConfirm">
@@ -1598,19 +1603,23 @@ function renderList(){
         openSheet(order, item);
         return;
       }
-      if(item.status === 'boxing' && (!item.releaseBy || !item.warehouseConfirm || !isChecklistComplete(item))){
+      if(item.status === 'boxing' && (!item.releaseBy || !isChecklistComplete(item))){
         const missing = [];
         if(!isChecklistComplete(item)) missing.push('出貨前檢查項目');
-        if(!item.releaseBy) missing.push('確認及放行人員');
-        if(!item.warehouseConfirm) missing.push('倉管出貨確認');
-        showToast('請先完成「' + missing.join('、') + '」才能出貨');
+        if(!item.releaseBy) missing.push('裝箱確認及放行人員');
+        showToast('請先完成「' + missing.join('、') + '」才能進入出貨確認');
         openSheet(order, item);
         return;
       }
-      if(item.status === 'shipped' && needsCoa(item) && !item.coaConfirmBy){
-        showToast('此訂單需要COA，請先填寫「COA確認人員」才能完成品管');
-        openSheet(order, item);
-        return;
+      if(item.status === 'shipped'){
+        const missing = [];
+        if(!item.warehouseConfirm && !item.stockPreDeducted) missing.push('倉管出貨確認');
+        if(needsCoa(item) && !item.coaConfirmBy) missing.push('COA確認人員');
+        if(missing.length > 0){
+          showToast('請先填寫「' + missing.join('、') + '」才能完成品管');
+          openSheet(order, item);
+          return;
+        }
       }
 
       if(nextStatus === 'shipped' && !item.shipMethod){
@@ -1871,6 +1880,7 @@ function updateStageVisibility(stage){
   const showProductionZone = (STATUS.indexOf(stage) >= STATUS.indexOf('inprogress')); // 庫存確認或以後
   const showPackaging = (STATUS.indexOf(stage) >= STATUS.indexOf('refill')); // 充填包裝或以後
   const showChecklist = (STATUS.indexOf(stage) >= STATUS.indexOf('boxing')); // 裝箱確認或以後
+  const showWarehouseConfirm = (STATUS.indexOf(stage) >= STATUS.indexOf('shipped')); // 出貨確認或以後
   document.getElementById('sectionBatch').style.display = showBatch ? '' : 'none';
   document.getElementById('stageHintBatch').style.display = showBatch ? 'none' : '';
   document.getElementById('sectionQc').style.display = showQc ? '' : 'none';
@@ -1881,6 +1891,8 @@ function updateStageVisibility(stage){
   document.getElementById('stageHintPackaging').style.display = showPackaging ? 'none' : '';
   document.getElementById('sectionChecklist').style.display = showChecklist ? '' : 'none';
   document.getElementById('stageHintChecklist').style.display = showChecklist ? 'none' : '';
+  document.getElementById('sectionWarehouseConfirm').style.display = showWarehouseConfirm ? '' : 'none';
+  document.getElementById('stageHintWarehouseConfirm').style.display = showWarehouseConfirm ? 'none' : '';
 }
 
 function updateCoaValuesVisibility(){
@@ -2711,7 +2723,7 @@ async function exportBackup(){
         '裝箱數量核對': item.checklist && item.checklist.c2 ? 'V' : '',
         '包裝密封核對': item.checklist && item.checklist.c3 ? 'V' : '',
         '生產/有效日期核對': item.checklist && item.checklist.c4 ? 'V' : '',
-        '確認及放行人員': item.releaseBy || '',
+        '裝箱確認及放行人員': item.releaseBy || '',
         '填寫人員': item.filledBy || '',
         '倉管出貨確認': item.warehouseConfirm || '',
         '出貨方式': item.shipMethod ? shipMethodFullLabel(item) : '',
