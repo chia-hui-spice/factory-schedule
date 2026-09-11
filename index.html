@@ -505,23 +505,12 @@
         <label>備註 / 包裝注意事項</label>
         <textarea id="fNote" placeholder="例如：全廠請務必儘速提供正確批號，以利標籤連動"></textarea>
       </div>
-      <div class="row2">
-        <div class="field">
-          <label>預計需求出貨日期</label>
-          <div class="flex-date-wrap">
-              <input type="text" id="fDue" placeholder="YYYY/MM/DD" inputmode="numeric" required>
-              <input type="date" id="fDue_native" class="flex-date-native-btn">
-            </div>
-        </div>
-        <div class="field">
-          <label>出貨方式（可先選，之後也能改）</label>
-          <select id="fShipMethod">
-            <option value="">未定</option>
-            <option value="today">🚚 寄貨</option>
-            <option value="tomorrow">📦 送貨</option>
-            <option value="pickup">🙋 自取</option>
-          </select>
-        </div>
+      <div class="field">
+        <label>預計需求出貨日期</label>
+        <div class="flex-date-wrap">
+            <input type="text" id="fDue" placeholder="YYYY/MM/DD" inputmode="numeric" required>
+            <input type="date" id="fDue_native" class="flex-date-native-btn">
+          </div>
       </div>
 
       <div class="field">
@@ -666,6 +655,15 @@
       <div id="sectionWarehouseConfirm">
         <div class="section-label">倉管會計出貨確認</div>
         <div class="field">
+          <label>出貨方式 <span style="color:var(--red);">*</span></label>
+          <select id="fShipMethod">
+            <option value="">請選擇</option>
+            <option value="today">🚚 寄貨</option>
+            <option value="tomorrow">📦 送貨</option>
+            <option value="pickup">🙋 自取</option>
+          </select>
+        </div>
+        <div class="field">
           <label>倉管會計出貨確認 <span style="color:var(--red);">*</span></label>
           <select id="fWarehouseConfirm">
             <option value="">請選擇</option>
@@ -673,6 +671,13 @@
             <option value="自訂">自訂</option>
           </select>
           <input type="text" id="fWarehouseConfirmCustom" placeholder="輸入姓名" style="margin-top:8px; display:none;">
+        </div>
+        <div class="field">
+          <label>實際出貨日期</label>
+          <div class="flex-date-wrap">
+            <input type="text" id="fActualShipDate" placeholder="YYYY/MM/DD" inputmode="numeric">
+            <input type="date" id="fActualShipDate_native" class="flex-date-native-btn">
+          </div>
         </div>
       </div>
 
@@ -1619,18 +1624,13 @@ function renderList(){
       if(item.status === 'shipped'){
         const missing = [];
         if(!item.warehouseConfirm && !item.stockPreDeducted) missing.push('倉管會計出貨確認');
+        if(!item.shipMethod && !item.stockPreDeducted) missing.push('出貨方式');
         if(needsCoa(item) && !item.coaConfirmBy) missing.push('COA確認人員');
         if(missing.length > 0){
           showToast('請先填寫「' + missing.join('、') + '」才能完成品管');
           openSheet(order, item);
           return;
         }
-      }
-
-      if(nextStatus === 'shipped' && !item.shipMethod){
-        const choice = await showShipMethodChoice(order.customer + ' ・ ' + item.product);
-        if(!choice) return; // 使用者取消
-        item.shipMethod = choice;
       }
 
       const wasInprogress = item.status === 'inprogress';
@@ -1986,7 +1986,7 @@ function setFlexDateValue(textId, value){
     native.value = '';
   }
 }
-['fFillFormDate','fDue','fProductMfgDate','fProductExpDate','fMaterialMfgDate','fMaterialExpDate'].forEach(setupFlexDate);
+['fFillFormDate','fDue','fProductMfgDate','fProductExpDate','fMaterialMfgDate','fMaterialExpDate','fActualShipDate'].forEach(setupFlexDate);
 
 function setPickerValue(selectId, customId, value){
   const select = document.getElementById(selectId);
@@ -2076,7 +2076,8 @@ function openSheet(order, item){
   document.getElementById('fMaterialBatchNo').value = item ? (item.materialBatchNo || '') : '';
   setFlexDateValue('fMaterialMfgDate', item ? (item.materialMfgDate || '') : '');
   setFlexDateValue('fMaterialExpDate', item ? (item.materialExpDate || '') : '');
-  document.getElementById('fShipMethod').value = item ? (item.shipMethod || '') : (firstItem ? (firstItem.shipMethod || '') : '');
+  document.getElementById('fShipMethod').value = item ? (item.shipMethod || '') : '';
+  setFlexDateValue('fActualShipDate', (item && item.actualShipDate) ? item.actualShipDate : (todayStr()));
   document.getElementById('fProductionZone').value = item ? (item.productionZone || '') : (firstItem ? (firstItem.productionZone || '') : '');
   document.getElementById('fNeedsWarehouseNotice').checked = item ? !!item.needsWarehouseNotice : false;
   document.getElementById('fPackagingArea').value = item ? (item.packagingArea || '') : '';
@@ -2140,6 +2141,7 @@ async function handleSaveOrder(){
   const materialMfgDate = getFlexDateValue('fMaterialMfgDate');
   const materialExpDate = getFlexDateValue('fMaterialExpDate');
   const shipMethod = document.getElementById('fShipMethod').value;
+  const actualShipDate = getFlexDateValue('fActualShipDate');
   const productionZone = document.getElementById('fProductionZone').value;
   const needsWarehouseNotice = document.getElementById('fNeedsWarehouseNotice').checked;
   const packagingArea = document.getElementById('fPackagingArea').value;
@@ -2171,7 +2173,7 @@ async function handleSaveOrder(){
     fillFormDate, fillFormTime,
     releaseBy, filledBy, warehouseConfirm,
     priority: selectedPriority,
-    shipMethod,
+    shipMethod, actualShipDate,
     productionZone, needsWarehouseNotice, packagingArea, packagingStaff,
     checklist: Object.assign({}, checklistState)
   };
