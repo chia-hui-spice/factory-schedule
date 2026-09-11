@@ -2119,11 +2119,22 @@ function openSheet(order, item){
   overlay.classList.add('show');
 }
 
+const STAGE_LOCK_EXEMPT_SECTION = {
+  refill: 'sectionPackaging',
+  done: 'sectionQc',
+  boxing: 'sectionChecklist',
+  shipped: 'sectionWarehouseConfirm'
+};
+const STAGE_LOCK_EXEMPT_HINT = {
+  refill: 'stageHintPackaging',
+  done: 'stageHintQc',
+  boxing: 'stageHintChecklist',
+  shipped: 'stageHintWarehouseConfirm'
+};
 function applyStageContentLock(item){
   const status = item ? item.status : null;
-  // 標籤印製階段:只能填品管確認；充填包裝階段:只能填包裝區域確認；其餘階段不鎖定
-  const exemptSectionId = status === 'done' ? 'sectionQc' : (status === 'refill' ? 'sectionPackaging' : null);
-  const exemptHintId = status === 'done' ? 'stageHintQc' : (status === 'refill' ? 'stageHintPackaging' : null);
+  const exemptSectionId = STAGE_LOCK_EXEMPT_SECTION[status] || null;
+  const exemptHintId = STAGE_LOCK_EXEMPT_HINT[status] || null;
   const isLocked = !!exemptSectionId;
   const form = document.getElementById('orderForm');
   const exemptSection = exemptSectionId ? document.getElementById(exemptSectionId) : null;
@@ -2138,6 +2149,15 @@ function applyStageContentLock(item){
     const el = document.getElementById(id);
     if(el) el.style.pointerEvents = isLocked ? 'none' : '';
   });
+  document.querySelectorAll('.check-item').forEach(el=>{
+    const isExempt = exemptSection && exemptSection.contains(el);
+    el.style.pointerEvents = (isLocked && !isExempt) ? 'none' : '';
+  });
+  const checkAllBtn = document.getElementById('btnCheckAll');
+  if(checkAllBtn){
+    const checkAllExempt = exemptSection && exemptSection.contains(checkAllBtn);
+    checkAllBtn.disabled = isLocked && !checkAllExempt;
+  }
 
   // 視覺上讓鎖定的區塊變淡，提示這些是唯讀的舊資料(排除本階段要填的區塊與操作按鈕)
   Array.from(form.children).forEach(child=>{
