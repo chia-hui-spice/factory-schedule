@@ -386,7 +386,7 @@
     <div class="sheet-handle"></div>
     <h2 id="sheetTitle">新增訂單</h2>
     <div class="sheet-sub" id="sheetSub"></div>
-    <button type="button" id="btnShowMoreFields" style="display:none; width:100%; margin-bottom:12px; padding:10px; border-radius:8px; border:1.5px dashed var(--line); background:var(--panel-raised); color:var(--ink-dim); font-size:16.2px; font-weight:700; cursor:pointer;">▾ 顯示更多欄位（優先度/備註、品管確認、分區排產、包裝區域確認、出貨前檢查）</button>
+    <button type="button" id="btnShowMoreFields" style="display:none; width:100%; margin-bottom:12px; padding:10px; border-radius:8px; border:1.5px dashed var(--line); background:var(--panel-raised); color:var(--ink-dim); font-size:16.2px; font-weight:700; cursor:pointer;">▾ 顯示更多欄位（COA、優先度/備註、品管確認、分區排產、包裝區域確認、出貨前檢查）</button>
     <form id="orderForm" novalidate>
 
       <div class="row3">
@@ -516,7 +516,7 @@
           </div>
       </div>
 
-      <div class="field">
+      <div id="sectionCoaType" class="field">
         <label>COA <span style="color:var(--red);">*</span></label>
         <select id="fCoa">
           <option value="">請選擇</option>
@@ -1899,8 +1899,11 @@ function updateStageVisibility(stage){
   const showPackagingFinal = showPackaging && !shouldCollapseEarlier;
   const showChecklistFinal = showChecklist && !shouldCollapseEarlier;
 
+  const showCoaType = !shouldCollapseEarlier;
+
   document.getElementById('btnShowMoreFields').style.display = shouldCollapseEarlier ? '' : 'none';
 
+  document.getElementById('sectionCoaType').style.display = showCoaType ? '' : 'none';
   document.getElementById('sectionPriorityNote').style.display = showPriorityNote ? '' : 'none';
   document.getElementById('sectionBatch').style.display = showBatch ? '' : 'none';
   document.getElementById('stageHintBatch').style.display = showBatch ? 'none' : '';
