@@ -450,9 +450,9 @@
       <div id="sectionBatch">
         <div class="section-label">批號 / 日期</div>
         <div class="field">
-          <label>產品製造日期</label>
+          <label style="color:var(--amber); font-weight:800;">產品製造日期(調配、研磨日期)</label>
           <div class="flex-date-wrap">
-            <input type="text" id="fProductMfgDate" placeholder="YYYY/MM/DD" inputmode="numeric">
+            <input type="text" id="fProductMfgDate" placeholder="YYYY/MM/DD" inputmode="numeric" style="border-color:var(--amber);">
             <input type="date" id="fProductMfgDate_native" class="flex-date-native-btn">
           </div>
         </div>
@@ -2742,7 +2742,7 @@ async function exportBackup(){
         '出貨日期': item.due || '',
         '優先度': item.priority === 'urgent' ? '急件' : '一般',
         '狀態': item.deleted ? '已刪除(垃圾桶)' : (STATUS_LABEL[item.status] || item.status),
-        '產品製造日期': item.productMfgDate || '',
+        '產品製造日期(調配、研磨日期)': item.productMfgDate || '',
         '包裝日期': item.packagingDate || '',
         '產品有效日期': item.productExpDate || '',
         '包材批號': item.trayBatchNo || '',
