@@ -573,17 +573,7 @@
         <div class="section-label">分區排產</div>
         <div class="field">
           <label>生產線 <span style="color:var(--red);">*</span></label>
-          <select id="fProductionZone">
-            <option value="">請選擇</option>
-            <option value="自動包裝區產線">自動包裝區產線</option>
-            <option value="大包裝區產線">大包裝區產線</option>
-            <option value="小包裝區產線">小包裝區產線</option>
-            <option value="滷包包裝區產線">滷包包裝區產線</option>
-            <option value="醬料包裝區產線">醬料包裝區產線</option>
-            <option value="清真包裝區產線">清真包裝區產線</option>
-            <option value="調味粉樣品產線">調味粉樣品產線</option>
-            <option value="醬料樣品產線">醬料樣品產線</option>
-          </select>
+          <div id="fProductionZoneGroup" class="perm-checkbox-grid"></div>
         </div>
         <div class="field">
           <label class="checkbox-field-label">
@@ -1295,7 +1285,7 @@ let semiGoods = []; // [{id, name, unit, stock}]
 let semiBoms = []; // [{id, semiGoodId, rows:[{materialId, qtyPerUnit}]}]
 let currentTab = 'pending';
 let currentEditingStage = 'pending';
-const PRODUCTION_ZONES = ['自動包裝區產線','大包裝區產線','小包裝區產線','滷包包裝區產線','醬料包裝區產線','清真包裝區產線','調味粉樣品產線','醬料樣品產線'];
+const PRODUCTION_ZONES = ['自動包裝區產線','大包裝區產線','小包裝區產線','滷包包裝區產線','醬料包裝區產線','清真包裝區產線','調味粉樣品產線','醬料樣品產線','原料樣品產線'];
 let currentZoneFilter = null; // null = 全部
 let editingOrderId = null; // 目前編輯表單所屬的訂單 id（null = 新訂單）
 let editingItemId = null;  // 目前編輯的品項 id（null = 新品項）
@@ -1466,7 +1456,7 @@ function renderTabs(){
 
 function itemMatchesZoneFilter(item){
   if(currentTab !== 'labeling' || !currentZoneFilter) return true;
-  return item.productionZone === currentZoneFilter;
+  return (item.productionZones || []).includes(currentZoneFilter);
 }
 
 function renderList(){
@@ -1538,7 +1528,7 @@ function renderList(){
       ['c1','c2','c3','c4'].forEach(k=>{ chkHtml += '<span class="chk-pill' + (chk[k] ? ' on' : '') + '">' + CHK_LABELS[k] + (chk[k] ? ' ✓' : '') + '</span>'; });
 
       const metaBits = [];
-      if(item.productionZone) metaBits.push('<div class="meta-item">產線 <b>' + escapeHtml(item.productionZone) + '</b></div>');
+      if(item.productionZones && item.productionZones.length > 0) metaBits.push('<div class="meta-item">產線 <b>' + escapeHtml(item.productionZones.join('、')) + '</b></div>');
       if(item.productMfgDate) metaBits.push('<div class="meta-item">製造日期 <b>' + item.productMfgDate + '</b></div>');
       if(item.packagingDate) metaBits.push('<div class="meta-item">包裝日期 <b>' + item.packagingDate + '</b></div>');
       if(item.materialBatchNo) metaBits.push('<div class="meta-item">原料批號 <b>' + escapeHtml(item.materialBatchNo) + '</b></div>');
@@ -1611,8 +1601,8 @@ function renderList(){
         openSheet(order, item);
         return;
       }
-      if(item.status === 'inprogress' && !item.productionZone){
-        showToast('請先選擇「生產線」才能進入排程生產');
+      if(item.status === 'inprogress' && (!item.productionZones || item.productionZones.length === 0)){
+        showToast('請先選擇至少一個「生產線」才能進入排程生產');
         openSheet(order, item);
         return;
       }
@@ -1774,7 +1764,8 @@ function renderList(){
           shippedAt: Date.now(),
           releaseBy: '', warehouseConfirm: '', checklist: {c1:false,c2:false,c3:false,c4:false},
           completedAt: undefined,
-          packagingArea: '', packagingStaff: ''
+          packagingArea: '', packagingStaff: '',
+          productionZones: (item.productionZones || []).slice()
         });
         order.items.push(newItem);
         item.qty = item.qty - fulfillQty;
@@ -1826,6 +1817,7 @@ function renderList(){
         splitGroupId: splitGroupId,
         status: 'pending',
         productMfgDate: '', packagingDate: '', trayBatchNo: '', materialBatchNo: '', materialMfgDate: '', materialExpDate: '', productExpDate: '',
+        productionZones: [],
         checklist: { c1:false, c2:false, c3:false, c4:false },
         releaseBy: '', shipMethod: undefined, shippedAt: undefined, completedAt: undefined,
         deleted: false, deletedAt: undefined
@@ -1959,6 +1951,23 @@ document.getElementById('fCoa').addEventListener('change', updateCoaValuesVisibi
   monthSel.addEventListener('change', syncHidden);
   daySel.addEventListener('change', syncHidden);
 })();
+function initProductionZoneCheckboxes(){
+  const group = document.getElementById('fProductionZoneGroup');
+  group.innerHTML = PRODUCTION_ZONES.map(z=>{
+    return '<label class="perm-checkbox-item"><input type="checkbox" class="fProductionZoneCheckbox" value="'+escapeHtml(z)+'">' + escapeHtml(z) + '</label>';
+  }).join('');
+}
+function setProductionZoneCheckboxes(zones){
+  const selected = zones || [];
+  document.querySelectorAll('.fProductionZoneCheckbox').forEach(cb=>{
+    cb.checked = selected.includes(cb.value);
+  });
+}
+function getProductionZoneCheckboxes(){
+  return Array.from(document.querySelectorAll('.fProductionZoneCheckbox:checked')).map(cb=>cb.value);
+}
+initProductionZoneCheckboxes();
+
 function setPackagingDateSelects(value){
   const monthSel = document.getElementById('fPackagingMonth');
   const daySel = document.getElementById('fPackagingDay');
@@ -2109,7 +2118,7 @@ function openSheet(order, item){
   setFlexDateValue('fMaterialExpDate', item ? (item.materialExpDate || '') : '');
   document.getElementById('fShipMethod').value = item ? (item.shipMethod || '') : '';
   setFlexDateValue('fActualShipDate', (item && item.actualShipDate) ? item.actualShipDate : (todayStr()));
-  document.getElementById('fProductionZone').value = item ? (item.productionZone || '') : (firstItem ? (firstItem.productionZone || '') : '');
+  setProductionZoneCheckboxes(item ? (item.productionZones || []) : (firstItem ? (firstItem.productionZones || []) : []));
   document.getElementById('fNeedsWarehouseNotice').checked = item ? !!item.needsWarehouseNotice : false;
   document.getElementById('fPackagingArea').value = item ? (item.packagingArea || '') : '';
   populatePackagingStaffOptions(item ? (item.packagingArea || '') : '', item ? (item.packagingStaff || '') : '');
@@ -2175,7 +2184,7 @@ async function handleSaveOrder(){
   const materialExpDate = getFlexDateValue('fMaterialExpDate');
   const shipMethod = document.getElementById('fShipMethod').value;
   const actualShipDate = getFlexDateValue('fActualShipDate');
-  const productionZone = document.getElementById('fProductionZone').value;
+  const productionZones = getProductionZoneCheckboxes();
   const needsWarehouseNotice = document.getElementById('fNeedsWarehouseNotice').checked;
   const packagingArea = document.getElementById('fPackagingArea').value;
   const packagingStaff = getPickerValue('fPackagingStaff', 'fPackagingStaffCustom');
@@ -2207,7 +2216,7 @@ async function handleSaveOrder(){
     releaseBy, filledBy, warehouseConfirm,
     priority: selectedPriority,
     shipMethod, actualShipDate,
-    productionZone, needsWarehouseNotice, packagingArea, packagingStaff,
+    productionZones, needsWarehouseNotice, packagingArea, packagingStaff,
     checklist: Object.assign({}, checklistState)
   };
 
@@ -2451,7 +2460,7 @@ function renderWarehouseNoticeList(){
 
   listEl.innerHTML = relevant.map(x=>{
     const stageTag = '<span class="ship-list-tag">' + STATUS_LABEL[x.item.status] + '</span>';
-    const zoneTag = x.item.productionZone ? ('<span class="ship-list-tag">' + escapeHtml(x.item.productionZone) + '</span>') : '';
+    const zoneTag = (x.item.productionZones && x.item.productionZones.length > 0) ? ('<span class="ship-list-tag">' + escapeHtml(x.item.productionZones.join('、')) + '</span>') : '';
     return '<div class="ship-list-row" data-jump-oid="'+x.order.id+'" data-jump-iid="'+x.item.id+'" style="cursor:pointer;">' +
       '<div><div class="ship-list-name">' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '</div>' +
       '<div class="ship-list-meta">' + escapeHtml(x.order.orderNo || '') + (x.item.spec ? ' ・ ' + escapeHtml(x.item.spec) : '') + ' ・ 出貨日 ' + x.item.due + '</div>' +
