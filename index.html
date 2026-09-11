@@ -2127,9 +2127,40 @@ function openSheet(order, item){
   currentEditingStage = item ? item.status : 'pending';
   showMoreFieldsExpanded = false;
   updateStageVisibility(currentEditingStage);
+  applyStageContentLock(item);
 
   document.getElementById('btnDelete').style.display = item ? 'block' : 'none';
   overlay.classList.add('show');
+}
+
+function applyStageContentLock(item){
+  const status = item ? item.status : null;
+  // 標籤印製階段:只能填品管確認；充填包裝階段:只能填包裝區域確認；其餘階段不鎖定
+  const exemptSectionId = status === 'done' ? 'sectionQc' : (status === 'refill' ? 'sectionPackaging' : null);
+  const exemptHintId = status === 'done' ? 'stageHintQc' : (status === 'refill' ? 'stageHintPackaging' : null);
+  const isLocked = !!exemptSectionId;
+  const form = document.getElementById('orderForm');
+  const exemptSection = exemptSectionId ? document.getElementById(exemptSectionId) : null;
+
+  form.querySelectorAll('input, select, textarea').forEach(el=>{
+    if(exemptSection && exemptSection.contains(el)){ el.disabled = false; return; } // 這個階段本來就要填的區塊，不鎖
+    el.disabled = isLocked;
+  });
+
+  // 優先度切換與其他自訂點擊元件(非原生input)另外處理
+  ['priNormal','priUrgent'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.style.pointerEvents = isLocked ? 'none' : '';
+  });
+
+  // 視覺上讓鎖定的區塊變淡，提示這些是唯讀的舊資料(排除本階段要填的區塊與操作按鈕)
+  Array.from(form.children).forEach(child=>{
+    if(exemptSection && child === exemptSection){ child.style.opacity = ''; return; }
+    if(child.id === exemptHintId){ child.style.opacity = ''; return; }
+    if(child.classList && child.classList.contains('sheet-actions')) return;
+    if(child.id === 'btnDelete') return;
+    child.style.opacity = isLocked ? '0.55' : '';
+  });
 }
 
 function closeSheet(){
