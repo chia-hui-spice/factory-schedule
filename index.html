@@ -321,7 +321,6 @@
   .badge.ship-tomorrow{ background:var(--panel); border:1px solid var(--teal); color:var(--teal); }
   .badge.ship-pickup{ background:var(--panel); border:1px solid var(--purple); color:var(--purple); }
   .badge.coa-badge{ background:var(--panel); border:1px solid var(--blue); color:var(--blue); }
-  .badge.warehouse-notice-badge{ background:var(--panel); border:1px solid var(--teal); color:var(--teal); }
   .badge.split-origin-badge{ background:var(--panel); border:1px solid var(--purple); color:var(--purple); cursor:pointer; }
 
   .ship-list-row{
@@ -575,12 +574,6 @@
           <label>生產線 <span style="color:var(--red);">*</span></label>
           <div id="fProductionZoneGroup" class="perm-checkbox-grid"></div>
         </div>
-        <div class="field">
-          <label class="checkbox-field-label">
-            <input type="checkbox" id="fNeedsWarehouseNotice" style="width:20px; height:20px;">
-            📦 需要通知原料倉（顆粒/葉片類，過篩烘烤後即可包裝）
-          </label>
-        </div>
       </div>
 
       <div id="stageHintPackaging" class="stage-hint">🔒 訂單進入「充填包裝」後才會開放選擇包裝區域與人員</div>
@@ -694,7 +687,6 @@
     <div class="report-tabs" id="reportTabs">
       <button type="button" class="report-tab active" data-report-tab="alerts">⚠ 警示</button>
       <button type="button" class="report-tab" data-report-tab="coaPending">📄 COA待處理</button>
-      <button type="button" class="report-tab" data-report-tab="warehouseNotice">📦 需通知原料倉</button>
       <button type="button" class="report-tab" data-report-tab="progress">📈 生產進度</button>
       <button type="button" class="report-tab" data-report-tab="shipping">🚚 出貨清單</button>
       <button type="button" class="report-tab" data-report-tab="search">🔍 訂單查詢</button>
@@ -721,11 +713,6 @@
       <div id="coaPendingList"></div>
       <div class="report-section-title">✅ COA已確認完成</div>
       <div id="coaDoneList"></div>
-    </div>
-
-    <div class="report-tab-panel" id="reportPanelWarehouseNotice" style="display:none;">
-      <div class="report-section-title" style="margin-top:0;">📦 需要通知原料倉的訂單</div>
-      <div id="warehouseNoticeList"></div>
     </div>
 
     <div class="report-tab-panel" id="reportPanelProgress" style="display:none;">
@@ -1285,7 +1272,7 @@ let semiGoods = []; // [{id, name, unit, stock}]
 let semiBoms = []; // [{id, semiGoodId, rows:[{materialId, qtyPerUnit}]}]
 let currentTab = 'pending';
 let currentEditingStage = 'pending';
-const PRODUCTION_ZONES = ['自動包裝區產線','大包裝區產線','小包裝區產線','滷包包裝區產線','醬料包裝區產線','清真包裝區產線','調味粉樣品產線','醬料樣品產線','原料樣品產線'];
+const PRODUCTION_ZONES = ['自動包裝區產線','大包裝區產線','小包裝區產線','滷包包裝區產線','醬料包裝區產線','清真包裝區產線','調味粉產線','醬料產線','原料產線'];
 let currentZoneFilter = null; // null = 全部
 let editingOrderId = null; // 目前編輯表單所屬的訂單 id（null = 新訂單）
 let editingItemId = null;  // 目前編輯的品項 id（null = 新品項）
@@ -1500,9 +1487,6 @@ function renderList(){
       }
       if(item.shipMethod){
         badges += '<span class="badge ship-' + item.shipMethod + '">' + shipMethodFullLabel(item) + '</span>';
-      }
-      if(item.needsWarehouseNotice){
-        badges += '<span class="badge warehouse-notice-badge">📦 需通知原料倉</span>';
       }
       if(item.originalQty && item.originalQty !== item.qty){
         badges += '<span class="badge split-origin-badge" data-split-group="'+escapeHtml(item.splitGroupId||'')+'" data-oid="'+order.id+'">🔗 原訂購共' + item.originalQty + '</span>';
@@ -2119,7 +2103,6 @@ function openSheet(order, item){
   document.getElementById('fShipMethod').value = item ? (item.shipMethod || '') : '';
   setFlexDateValue('fActualShipDate', (item && item.actualShipDate) ? item.actualShipDate : (todayStr()));
   setProductionZoneCheckboxes(item ? (item.productionZones || []) : (firstItem ? (firstItem.productionZones || []) : []));
-  document.getElementById('fNeedsWarehouseNotice').checked = item ? !!item.needsWarehouseNotice : false;
   document.getElementById('fPackagingArea').value = item ? (item.packagingArea || '') : '';
   populatePackagingStaffOptions(item ? (item.packagingArea || '') : '', item ? (item.packagingStaff || '') : '');
   document.getElementById('fCoa').value = item ? (item.coa || '') : (firstItem ? (firstItem.coa || '') : '');
@@ -2185,7 +2168,6 @@ async function handleSaveOrder(){
   const shipMethod = document.getElementById('fShipMethod').value;
   const actualShipDate = getFlexDateValue('fActualShipDate');
   const productionZones = getProductionZoneCheckboxes();
-  const needsWarehouseNotice = document.getElementById('fNeedsWarehouseNotice').checked;
   const packagingArea = document.getElementById('fPackagingArea').value;
   const packagingStaff = getPickerValue('fPackagingStaff', 'fPackagingStaffCustom');
   const coa = document.getElementById('fCoa').value;
@@ -2216,7 +2198,7 @@ async function handleSaveOrder(){
     releaseBy, filledBy, warehouseConfirm,
     priority: selectedPriority,
     shipMethod, actualShipDate,
-    productionZones, needsWarehouseNotice, packagingArea, packagingStaff,
+    productionZones, packagingArea, packagingStaff,
     checklist: Object.assign({}, checklistState)
   };
 
@@ -2398,7 +2380,6 @@ function renderReport(){
   document.getElementById('reportUpdated').textContent = '更新時間 ' + new Date().toLocaleString('zh-TW', { hour12:false });
   renderShipLists();
   renderCoaPendingList();
-  renderWarehouseNoticeList();
   renderOrderSearchList();
 }
 
@@ -2445,40 +2426,6 @@ function renderCoaPendingList(){
   });
 }
 
-function renderWarehouseNoticeList(){
-  const listEl = document.getElementById('warehouseNoticeList');
-  if(!listEl) return;
-
-  const all = allActiveItems();
-  const relevant = all.filter(x => x.item.needsWarehouseNotice && !isShippedOrLater(x.item));
-  relevant.sort((a,b)=> (a.item.due||'').localeCompare(b.item.due||''));
-
-  if(relevant.length === 0){
-    listEl.innerHTML = '<div class="ship-list-empty">目前沒有需要通知原料倉的訂單</div>';
-    return;
-  }
-
-  listEl.innerHTML = relevant.map(x=>{
-    const stageTag = '<span class="ship-list-tag">' + STATUS_LABEL[x.item.status] + '</span>';
-    const zoneTag = (x.item.productionZones && x.item.productionZones.length > 0) ? ('<span class="ship-list-tag">' + escapeHtml(x.item.productionZones.join('、')) + '</span>') : '';
-    return '<div class="ship-list-row" data-jump-oid="'+x.order.id+'" data-jump-iid="'+x.item.id+'" style="cursor:pointer;">' +
-      '<div><div class="ship-list-name">' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '</div>' +
-      '<div class="ship-list-meta">' + escapeHtml(x.order.orderNo || '') + (x.item.spec ? ' ・ ' + escapeHtml(x.item.spec) : '') + ' ・ 出貨日 ' + x.item.due + '</div>' +
-      stageTag + zoneTag +
-      '</div><div class="ship-list-qty">x' + x.item.qty + '</div></div>';
-  }).join('');
-
-  listEl.querySelectorAll('[data-jump-oid]').forEach(row=>{
-    row.onclick = ()=>{
-      const order = orders.find(o=>o.id===row.dataset.jumpOid);
-      const item = order && order.items.find(i=>i.id===row.dataset.jumpIid);
-      if(order && item){
-        reportOverlay.classList.remove('show');
-        openSheet(order, item);
-      }
-    };
-  });
-}
 
 function renderOrderSearchList(){
   const listEl = document.getElementById('orderSearchList');
@@ -2616,7 +2563,6 @@ const reportOverlay = document.getElementById('reportOverlay');
 const REPORT_PANELS = {
   alerts: 'reportPanelAlerts',
   coaPending: 'reportPanelCoaPending',
-  warehouseNotice: 'reportPanelWarehouseNotice',
   progress: 'reportPanelProgress',
   shipping: 'reportPanelShipping',
   search: 'reportPanelSearch',
