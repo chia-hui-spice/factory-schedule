@@ -1579,6 +1579,11 @@ function renderList(){
         openSheet(order, item);
         return;
       }
+      if(item.status === 'labeling' && !item.productMfgDate){
+        showToast('請先填寫「產品製造日期(調配、研磨日期)」才能進入標籤印製');
+        openSheet(order, item);
+        return;
+      }
       if(item.status === 'refill' && !item.packagingStaff){
         showToast('請先填寫「包裝人員」才能進入裝箱確認');
         openSheet(order, item);
@@ -1852,6 +1857,11 @@ const overlay = document.getElementById('overlay');
 const form = document.getElementById('orderForm');
 let selectedPriority = 'normal';
 
+const STAGE_COLLAPSE_SECTIONS = {
+  inprogress: ['sectionBatch', 'sectionPriorityNote'],
+  labeling: ['sectionPriorityNote', 'sectionProductionZone'],
+  shipped: ['sectionCoaType', 'sectionPriorityNote', 'sectionQc', 'sectionProductionZone', 'sectionPackaging', 'sectionChecklist']
+};
 function updateStageVisibility(stage){
   const showBatch = stage !== 'pending';
   const showQc = (STATUS.indexOf(stage) >= STATUS.indexOf('done')); // 排程生產完成(標籤印製)或以後
@@ -1860,31 +1870,29 @@ function updateStageVisibility(stage){
   const showChecklist = (STATUS.indexOf(stage) >= STATUS.indexOf('boxing')); // 裝箱確認或以後
   const showWarehouseConfirm = (STATUS.indexOf(stage) >= STATUS.indexOf('shipped')); // 出貨確認或以後
 
-  // 到了出貨確認階段，資訊量已經很多了，預設收合較早期填過的區塊，減少畫面雜訊
-  const shouldCollapseEarlier = (stage === 'shipped') && !showMoreFieldsExpanded;
-  const showPriorityNote = !shouldCollapseEarlier;
-  const showQcFinal = showQc && !shouldCollapseEarlier;
-  const showProductionZoneFinal = showProductionZone && !shouldCollapseEarlier;
-  const showPackagingFinal = showPackaging && !shouldCollapseEarlier;
-  const showChecklistFinal = showChecklist && !shouldCollapseEarlier;
+  // 某些階段資訊量較多，預設收合指定的區塊，減少畫面雜訊，可用「顯示更多欄位」展開
+  const collapseList = STAGE_COLLAPSE_SECTIONS[stage] || [];
+  const shouldCollapse = collapseList.length > 0 && !showMoreFieldsExpanded;
+  function finalShow(sectionId, ownVisible){
+    if(shouldCollapse && collapseList.includes(sectionId)) return false;
+    return ownVisible;
+  }
 
-  const showCoaType = !shouldCollapseEarlier;
+  document.getElementById('btnShowMoreFields').style.display = shouldCollapse ? '' : 'none';
 
-  document.getElementById('btnShowMoreFields').style.display = shouldCollapseEarlier ? '' : 'none';
-
-  document.getElementById('sectionCoaType').style.display = showCoaType ? '' : 'none';
-  document.getElementById('sectionPriorityNote').style.display = showPriorityNote ? '' : 'none';
-  document.getElementById('sectionBatch').style.display = showBatch ? '' : 'none';
+  document.getElementById('sectionCoaType').style.display = finalShow('sectionCoaType', true) ? '' : 'none';
+  document.getElementById('sectionPriorityNote').style.display = finalShow('sectionPriorityNote', true) ? '' : 'none';
+  document.getElementById('sectionBatch').style.display = finalShow('sectionBatch', showBatch) ? '' : 'none';
   document.getElementById('stageHintBatch').style.display = showBatch ? 'none' : '';
-  document.getElementById('sectionQc').style.display = showQcFinal ? '' : 'none';
+  document.getElementById('sectionQc').style.display = finalShow('sectionQc', showQc) ? '' : 'none';
   document.getElementById('stageHintQc').style.display = showQc ? 'none' : '';
-  document.getElementById('sectionProductionZone').style.display = showProductionZoneFinal ? '' : 'none';
+  document.getElementById('sectionProductionZone').style.display = finalShow('sectionProductionZone', showProductionZone) ? '' : 'none';
   document.getElementById('stageHintProductionZone').style.display = showProductionZone ? 'none' : '';
-  document.getElementById('sectionPackaging').style.display = showPackagingFinal ? '' : 'none';
+  document.getElementById('sectionPackaging').style.display = finalShow('sectionPackaging', showPackaging) ? '' : 'none';
   document.getElementById('stageHintPackaging').style.display = showPackaging ? 'none' : '';
-  document.getElementById('sectionChecklist').style.display = showChecklistFinal ? '' : 'none';
+  document.getElementById('sectionChecklist').style.display = finalShow('sectionChecklist', showChecklist) ? '' : 'none';
   document.getElementById('stageHintChecklist').style.display = showChecklist ? 'none' : '';
-  document.getElementById('sectionWarehouseConfirm').style.display = showWarehouseConfirm ? '' : 'none';
+  document.getElementById('sectionWarehouseConfirm').style.display = finalShow('sectionWarehouseConfirm', showWarehouseConfirm) ? '' : 'none';
   document.getElementById('stageHintWarehouseConfirm').style.display = showWarehouseConfirm ? 'none' : '';
 }
 let showMoreFieldsExpanded = false;
