@@ -1860,6 +1860,9 @@ let selectedPriority = 'normal';
 const STAGE_COLLAPSE_SECTIONS = {
   inprogress: ['sectionBatch', 'sectionPriorityNote'],
   labeling: ['sectionPriorityNote', 'sectionProductionZone'],
+  done: ['sectionPriorityNote', 'sectionQc', 'sectionProductionZone'],
+  refill: ['sectionCoaType', 'sectionPriorityNote', 'sectionBatch', 'sectionProductionZone'],
+  boxing: ['sectionCoaType', 'sectionPriorityNote', 'sectionBatch', 'sectionProductionZone', 'sectionPackaging'],
   shipped: ['sectionCoaType', 'sectionPriorityNote', 'sectionQc', 'sectionProductionZone', 'sectionPackaging', 'sectionChecklist']
 };
 function updateStageVisibility(stage){
