@@ -1475,7 +1475,7 @@ function renderTabs(){
   }
   allowedTabs.forEach(s=>{
     let count = 0;
-    orders.forEach(o=> (o.items||[]).forEach(it=>{ if(!it.deleted && it.status===s && (s !== 'qc' || needsCoa(it))) count++; }));
+    orders.forEach(o=> (o.items||[]).forEach(it=>{ if(itemBelongsToTab(it, s)) count++; }));
     const tab = document.createElement('div');
     tab.className = 'tab' + (s===currentTab ? ' active' : '');
     tab.dataset.status = s;
@@ -1489,14 +1489,18 @@ function itemMatchesZoneFilter(item){
   if(currentTab !== 'labeling' || !currentZoneFilter) return true;
   return (item.productionZones || []).includes(currentZoneFilter);
 }
-function itemMatchesQcCoaFilter(item){
-  if(currentTab !== 'qc') return true;
-  return needsCoa(item);
+function itemBelongsToTab(item, tab){
+  if(item.deleted) return false;
+  if(tab === 'qc'){
+    // 品管COA分頁改為跨階段顯示:只要選了需要COA、還沒確認完成，不管實際在哪個生產階段都會出現在這裡
+    return needsCoa(item) && !item.coaConfirmBy;
+  }
+  return item.status === tab;
 }
 
 function renderList(){
   const listEl = document.getElementById('listArea');
-  const matchingOrders = orders.filter(o => (o.items||[]).some(it => !it.deleted && it.status === currentTab && itemMatchesZoneFilter(it) && itemMatchesQcCoaFilter(it)));
+  const matchingOrders = orders.filter(o => (o.items||[]).some(it => itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it)));
 
   if(matchingOrders.length === 0){
     const hint = (currentTab === 'pending') ? '<br>點右下角 + 新增一筆' : '';
@@ -1507,8 +1511,8 @@ function renderList(){
   }
 
   matchingOrders.sort((a,b)=>{
-    const aMin = Math.min(...a.items.filter(it=>!it.deleted && it.status===currentTab && itemMatchesZoneFilter(it) && itemMatchesQcCoaFilter(it)).map(it=>it.due||'9999'));
-    const bMin = Math.min(...b.items.filter(it=>!it.deleted && it.status===currentTab && itemMatchesZoneFilter(it) && itemMatchesQcCoaFilter(it)).map(it=>it.due||'9999'));
+    const aMin = Math.min(...a.items.filter(it=>itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it)).map(it=>it.due||'9999'));
+    const bMin = Math.min(...b.items.filter(it=>itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it)).map(it=>it.due||'9999'));
     return String(aMin).localeCompare(String(bMin));
   });
 
@@ -1516,7 +1520,7 @@ function renderList(){
   const wrap = document.getElementById('orderList');
 
   matchingOrders.forEach(order=>{
-    const activeItems = (order.items||[]).filter(it=>!it.deleted && it.status===currentTab && itemMatchesZoneFilter(it) && itemMatchesQcCoaFilter(it));
+    const activeItems = (order.items||[]).filter(it=>itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it));
     const card = document.createElement('div');
     card.className = 'order-card';
 
