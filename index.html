@@ -804,7 +804,7 @@
       </div>
 
       <div class="section-label">從備份還原資料</div>
-      <div class="report-updated" style="margin-bottom:10px;">選擇之前匯出的 Excel 備份檔，系統會把裡面的訂單新增回目前的資料裡（不會刪除現有的訂單，只會補進去）。還原後，生產線、包裝人員、COA確認人員、實際出貨日期這幾個欄位需要重新填寫，因為備份檔案本身沒有存這些欄位。</div>
+      <div class="report-updated" style="margin-bottom:10px;">選擇之前匯出的 Excel 備份檔，系統會把裡面的訂單新增回目前的資料裡（不會刪除現有的訂單，只會補進去）。</div>
       <input type="file" id="importBackupFile" accept=".xlsx" style="margin-bottom:10px;">
       <div class="sheet-actions" style="margin-top:0;">
         <button type="button" class="btn-secondary" id="btnImportBackup">📤 從備份還原</button>
@@ -1928,7 +1928,8 @@ const STAGE_COLLAPSE_SECTIONS = {
 };
 function updateStageVisibility(stage){
   const showBatch = stage !== 'pending';
-  const showQc = (STATUS.indexOf(stage) >= STATUS.indexOf('done')); // 排程生產完成(標籤印製)或以後
+  const openedFromQcTab = (currentTab === 'qc'); // 從品管COA分頁開啟時，品管確認一律顯示，不管實際階段
+  const showQc = openedFromQcTab || (STATUS.indexOf(stage) >= STATUS.indexOf('done')); // 排程生產完成(標籤印製)或以後
   const showProductionZone = (STATUS.indexOf(stage) >= STATUS.indexOf('inprogress')); // 庫存確認或以後
   const showPackaging = (STATUS.indexOf(stage) >= STATUS.indexOf('refill')); // 充填包裝或以後
   const showChecklist = (STATUS.indexOf(stage) >= STATUS.indexOf('boxing')); // 裝箱確認或以後
@@ -1938,6 +1939,7 @@ function updateStageVisibility(stage){
   const collapseList = STAGE_COLLAPSE_SECTIONS[stage] || [];
   const shouldCollapse = collapseList.length > 0 && !showMoreFieldsExpanded;
   function finalShow(sectionId, ownVisible){
+    if(openedFromQcTab && sectionId === 'sectionQc') return true; // 品管COA分頁強制顯示，不受收合影響
     if(shouldCollapse && collapseList.includes(sectionId)) return false;
     return ownVisible;
   }
@@ -2225,7 +2227,7 @@ const STAGE_LOCK_EXEMPT_SECTION = {
   refill: ['sectionPackaging'],
   done: ['sectionQc'],
   boxing: ['sectionChecklist'],
-  shipped: ['sectionWarehouseConfirm', 'sectionQc'] // 出貨確認也要能補填COA確認人員(推進到品管前的必填項目)
+  shipped: ['sectionWarehouseConfirm']
 };
 const STAGE_LOCK_EXEMPT_HINT = {
   inprogress: ['stageHintProductionZone'],
@@ -2233,12 +2235,17 @@ const STAGE_LOCK_EXEMPT_HINT = {
   refill: ['stageHintPackaging'],
   done: ['stageHintQc'],
   boxing: ['stageHintChecklist'],
-  shipped: ['stageHintWarehouseConfirm', 'stageHintQc']
+  shipped: ['stageHintWarehouseConfirm']
 };
 function applyStageContentLock(item){
   const status = item ? item.status : null;
-  const exemptSectionIds = STAGE_LOCK_EXEMPT_SECTION[status] || [];
-  const exemptHintIds = STAGE_LOCK_EXEMPT_HINT[status] || [];
+  const exemptSectionIds = (STAGE_LOCK_EXEMPT_SECTION[status] || []).slice();
+  const exemptHintIds = (STAGE_LOCK_EXEMPT_HINT[status] || []).slice();
+  if(currentTab === 'qc'){
+    // 從「品管COA」分頁開啟時，不管品項實際在哪個生產階段，品管確認一律可以直接填寫
+    if(!exemptSectionIds.includes('sectionQc')) exemptSectionIds.push('sectionQc');
+    if(!exemptHintIds.includes('stageHintQc')) exemptHintIds.push('stageHintQc');
+  }
   const isLocked = exemptSectionIds.length > 0;
   const form = document.getElementById('orderForm');
   const exemptSections = exemptSectionIds.map(id=>document.getElementById(id)).filter(Boolean);
@@ -2861,6 +2868,10 @@ async function exportBackup(){
         'COA-大腸桿菌群': item.coaColiform || '',
         'COA-大腸桿菌': item.coaEcoli || '',
         '產地': item.origin || '',
+        '生產線': (item.productionZones || []).join('、'),
+        '包裝人員': item.packagingStaff || '',
+        'COA確認人員': item.coaConfirmBy || '',
+        '實際出貨日期': item.actualShipDate || '',
         '備註': item.note || '',
         '標籤品名核對': item.checklist && item.checklist.c1 ? 'V' : '',
         '裝箱數量核對': item.checklist && item.checklist.c2 ? 'V' : '',
@@ -2972,8 +2983,10 @@ document.getElementById('btnImportBackup').onclick = async ()=>{
           fillFormTime: String(row['填寫時間'] || ''),
           warehouseConfirm: String(row['倉管會計出貨確認'] || ''),
           shipMethod: parseShipMethod(String(row['出貨方式'] || '')),
-          productionZones: [],
-          packagingArea: '', packagingStaff: '', coaConfirmBy: '', actualShipDate: ''
+          productionZones: row['生產線'] ? String(row['生產線']).split('、').filter(Boolean) : [],
+          packagingStaff: String(row['包裝人員'] || ''),
+          coaConfirmBy: String(row['COA確認人員'] || ''),
+          actualShipDate: String(row['實際出貨日期'] || '')
         };
       });
       newOrders.push({
@@ -2987,7 +3000,7 @@ document.getElementById('btnImportBackup').onclick = async ()=>{
 
     const totalItems = newOrders.reduce((sum,o)=>sum+o.items.length, 0);
     const ok = await showConfirm(
-      '讀到 ' + newOrders.length + ' 張訂單、共 ' + totalItems + ' 個品項。會直接新增到目前的資料裡（不會刪除或覆蓋現有的訂單）。還原後記得補填生產線、包裝人員、COA確認人員這幾個欄位。確定要還原嗎？',
+      '讀到 ' + newOrders.length + ' 張訂單、共 ' + totalItems + ' 個品項。會直接新增到目前的資料裡（不會刪除或覆蓋現有的訂單）。確定要還原嗎？',
       '確認從備份還原資料？'
     );
     if(!ok) return;
