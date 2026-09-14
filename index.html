@@ -1412,10 +1412,24 @@ async function saveOrders(){
       console.error('資料同步檢查失敗', checkErr);
       // 檢查本身失敗就不擋，直接繼續原本的儲存流程，避免防護機制本身出問題導致完全無法儲存
     }
+
+    // 預先檢查資料大小，Firestore單一文件上限是1MB，資料太多的話寫入一定會失敗
+    const payload = { list: orders };
+    const estimatedBytes = new Blob([JSON.stringify(payload)]).size;
+    const FIRESTORE_DOC_LIMIT = 1048576; // 1MB
+    if(estimatedBytes > FIRESTORE_DOC_LIMIT * 0.95){
+      showToast('⚠ 訂單資料量太大了（約 ' + (estimatedBytes/1024).toFixed(0) + 'KB，上限約 1024KB），無法儲存。請聯絡系統管理員處理，或先清空垃圾桶、刪除很久以前已出貨的舊訂單。');
+      return;
+    }
+
     await setDoc(ordersDocRef, { list: orders });
   }catch(e){
     console.error(e);
-    showToast('儲存失敗，請檢查網路');
+    if(e && (e.code === 'invalid-argument' || /longer than|exceeds|too large|maximum size/i.test(e.message||''))){
+      showToast('⚠ 訂單資料量太大，超過系統上限，無法儲存。請聯絡系統管理員處理。');
+    }else{
+      showToast('儲存失敗，請檢查網路');
+    }
   }
 }
 
@@ -1764,7 +1778,7 @@ function renderList(){
           shipMethod: shipMethod,
           shippedAt: Date.now(),
           releaseBy: '', warehouseConfirm: '', checklist: {c1:false,c2:false,c3:false,c4:false},
-          completedAt: undefined,
+          completedAt: null,
           packagingStaff: '',
           productionZones: (item.productionZones || []).slice()
         });
@@ -2847,11 +2861,11 @@ document.getElementById('btnImportBackup').onclick = async ()=>{
     Object.keys(STATUS_LABEL).forEach(k=>{ STATUS_LABEL_REVERSE[STATUS_LABEL[k]] = k; });
 
     function parseShipMethod(text){
-      if(!text) return undefined;
+      if(!text) return '';
       if(text.endsWith('寄貨')) return 'today';
       if(text.endsWith('送貨')) return 'tomorrow';
       if(text.endsWith('自取')) return 'pickup';
-      return undefined;
+      return '';
     }
 
     const groups = {}; // 依訂單編號分組
@@ -2879,7 +2893,7 @@ document.getElementById('btnImportBackup').onclick = async ()=>{
           priority: row['優先度'] === '急件' ? 'urgent' : 'normal',
           status: isDeleted ? 'pending' : status,
           deleted: isDeleted,
-          deletedAt: isDeleted ? Date.now() : undefined,
+          deletedAt: isDeleted ? Date.now() : null,
           productMfgDate: String(row['產品製造日期(調配、研磨日期)'] || ''),
           packagingDate: String(row['包裝日期'] || ''),
           productExpDate: String(row['產品有效日期'] || ''),
