@@ -728,7 +728,7 @@
         <div class="stat-card amber"><div class="stat-num" id="statRefill">0</div><div class="stat-label">充填包裝</div></div>
         <div class="stat-card purple"><div class="stat-num" id="statBoxing">0</div><div class="stat-label">裝箱確認</div></div>
         <div class="stat-card teal"><div class="stat-num" id="statShipped">0</div><div class="stat-label">已出貨</div></div>
-        <div class="stat-card green"><div class="stat-num" id="statQc">0</div><div class="stat-label">品管</div></div>
+        <div class="stat-card green"><div class="stat-num" id="statQc">0</div><div class="stat-label">品管COA</div></div>
         <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-label">品項總數</div></div>
         <div class="stat-card"><div class="stat-num" id="statOrderCount">0</div><div class="stat-label">訂單總數</div></div>
       </div>
@@ -1243,7 +1243,7 @@ function showToastSafe(msg){
 }
 
 const STATUS = ['pending','inprogress','labeling','done','refill','boxing','shipped','qc'];
-const STATUS_LABEL = { pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'品管' };
+const STATUS_LABEL = { pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'品管COA' };
 const STATUS_FORWARD_LABEL = { pending:'訂單確認完成', inprogress:'庫存確認無庫存請生產', labeling:'排程生產完成', done:'標籤印製完成', refill:'充填包裝完成', boxing:'裝箱確認完成', shipped:'出貨確認完成' };
 const CHK_LABELS = { c1:'標籤品名核對', c2:'裝箱數量', c3:'包裝密封', c4:'生產/有效日期' };
 const SHIP_METHOD_LABEL = { today:'寄貨', tomorrow:'送貨', pickup:'自取' };
@@ -1474,7 +1474,7 @@ function renderTabs(){
   }
   allowedTabs.forEach(s=>{
     let count = 0;
-    orders.forEach(o=> (o.items||[]).forEach(it=>{ if(!it.deleted && it.status===s) count++; }));
+    orders.forEach(o=> (o.items||[]).forEach(it=>{ if(!it.deleted && it.status===s && (s !== 'qc' || needsCoa(it))) count++; }));
     const tab = document.createElement('div');
     tab.className = 'tab' + (s===currentTab ? ' active' : '');
     tab.dataset.status = s;
@@ -1488,21 +1488,26 @@ function itemMatchesZoneFilter(item){
   if(currentTab !== 'labeling' || !currentZoneFilter) return true;
   return (item.productionZones || []).includes(currentZoneFilter);
 }
+function itemMatchesQcCoaFilter(item){
+  if(currentTab !== 'qc') return true;
+  return needsCoa(item);
+}
 
 function renderList(){
   const listEl = document.getElementById('listArea');
-  const matchingOrders = orders.filter(o => (o.items||[]).some(it => !it.deleted && it.status === currentTab && itemMatchesZoneFilter(it)));
+  const matchingOrders = orders.filter(o => (o.items||[]).some(it => !it.deleted && it.status === currentTab && itemMatchesZoneFilter(it) && itemMatchesQcCoaFilter(it)));
 
   if(matchingOrders.length === 0){
     const hint = (currentTab === 'pending') ? '<br>點右下角 + 新增一筆' : '';
     const zoneHint = (currentTab === 'labeling' && currentZoneFilter) ? '（「' + escapeHtml(currentZoneFilter) + '」目前沒有品項）' : '';
-    listEl.innerHTML = '<div class="empty"><div class="empty-tag">🏷️</div><p>目前「' + STATUS_LABEL[currentTab] + '」沒有品項' + zoneHint + hint + '</p></div>';
+    const qcHint = (currentTab === 'qc') ? '<br>（這裡只顯示需要COA的品項，不需要COA的不會出現）' : '';
+    listEl.innerHTML = '<div class="empty"><div class="empty-tag">🏷️</div><p>目前「' + STATUS_LABEL[currentTab] + '」沒有品項' + zoneHint + hint + qcHint + '</p></div>';
     return;
   }
 
   matchingOrders.sort((a,b)=>{
-    const aMin = Math.min(...a.items.filter(it=>!it.deleted && it.status===currentTab && itemMatchesZoneFilter(it)).map(it=>it.due||'9999'));
-    const bMin = Math.min(...b.items.filter(it=>!it.deleted && it.status===currentTab && itemMatchesZoneFilter(it)).map(it=>it.due||'9999'));
+    const aMin = Math.min(...a.items.filter(it=>!it.deleted && it.status===currentTab && itemMatchesZoneFilter(it) && itemMatchesQcCoaFilter(it)).map(it=>it.due||'9999'));
+    const bMin = Math.min(...b.items.filter(it=>!it.deleted && it.status===currentTab && itemMatchesZoneFilter(it) && itemMatchesQcCoaFilter(it)).map(it=>it.due||'9999'));
     return String(aMin).localeCompare(String(bMin));
   });
 
@@ -1510,7 +1515,7 @@ function renderList(){
   const wrap = document.getElementById('orderList');
 
   matchingOrders.forEach(order=>{
-    const activeItems = (order.items||[]).filter(it=>!it.deleted && it.status===currentTab && itemMatchesZoneFilter(it));
+    const activeItems = (order.items||[]).filter(it=>!it.deleted && it.status===currentTab && itemMatchesZoneFilter(it) && itemMatchesQcCoaFilter(it));
     const card = document.createElement('div');
     card.className = 'order-card';
 
