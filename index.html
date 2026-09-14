@@ -2164,7 +2164,11 @@ function openSheet(order, item){
     setFlexDateValue('fProductMfgDate', mfgDate);
     document.getElementById('fProductBatchNo').value = batchNo;
   }
-  setPackagingDateSelects((item && item.packagingDate) ? item.packagingDate : (todayStr().slice(5,7) + todayStr().slice(8,10)));
+  {
+    const packagingDateVisible = item && (STATUS.indexOf(item.status) >= STATUS.indexOf('refill'));
+    const packagingDateDefault = packagingDateVisible ? (todayStr().slice(5,7) + todayStr().slice(8,10)) : '';
+    setPackagingDateSelects((item && item.packagingDate) ? item.packagingDate : packagingDateDefault);
+  }
   document.getElementById('fTrayBatchNo').value = item ? (item.trayBatchNo || '') : '';
   {
     let batchNo = item ? (item.materialBatchNo || '') : '';
@@ -2181,7 +2185,10 @@ function openSheet(order, item){
     setFlexDateValue('fMaterialExpDate', expDate);
   }
   document.getElementById('fShipMethod').value = item ? (item.shipMethod || '') : '';
-  setFlexDateValue('fActualShipDate', (item && item.actualShipDate) ? item.actualShipDate : (todayStr()));
+  {
+    const actualShipDateVisible = item && (STATUS.indexOf(item.status) >= STATUS.indexOf('shipped'));
+    setFlexDateValue('fActualShipDate', (item && item.actualShipDate) ? item.actualShipDate : (actualShipDateVisible ? todayStr() : ''));
+  }
   setProductionZoneCheckboxes(item ? (item.productionZones || []) : (firstItem ? (firstItem.productionZones || []) : []));
   populatePackagingStaffOptions(item ? (item.productionZones || []) : [], item ? (item.packagingStaff || '') : '');
   document.getElementById('fCoa').value = item ? (item.coa || '') : (firstItem ? (firstItem.coa || '') : '');
