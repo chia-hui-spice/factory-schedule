@@ -1827,20 +1827,17 @@ function renderList(){
         qty: splitQty,
         originalQty: originalTotal,
         splitGroupId: splitGroupId,
-        status: 'pending',
-        productBatches: [], packagingDate: '', trayBatchNo: '', materialBatches: [], productExpDate: '',
-        productionZones: [],
+        // 保留原品項目前的階段與已經填好的批次/產線/COA等共同生產資訊，只重置每一批各自要分開確認的出貨相關欄位
         checklist: { c1:false, c2:false, c3:false, c4:false },
-        releaseBy: '', shipMethod: undefined, shippedAt: undefined, completedAt: undefined,
-        deleted: false, deletedAt: undefined
+        releaseBy: '', warehouseConfirm: '', shipMethod: '', shippedAt: null, completedAt: null,
+        deleted: false, deletedAt: null
       });
-      delete newItem.shipMethod; delete newItem.shippedAt; delete newItem.completedAt; delete newItem.deletedAt;
       item.qty = item.qty - splitQty;
       item.originalQty = originalTotal;
       item.splitGroupId = splitGroupId;
       order.items.push(newItem);
       await saveOrders(); render();
-      showToast('已拆分出 ' + splitQty + ' 件為新品項');
+      showToast('已拆分出 ' + splitQty + ' 件為新品項，留在同一張訂單、同一個階段');
     };
   });
 }
