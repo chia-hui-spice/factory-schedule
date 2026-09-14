@@ -787,6 +787,13 @@
       <div class="sheet-actions" style="margin-top:0;">
         <button type="button" class="btn-primary" id="btnExportBackup">📥 匯出 Excel（含垃圾桶）</button>
       </div>
+
+      <div class="section-label">從備份還原資料</div>
+      <div class="report-updated" style="margin-bottom:10px;">選擇之前匯出的 Excel 備份檔，系統會把裡面的訂單新增回目前的資料裡（不會刪除現有的訂單，只會補進去）。還原後，生產線、包裝人員、COA確認人員、實際出貨日期這幾個欄位需要重新填寫，因為備份檔案本身沒有存這些欄位。</div>
+      <input type="file" id="importBackupFile" accept=".xlsx" style="margin-bottom:10px;">
+      <div class="sheet-actions" style="margin-top:0;">
+        <button type="button" class="btn-secondary" id="btnImportBackup">📤 從備份還原</button>
+      </div>
     </div>
 
     <div class="sheet-actions" style="margin-top:18px;">
@@ -1386,6 +1393,25 @@ function loadOrders(){
 
 async function saveOrders(){
   try{
+    // 安全防護:寫入前先確認雲端沒有本機看不到的訂單，避免分頁太久沒同步、資料過時，結果把別人最新新增的訂單蓋掉
+    try{
+      const snap = await getDoc(ordersDocRef);
+      if(snap.exists()){
+        const remoteList = snap.data().list || [];
+        const localOrderIds = new Set(orders.map(o=>o.id));
+        const missingOrders = remoteList.filter(o=> !localOrderIds.has(o.id));
+        if(missingOrders.length > 0){
+          const ok = await showConfirm(
+            '偵測到雲端有 ' + missingOrders.length + ' 張訂單，在目前這個畫面上看不到（可能是其他人在別的裝置上剛新增的，或這個分頁開太久資料沒跟上）。如果現在儲存，這些訂單會被蓋掉、消失不見。強烈建議先重新整理頁面再操作。真的要冒險繼續儲存嗎？',
+            '⚠ 雲端有本機看不到的訂單'
+          );
+          if(!ok){ showToast('已取消儲存，請重新整理頁面後再試一次'); return; }
+        }
+      }
+    }catch(checkErr){
+      console.error('資料同步檢查失敗', checkErr);
+      // 檢查本身失敗就不擋，直接繼續原本的儲存流程，避免防護機制本身出問題導致完全無法儲存
+    }
     await setDoc(ordersDocRef, { list: orders });
   }catch(e){
     console.error(e);
@@ -2802,6 +2828,114 @@ async function exportBackup(){
   showToast('已匯出 Excel 備份檔案');
 }
 document.getElementById('btnExportBackup').onclick = exportBackup;
+
+// ---- 從備份還原 ----
+document.getElementById('btnImportBackup').onclick = async ()=>{
+  const fileInput = document.getElementById('importBackupFile');
+  const file = fileInput.files[0];
+  if(!file){ showToast('請先選擇要還原的 Excel 備份檔'); return; }
+  if(typeof XLSX === 'undefined'){ showToast('Excel 元件載入失敗，請檢查網路後重新整理再試'); return; }
+
+  try{
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type:'array' });
+    const sheetName = wb.SheetNames[0];
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval:'' });
+    if(rows.length === 0){ showToast('這個檔案裡沒有讀到任何資料'); return; }
+
+    const STATUS_LABEL_REVERSE = {};
+    Object.keys(STATUS_LABEL).forEach(k=>{ STATUS_LABEL_REVERSE[STATUS_LABEL[k]] = k; });
+
+    function parseShipMethod(text){
+      if(!text) return undefined;
+      if(text.endsWith('寄貨')) return 'today';
+      if(text.endsWith('送貨')) return 'tomorrow';
+      if(text.endsWith('自取')) return 'pickup';
+      return undefined;
+    }
+
+    const groups = {}; // 依訂單編號分組
+    rows.forEach(row=>{
+      const orderNo = String(row['訂單編號'] || ('補_' + Date.now()));
+      if(!groups[orderNo]) groups[orderNo] = [];
+      groups[orderNo].push(row);
+    });
+
+    const newOrders = [];
+    Object.keys(groups).forEach(orderNo=>{
+      const rowsInOrder = groups[orderNo];
+      const first = rowsInOrder[0];
+      const items = rowsInOrder.map(row=>{
+        const statusText = String(row['狀態'] || '');
+        const isDeleted = statusText.includes('已刪除');
+        const status = STATUS_LABEL_REVERSE[statusText] || 'pending';
+        return {
+          id: 'i_restore_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+          product: String(row['產品名稱'] || ''),
+          spec: String(row['規格'] || ''),
+          qty: Number(row['數量']) || 0,
+          due: String(row['出貨日期'] || ''),
+          origin: String(row['產地'] || ''),
+          priority: row['優先度'] === '急件' ? 'urgent' : 'normal',
+          status: isDeleted ? 'pending' : status,
+          deleted: isDeleted,
+          deletedAt: isDeleted ? Date.now() : undefined,
+          productMfgDate: String(row['產品製造日期(調配、研磨日期)'] || ''),
+          packagingDate: String(row['包裝日期'] || ''),
+          productExpDate: String(row['產品有效日期'] || ''),
+          trayBatchNo: String(row['包材批號'] || ''),
+          materialBatchNo: String(row['原料進貨批號'] || ''),
+          materialMfgDate: String(row['原料製造日期'] || ''),
+          materialExpDate: String(row['原料有效日期'] || ''),
+          coa: String(row['COA'] || ''),
+          coaMoisture: String(row['COA-水分'] || ''),
+          coaWaterActivity: String(row['COA-水活性'] || ''),
+          coaTotalPlateCount: String(row['COA-總生菌數'] || ''),
+          coaColiform: String(row['COA-大腸桿菌群'] || ''),
+          coaEcoli: String(row['COA-大腸桿菌'] || ''),
+          note: String(row['備註'] || ''),
+          checklist: {
+            c1: row['標籤品名核對'] === 'V',
+            c2: row['裝箱數量核對'] === 'V',
+            c3: row['包裝密封核對'] === 'V',
+            c4: row['生產/有效日期核對'] === 'V'
+          },
+          releaseBy: String(row['裝箱確認及放行人員'] || ''),
+          filledBy: String(row['填寫人員'] || ''),
+          fillFormDate: String(row['填寫日期'] || ''),
+          fillFormTime: String(row['填寫時間'] || ''),
+          warehouseConfirm: String(row['倉管會計出貨確認'] || ''),
+          shipMethod: parseShipMethod(String(row['出貨方式'] || '')),
+          productionZones: [],
+          packagingArea: '', packagingStaff: '', coaConfirmBy: '', actualShipDate: ''
+        };
+      });
+      newOrders.push({
+        id: 'o_restore_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+        orderNo: orderNo,
+        customer: String(first['客戶名稱'] || ''),
+        createdAt: Date.now(),
+        items: items
+      });
+    });
+
+    const totalItems = newOrders.reduce((sum,o)=>sum+o.items.length, 0);
+    const ok = await showConfirm(
+      '讀到 ' + newOrders.length + ' 張訂單、共 ' + totalItems + ' 個品項。會直接新增到目前的資料裡（不會刪除或覆蓋現有的訂單）。還原後記得補填生產線、包裝人員、COA確認人員這幾個欄位。確定要還原嗎？',
+      '確認從備份還原資料？'
+    );
+    if(!ok) return;
+
+    orders = orders.concat(newOrders);
+    await saveOrders();
+    render();
+    fileInput.value = '';
+    showToast('已還原 ' + newOrders.length + ' 張訂單，記得檢查資料是否正確');
+  }catch(e){
+    console.error(e);
+    showToast('讀取檔案失敗，請確認選的是正確的備份 Excel 檔');
+  }
+};
 
 // ---- 垃圾桶 ----
 const TRASH_RETENTION_DAYS = 30;
