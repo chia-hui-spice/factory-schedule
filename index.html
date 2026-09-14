@@ -297,6 +297,14 @@
     display:flex; justify-content:space-between; align-items:center; background:var(--panel-raised);
     border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:8px; cursor:pointer; font-size:16.2px;
   }
+  .material-batch-row{
+    background:var(--panel-raised); border:1.5px solid var(--line); border-radius:10px; padding:12px; margin-bottom:8px;
+  }
+  .material-batch-row .row3{ margin-bottom:0; }
+  .material-batch-remove-btn{
+    width:100%; margin-top:8px; padding:6px; border-radius:6px; border:1px solid var(--red); background:transparent;
+    color:var(--red); font-size:14.5px; font-weight:700; cursor:pointer;
+  }
   .material-item-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
   .material-item-name{ font-size:18.6px; font-weight:800; color:var(--ink); }
   .material-item-stock{ font-family:var(--mono); font-size:16.2px; font-weight:700; color:var(--teal); }
@@ -450,11 +458,9 @@
       <div id="sectionBatch">
         <div class="section-label">批號 / 日期</div>
         <div class="field">
-          <label style="color:var(--amber); font-weight:800;">產品製造日期(調配、研磨日期)</label>
-          <div class="flex-date-wrap">
-            <input type="text" id="fProductMfgDate" placeholder="YYYY/MM/DD" inputmode="numeric" style="border-color:var(--amber);">
-            <input type="date" id="fProductMfgDate_native" class="flex-date-native-btn">
-          </div>
+          <label style="color:var(--amber); font-weight:800;">產品製造日期(調配、研磨日期)（可新增多筆）</label>
+          <div id="productBatchList"></div>
+          <button type="button" id="btnAddProductBatch" class="split-btn" style="margin-top:6px; border-color:var(--amber); color:var(--amber);">+ 新增一筆製造日期/批號</button>
         </div>
         <div class="row2">
           <div class="field">
@@ -471,24 +477,9 @@
         </div>
         <div class="row3">
           <div class="field">
-            <label>原料進貨批號</label>
-            <input type="text" id="fMaterialBatchNo" placeholder="原料進貨批號">
-          </div>
-        </div>
-        <div class="row2">
-          <div class="field">
-            <label>原料製造日期</label>
-            <div class="flex-date-wrap">
-              <input type="text" id="fMaterialMfgDate" placeholder="YYYY/MM/DD" inputmode="numeric">
-              <input type="date" id="fMaterialMfgDate_native" class="flex-date-native-btn">
-            </div>
-          </div>
-          <div class="field">
-            <label>原料有效日期</label>
-            <div class="flex-date-wrap">
-              <input type="text" id="fMaterialExpDate" placeholder="YYYY/MM/DD" inputmode="numeric">
-              <input type="date" id="fMaterialExpDate_native" class="flex-date-native-btn">
-            </div>
+            <label>原料進貨批號（可新增多筆）</label>
+            <div id="materialBatchList"></div>
+            <button type="button" id="btnAddMaterialBatch" class="split-btn" style="margin-top:6px;">+ 新增一筆原料批號</button>
           </div>
         </div>
       </div>
@@ -1542,9 +1533,15 @@ function renderList(){
 
       const metaBits = [];
       if(item.productionZones && item.productionZones.length > 0) metaBits.push('<div class="meta-item">產線 <b>' + escapeHtml(item.productionZones.join('、')) + '</b></div>');
-      if(item.productMfgDate) metaBits.push('<div class="meta-item">製造日期 <b>' + item.productMfgDate + '</b></div>');
+      if(item.productBatches && item.productBatches.length > 0){
+        const dateStrs = item.productBatches.map(b=> b.batchNo ? (b.date+'('+b.batchNo+')') : b.date).filter(Boolean);
+        if(dateStrs.length > 0) metaBits.push('<div class="meta-item">製造日期 <b>' + escapeHtml(dateStrs.join('、')) + '</b></div>');
+      }
       if(item.packagingDate) metaBits.push('<div class="meta-item">包裝日期 <b>' + item.packagingDate + '</b></div>');
-      if(item.materialBatchNo) metaBits.push('<div class="meta-item">原料批號 <b>' + escapeHtml(item.materialBatchNo) + '</b></div>');
+      if(item.materialBatches && item.materialBatches.length > 0){
+        const batchNos = item.materialBatches.map(b=>b.batchNo).filter(Boolean);
+        if(batchNos.length > 0) metaBits.push('<div class="meta-item">原料批號 <b>' + escapeHtml(batchNos.join('、')) + '</b></div>');
+      }
       metaBits.push('<div class="meta-item">數量 <b>' + item.qty + '</b></div>');
       metaBits.push('<div class="meta-item">出貨日 <b>' + item.due + '</b></div>');
       if(item.origin) metaBits.push('<div class="meta-item">產地 <b>' + escapeHtml(item.origin) + '</b></div>');
@@ -1619,7 +1616,7 @@ function renderList(){
         openSheet(order, item);
         return;
       }
-      if(item.status === 'labeling' && !item.productMfgDate){
+      if(item.status === 'labeling' && (!item.productBatches || item.productBatches.length === 0)){
         showToast('請先填寫「產品製造日期(調配、研磨日期)」才能進入標籤印製');
         openSheet(order, item);
         return;
@@ -1831,7 +1828,7 @@ function renderList(){
         originalQty: originalTotal,
         splitGroupId: splitGroupId,
         status: 'pending',
-        productMfgDate: '', packagingDate: '', trayBatchNo: '', materialBatchNo: '', materialMfgDate: '', materialExpDate: '', productExpDate: '',
+        productBatches: [], packagingDate: '', trayBatchNo: '', materialBatches: [], productExpDate: '',
         productionZones: [],
         checklist: { c1:false, c2:false, c3:false, c4:false },
         releaseBy: '', shipMethod: undefined, shippedAt: undefined, completedAt: undefined,
@@ -2047,7 +2044,77 @@ function setFlexDateValue(textId, value){
     native.value = '';
   }
 }
-['fFillFormDate','fDue','fProductMfgDate','fProductExpDate','fMaterialMfgDate','fMaterialExpDate','fActualShipDate'].forEach(setupFlexDate);
+['fFillFormDate','fDue','fProductExpDate','fActualShipDate'].forEach(setupFlexDate);
+
+// ---- 產品製造日期(調配、研磨日期):可新增多筆,每筆含日期+批號 ----
+function renderProductBatchList(batches){
+  const list = (batches && batches.length > 0) ? batches : [{ date:'', batchNo:'' }];
+  const container = document.getElementById('productBatchList');
+  container.innerHTML = list.map((b, idx)=>{
+    return '<div class="material-batch-row" data-idx="'+idx+'">' +
+      '<div class="row2">' +
+        '<div class="field"><label>製造日期</label><input type="date" class="pbDate" value="'+escapeHtml(b.date||'')+'"></div>' +
+        '<div class="field"><label>批號</label><input type="text" class="pbBatchNo" placeholder="製造批號" value="'+escapeHtml(b.batchNo||'')+'"></div>' +
+      '</div>' +
+      (list.length > 1 ? '<button type="button" class="material-batch-remove-btn">✕ 移除這筆</button>' : '') +
+    '</div>';
+  }).join('');
+  container.querySelectorAll('.material-batch-remove-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      const current = getProductBatchesFromForm();
+      const idx = Number(btn.closest('.material-batch-row').dataset.idx);
+      current.splice(idx, 1);
+      renderProductBatchList(current);
+    };
+  });
+}
+function getProductBatchesFromForm(){
+  return Array.from(document.querySelectorAll('#productBatchList .material-batch-row')).map(row=>({
+    date: row.querySelector('.pbDate').value,
+    batchNo: row.querySelector('.pbBatchNo').value.trim()
+  }));
+}
+document.getElementById('btnAddProductBatch').onclick = ()=>{
+  const current = getProductBatchesFromForm();
+  current.push({ date:'', batchNo:'' });
+  renderProductBatchList(current);
+};
+
+// ---- 原料進貨批號:可新增多筆 ----
+function renderMaterialBatchList(batches){
+  const list = (batches && batches.length > 0) ? batches : [{ batchNo:'', mfgDate:'', expDate:'' }];
+  const container = document.getElementById('materialBatchList');
+  container.innerHTML = list.map((b, idx)=>{
+    return '<div class="material-batch-row" data-idx="'+idx+'">' +
+      '<div class="row3">' +
+        '<div class="field"><label>批號</label><input type="text" class="mbBatchNo" placeholder="原料進貨批號" value="'+escapeHtml(b.batchNo||'')+'"></div>' +
+        '<div class="field"><label>製造日期</label><input type="date" class="mbMfgDate" value="'+escapeHtml(b.mfgDate||'')+'"></div>' +
+        '<div class="field"><label>有效日期</label><input type="date" class="mbExpDate" value="'+escapeHtml(b.expDate||'')+'"></div>' +
+      '</div>' +
+      (list.length > 1 ? '<button type="button" class="material-batch-remove-btn">✕ 移除這筆批號</button>' : '') +
+    '</div>';
+  }).join('');
+  container.querySelectorAll('.material-batch-remove-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      const current = getMaterialBatchesFromForm();
+      const idx = Number(btn.closest('.material-batch-row').dataset.idx);
+      current.splice(idx, 1);
+      renderMaterialBatchList(current);
+    };
+  });
+}
+function getMaterialBatchesFromForm(){
+  return Array.from(document.querySelectorAll('#materialBatchList .material-batch-row')).map(row=>({
+    batchNo: row.querySelector('.mbBatchNo').value.trim(),
+    mfgDate: row.querySelector('.mbMfgDate').value,
+    expDate: row.querySelector('.mbExpDate').value
+  }));
+}
+document.getElementById('btnAddMaterialBatch').onclick = ()=>{
+  const current = getMaterialBatchesFromForm();
+  current.push({ batchNo:'', mfgDate:'', expDate:'' });
+  renderMaterialBatchList(current);
+};
 
 function setPickerValue(selectId, customId, value){
   const select = document.getElementById(selectId);
@@ -2132,12 +2199,24 @@ function openSheet(order, item){
   setFlexDateValue('fDue', item ? item.due : (firstItem ? firstItem.due : todayStr()));
   setPickerValue('fOrigin', 'fOriginCustom', item ? (item.origin || '') : '');
   setFlexDateValue('fProductExpDate', item ? (item.productExpDate || '') : '');
-  setFlexDateValue('fProductMfgDate', item ? (item.productMfgDate || '') : '');
+  {
+    let pBatches = item ? item.productBatches : null;
+    if((!pBatches || pBatches.length === 0) && item && item.productMfgDate){
+      // 相容舊資料格式(單一日期欄位)，自動轉成清單的第一筆
+      pBatches = [{ date: item.productMfgDate, batchNo: '' }];
+    }
+    renderProductBatchList(pBatches);
+  }
   setPackagingDateSelects((item && item.packagingDate) ? item.packagingDate : (todayStr().slice(5,7) + todayStr().slice(8,10)));
   document.getElementById('fTrayBatchNo').value = item ? (item.trayBatchNo || '') : '';
-  document.getElementById('fMaterialBatchNo').value = item ? (item.materialBatchNo || '') : '';
-  setFlexDateValue('fMaterialMfgDate', item ? (item.materialMfgDate || '') : '');
-  setFlexDateValue('fMaterialExpDate', item ? (item.materialExpDate || '') : '');
+  {
+    let batches = item ? item.materialBatches : null;
+    if((!batches || batches.length === 0) && item && (item.materialBatchNo || item.materialMfgDate || item.materialExpDate)){
+      // 相容舊資料格式(單筆批號欄位)，自動轉成清單的第一筆
+      batches = [{ batchNo: item.materialBatchNo || '', mfgDate: item.materialMfgDate || '', expDate: item.materialExpDate || '' }];
+    }
+    renderMaterialBatchList(batches);
+  }
   document.getElementById('fShipMethod').value = item ? (item.shipMethod || '') : '';
   setFlexDateValue('fActualShipDate', (item && item.actualShipDate) ? item.actualShipDate : (todayStr()));
   setProductionZoneCheckboxes(item ? (item.productionZones || []) : (firstItem ? (firstItem.productionZones || []) : []));
@@ -2250,12 +2329,10 @@ async function handleSaveOrder(){
   const due = getFlexDateValue('fDue');
   const origin = getPickerValue('fOrigin', 'fOriginCustom');
   const productExpDate = getFlexDateValue('fProductExpDate');
-  const productMfgDate = getFlexDateValue('fProductMfgDate');
+  const productBatches = getProductBatchesFromForm().filter(b=> b.date || b.batchNo);
   const packagingDate = document.getElementById('fPackagingDate').value.trim();
   const trayBatchNo = document.getElementById('fTrayBatchNo').value.trim();
-  const materialBatchNo = document.getElementById('fMaterialBatchNo').value.trim();
-  const materialMfgDate = getFlexDateValue('fMaterialMfgDate');
-  const materialExpDate = getFlexDateValue('fMaterialExpDate');
+  const materialBatches = getMaterialBatchesFromForm().filter(b=> b.batchNo || b.mfgDate || b.expDate);
   const shipMethod = document.getElementById('fShipMethod').value;
   const actualShipDate = getFlexDateValue('fActualShipDate');
   const productionZones = getProductionZoneCheckboxes();
@@ -2282,7 +2359,7 @@ async function handleSaveOrder(){
   if(missing.length > 0){ showToast('請填寫：' + missing.join('、')); return; }
 
   const itemPayload = {
-    product, spec, qty, due, origin, productExpDate, productMfgDate, packagingDate, trayBatchNo, materialBatchNo, materialMfgDate, materialExpDate, coa, coaConfirmBy, note,
+    product, spec, qty, due, origin, productExpDate, productBatches, packagingDate, trayBatchNo, materialBatches, coa, coaConfirmBy, note,
     coaMoisture, coaWaterActivity, coaTotalPlateCount, coaColiform, coaEcoli,
     fillFormDate, fillFormTime,
     releaseBy, filledBy, warehouseConfirm,
@@ -2612,7 +2689,7 @@ function renderShipLists(){
     shippedAll = shippedAll.filter(x => (x.item.product || '').toLowerCase().includes(filterProduct));
   }
   if(filterMaterialBatch){
-    shippedAll = shippedAll.filter(x => (x.item.materialBatchNo || '').toLowerCase().includes(filterMaterialBatch));
+    shippedAll = shippedAll.filter(x => (x.item.materialBatches||[]).some(b=> (b.batchNo||'').toLowerCase().includes(filterMaterialBatch)));
   }
 
   const filterActive = !!(filterDate || filterCustomer || filterProduct || filterMaterialBatch);
@@ -2627,7 +2704,8 @@ function renderShipLists(){
     shippedAllEl.innerHTML = shippedAll.map(x=>{
       const dateStr = x.item.shippedAt ? new Date(x.item.shippedAt).toLocaleDateString('zh-TW') : '';
       const methodTag = x.item.shipMethod ? '<span class="ship-list-tag">' + shipMethodFullLabel(x.item) + '</span>' : '';
-      const materialTag = x.item.materialBatchNo ? '<span class="ship-list-tag">原料批號 ' + escapeHtml(x.item.materialBatchNo) + '</span>' : '';
+      const materialBatchNos = (x.item.materialBatches||[]).map(b=>b.batchNo).filter(Boolean);
+      const materialTag = materialBatchNos.length > 0 ? '<span class="ship-list-tag">原料批號 ' + escapeHtml(materialBatchNos.join('、')) + '</span>' : '';
       return '<div class="ship-list-row"><div><div class="ship-list-name">' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '</div>' +
         '<div class="ship-list-meta">' + escapeHtml(x.order.orderNo || '') + (x.item.spec ? ' ・ ' + escapeHtml(x.item.spec) : '') + ' ・ 出貨日期 ' + dateStr + '</div>' +
         methodTag + materialTag + '</div><div class="ship-list-qty">x' + x.item.qty + '</div></div>';
@@ -2796,13 +2874,13 @@ async function exportBackup(){
         '出貨日期': item.due || '',
         '優先度': item.priority === 'urgent' ? '急件' : '一般',
         '狀態': item.deleted ? '已刪除(垃圾桶)' : (STATUS_LABEL[item.status] || item.status),
-        '產品製造日期(調配、研磨日期)': item.productMfgDate || '',
+        '產品製造日期(調配、研磨日期)': (item.productBatches||[]).map(b=> b.batchNo ? (b.date+'('+b.batchNo+')') : b.date).filter(Boolean).join('、') || '',
         '包裝日期': item.packagingDate || '',
         '產品有效日期': item.productExpDate || '',
         '包材批號': item.trayBatchNo || '',
-        '原料進貨批號': item.materialBatchNo || '',
-        '原料製造日期': item.materialMfgDate || '',
-        '原料有效日期': item.materialExpDate || '',
+        '原料進貨批號': (item.materialBatches||[]).map(b=>b.batchNo).filter(Boolean).join('、') || '',
+        '原料製造日期': (item.materialBatches||[]).map(b=>b.mfgDate).filter(Boolean).join('、') || '',
+        '原料有效日期': (item.materialBatches||[]).map(b=>b.expDate).filter(Boolean).join('、') || '',
         'COA': item.coa || '',
         'COA-水分': item.coaMoisture || '',
         'COA-水活性': item.coaWaterActivity || '',
@@ -2894,13 +2972,13 @@ document.getElementById('btnImportBackup').onclick = async ()=>{
           status: isDeleted ? 'pending' : status,
           deleted: isDeleted,
           deletedAt: isDeleted ? Date.now() : null,
-          productMfgDate: String(row['產品製造日期(調配、研磨日期)'] || ''),
+          productBatches: row['產品製造日期(調配、研磨日期)'] ? [{ date:'', batchNo: String(row['產品製造日期(調配、研磨日期)']) }] : [],
           packagingDate: String(row['包裝日期'] || ''),
           productExpDate: String(row['產品有效日期'] || ''),
           trayBatchNo: String(row['包材批號'] || ''),
-          materialBatchNo: String(row['原料進貨批號'] || ''),
-          materialMfgDate: String(row['原料製造日期'] || ''),
-          materialExpDate: String(row['原料有效日期'] || ''),
+          materialBatches: (row['原料進貨批號'] || row['原料製造日期'] || row['原料有效日期'])
+            ? [{ batchNo: String(row['原料進貨批號'] || ''), mfgDate: String(row['原料製造日期'] || ''), expDate: String(row['原料有效日期'] || '') }]
+            : [],
           coa: String(row['COA'] || ''),
           coaMoisture: String(row['COA-水分'] || ''),
           coaWaterActivity: String(row['COA-水活性'] || ''),
@@ -4026,12 +4104,10 @@ function autoFillMaterialFromBom(){
   if(!firstMaterialRow) return;
   const primary = materials.find(m=>m.id===(firstMaterialRow.refId||firstMaterialRow.materialId));
   if(!primary) return;
-  const batchEl = document.getElementById('fMaterialBatchNo');
-  const mfgEl = document.getElementById('fMaterialMfgDate');
-  const expEl = document.getElementById('fMaterialExpDate');
-  if(!batchEl.value) batchEl.value = primary.batchNo || '';
-  if(!mfgEl.value) mfgEl.value = primary.mfgDate || '';
-  if(!expEl.value) expEl.value = primary.expDate || '';
+  const current = getMaterialBatchesFromForm();
+  if(current.length === 1 && !current[0].batchNo && !current[0].mfgDate && !current[0].expDate){
+    renderMaterialBatchList([{ batchNo: primary.batchNo || '', mfgDate: primary.mfgDate || '', expDate: primary.expDate || '' }]);
+  }
 }
 document.getElementById('fProduct').addEventListener('blur', autoFillMaterialFromBom);
 
