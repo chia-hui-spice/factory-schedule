@@ -1863,7 +1863,7 @@ const STAGE_COLLAPSE_SECTIONS = {
   done: ['sectionPriorityNote', 'sectionQc', 'sectionProductionZone'],
   refill: ['sectionCoaType', 'sectionPriorityNote', 'sectionBatch', 'sectionProductionZone'],
   boxing: ['sectionCoaType', 'sectionPriorityNote', 'sectionBatch', 'sectionProductionZone', 'sectionPackaging'],
-  shipped: ['sectionCoaType', 'sectionPriorityNote', 'sectionQc', 'sectionProductionZone', 'sectionPackaging', 'sectionChecklist']
+  shipped: ['sectionCoaType', 'sectionPriorityNote', 'sectionProductionZone', 'sectionPackaging', 'sectionChecklist']
 };
 function updateStageVisibility(stage){
   const showBatch = stage !== 'pending';
@@ -2131,31 +2131,32 @@ function openSheet(order, item){
 }
 
 const STAGE_LOCK_EXEMPT_SECTION = {
-  inprogress: 'sectionProductionZone',
-  labeling: 'sectionBatch',
-  refill: 'sectionPackaging',
-  done: 'sectionQc',
-  boxing: 'sectionChecklist',
-  shipped: 'sectionWarehouseConfirm'
+  inprogress: ['sectionProductionZone'],
+  labeling: ['sectionBatch'],
+  refill: ['sectionPackaging'],
+  done: ['sectionQc'],
+  boxing: ['sectionChecklist'],
+  shipped: ['sectionWarehouseConfirm', 'sectionQc'] // 出貨確認也要能補填COA確認人員(推進到品管前的必填項目)
 };
 const STAGE_LOCK_EXEMPT_HINT = {
-  inprogress: 'stageHintProductionZone',
-  labeling: 'stageHintBatch',
-  refill: 'stageHintPackaging',
-  done: 'stageHintQc',
-  boxing: 'stageHintChecklist',
-  shipped: 'stageHintWarehouseConfirm'
+  inprogress: ['stageHintProductionZone'],
+  labeling: ['stageHintBatch'],
+  refill: ['stageHintPackaging'],
+  done: ['stageHintQc'],
+  boxing: ['stageHintChecklist'],
+  shipped: ['stageHintWarehouseConfirm', 'stageHintQc']
 };
 function applyStageContentLock(item){
   const status = item ? item.status : null;
-  const exemptSectionId = STAGE_LOCK_EXEMPT_SECTION[status] || null;
-  const exemptHintId = STAGE_LOCK_EXEMPT_HINT[status] || null;
-  const isLocked = !!exemptSectionId;
+  const exemptSectionIds = STAGE_LOCK_EXEMPT_SECTION[status] || [];
+  const exemptHintIds = STAGE_LOCK_EXEMPT_HINT[status] || [];
+  const isLocked = exemptSectionIds.length > 0;
   const form = document.getElementById('orderForm');
-  const exemptSection = exemptSectionId ? document.getElementById(exemptSectionId) : null;
+  const exemptSections = exemptSectionIds.map(id=>document.getElementById(id)).filter(Boolean);
+  function isInExemptSection(el){ return exemptSections.some(sec=>sec.contains(el)); }
 
   form.querySelectorAll('input, select, textarea').forEach(el=>{
-    if(exemptSection && exemptSection.contains(el)){ el.disabled = false; return; } // 這個階段本來就要填的區塊，不鎖
+    if(isInExemptSection(el)){ el.disabled = false; return; } // 這個階段本來就要填的區塊，不鎖
     el.disabled = isLocked;
   });
 
@@ -2165,19 +2166,17 @@ function applyStageContentLock(item){
     if(el) el.style.pointerEvents = isLocked ? 'none' : '';
   });
   document.querySelectorAll('.check-item').forEach(el=>{
-    const isExempt = exemptSection && exemptSection.contains(el);
-    el.style.pointerEvents = (isLocked && !isExempt) ? 'none' : '';
+    el.style.pointerEvents = (isLocked && !isInExemptSection(el)) ? 'none' : '';
   });
   const checkAllBtn = document.getElementById('btnCheckAll');
   if(checkAllBtn){
-    const checkAllExempt = exemptSection && exemptSection.contains(checkAllBtn);
-    checkAllBtn.disabled = isLocked && !checkAllExempt;
+    checkAllBtn.disabled = isLocked && !isInExemptSection(checkAllBtn);
   }
 
   // 視覺上讓鎖定的區塊變淡，提示這些是唯讀的舊資料(排除本階段要填的區塊與操作按鈕)
   Array.from(form.children).forEach(child=>{
-    if(exemptSection && child === exemptSection){ child.style.opacity = ''; return; }
-    if(child.id === exemptHintId){ child.style.opacity = ''; return; }
+    if(exemptSections.includes(child)){ child.style.opacity = ''; return; }
+    if(exemptHintIds.includes(child.id)){ child.style.opacity = ''; return; }
     if(child.classList && child.classList.contains('sheet-actions')) return;
     if(child.id === 'btnDelete') return;
     child.style.opacity = isLocked ? '0.55' : '';
