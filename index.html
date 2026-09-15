@@ -342,6 +342,8 @@
   .badge.ship-tomorrow{ background:var(--panel); border:1px solid var(--teal); color:var(--teal); }
   .badge.ship-pickup{ background:var(--panel); border:1px solid var(--purple); color:var(--purple); }
   .badge.coa-badge{ background:var(--panel); border:1px solid var(--blue); color:var(--blue); }
+  .badge.irradiation-badge{ background:var(--panel); border:1px solid var(--orange); color:var(--orange); }
+  .badge.irradiation-badge.pending{ background:var(--panel); border:1px solid var(--red); color:var(--red); }
   .badge.split-origin-badge{ background:var(--panel); border:1px solid var(--purple); color:var(--purple); cursor:pointer; }
 
   .ship-list-row{
@@ -553,6 +555,12 @@
           <option value="無">無</option>
         </select>
       </div>
+      <div id="sectionIrradiation" class="field">
+        <label class="checkbox-field-label">
+          <input type="checkbox" id="fNeedsIrradiation" style="width:20px; height:20px;">
+          ☢️ 需要照射滅菌
+        </label>
+      </div>
 
       <div id="stageHintQc" class="stage-hint">🔒 訂單進入「排程生產完成」後才會開放品管確認（COA數值與確認人員）</div>
       <div id="sectionQc">
@@ -594,6 +602,12 @@
           </div>
         </div>
         <div id="noCoaNeededHint" style="display:none; font-size:15.1px; color:var(--ink-dim); padding:4px 0 8px 0;">此訂單不需要COA，無需品管確認</div>
+        <div id="irradiationConfirmField" class="field" style="display:none;">
+          <label class="checkbox-field-label">
+            <input type="checkbox" id="fIrradiationLabelConfirm" style="width:20px; height:20px;">
+            ☢️ 已確認印有「照射滅菌」標籤
+          </label>
+        </div>
       </div>
 
       <div id="stageHintProductionZone" class="stage-hint">🔒 訂單進入「庫存確認」後才會開放選擇產線</div>
@@ -684,6 +698,14 @@
             <input type="text" id="fActualShipDate" placeholder="YYYY/MM/DD" inputmode="numeric">
             <input type="date" id="fActualShipDate_native" class="flex-date-native-btn">
           </div>
+        </div>
+        <div class="field" id="irradiationDestinationField" style="display:none;">
+          <label>☢️ 照射滅菌後去向</label>
+          <select id="fIrradiationDestination">
+            <option value="">請選擇</option>
+            <option value="照射滅菌之後回工廠">照射滅菌之後回工廠</option>
+            <option value="照射滅菌之後去客戶端">照射滅菌之後去客戶端</option>
+          </select>
         </div>
       </div>
 
@@ -1623,6 +1645,10 @@ function renderList(){
       if(needsCoa(item)){
         badges += '<span class="badge coa-badge">📄 需COA' + (item.coa === '需要(Email)' ? '(Email)' : '(隨貨)') + '</span>';
       }
+      if(item.needsIrradiation){
+        const confirmed = !!item.irradiationLabelConfirm;
+        badges += '<span class="badge irradiation-badge' + (confirmed ? '' : ' pending') + '">☢️ 照射滅菌' + (confirmed ? '(已確認)' : '') + '</span>';
+      }
       if(item.shipMethod){
         badges += '<span class="badge ship-' + item.shipMethod + '">' + shipMethodFullLabel(item) + '</span>';
       }
@@ -1736,6 +1762,11 @@ function renderList(){
       }
       if(item.status === 'labeling' && !item.productMfgDate){
         showToast('請先填寫「產品製造日期(調配、研磨日期)」才能進入標籤印製');
+        openSheet(order, item);
+        return;
+      }
+      if(item.status === 'done' && item.needsIrradiation && !item.irradiationLabelConfirm){
+        showToast('這張訂單需要照射滅菌，請先確認已印有「照射滅菌」標籤才能進入充填包裝');
         openSheet(order, item);
         return;
       }
@@ -1947,7 +1978,7 @@ function renderList(){
         splitGroupId: splitGroupId,
         // 保留原品項目前的階段與已經填好的批次/產線/COA等共同生產資訊，只重置每一批各自要分開確認的出貨相關欄位
         checklist: { c1:false, c2:false, c3:false, c4:false },
-        releaseBy: '', warehouseConfirm: '', shipMethod: '', shippedAt: null, completedAt: null,
+        releaseBy: '', warehouseConfirm: '', shipMethod: '', shippedAt: null, completedAt: null, irradiationLabelConfirm: false,
         deleted: false, deletedAt: null
       });
       item.qty = item.qty - splitQty;
@@ -2066,6 +2097,13 @@ function updateCoaValuesVisibility(){
   document.getElementById('noCoaNeededHint').style.display = show ? 'none' : '';
 }
 document.getElementById('fCoa').addEventListener('change', updateCoaValuesVisibility);
+
+function updateIrradiationConfirmVisibility(){
+  const needs = document.getElementById('fNeedsIrradiation').checked;
+  document.getElementById('irradiationConfirmField').style.display = needs ? '' : 'none';
+  document.getElementById('irradiationDestinationField').style.display = needs ? '' : 'none';
+}
+document.getElementById('fNeedsIrradiation').addEventListener('change', updateIrradiationConfirmVisibility);
 
 // ---- 包裝日期：月/日下拉選單 ----
 (function initPackagingDateSelects(){
@@ -2292,6 +2330,10 @@ function openSheet(order, item){
   document.getElementById('fCoaColiform').value = item ? (item.coaColiform || '') : '';
   document.getElementById('fCoaEcoli').value = item ? (item.coaEcoli || '') : '';
   updateCoaValuesVisibility();
+  document.getElementById('fNeedsIrradiation').checked = item ? !!item.needsIrradiation : false;
+  document.getElementById('fIrradiationLabelConfirm').checked = item ? !!item.irradiationLabelConfirm : false;
+  updateIrradiationConfirmVisibility();
+  document.getElementById('fIrradiationDestination').value = item ? (item.irradiationDestination || '') : '';
   document.getElementById('fNote').value = item ? (item.note || '') : (firstItem ? (firstItem.note || '') : '');
   setPickerValue('fReleaseBy', 'fReleaseByCustom', item ? (item.releaseBy || '') : '');
   setPickerValue('fFilledBy', 'fFilledByCustom', item ? (item.filledBy || '') : (firstItem ? (firstItem.filledBy || '') : ''));
@@ -2410,6 +2452,9 @@ async function handleSaveOrder(){
   const productionZones = getProductionZoneCheckboxes();
   const packagingStaff = getPickerValue('fPackagingStaff', 'fPackagingStaffCustom');
   const coa = document.getElementById('fCoa').value;
+  const needsIrradiation = document.getElementById('fNeedsIrradiation').checked;
+  const irradiationLabelConfirm = document.getElementById('fIrradiationLabelConfirm').checked;
+  const irradiationDestination = document.getElementById('fIrradiationDestination').value;
   const coaConfirmBy = getPickerValue('fCoaConfirmBy', 'fCoaConfirmByCustom');
   const coaMoisture = document.getElementById('fCoaMoisture').value.trim();
   const coaWaterActivity = document.getElementById('fCoaWaterActivity').value.trim();
@@ -2431,7 +2476,7 @@ async function handleSaveOrder(){
   if(missing.length > 0){ showToast('請填寫：' + missing.join('、')); return; }
 
   const itemPayload = {
-    product, spec, qty, due, origin, productExpDate, productMfgDate, productBatchNo, packagingDate, trayBatchNo, materialBatchNo, materialMfgDate, materialExpDate, coa, coaConfirmBy, note,
+    product, spec, qty, due, origin, productExpDate, productMfgDate, productBatchNo, packagingDate, trayBatchNo, materialBatchNo, materialMfgDate, materialExpDate, coa, coaConfirmBy, needsIrradiation, irradiationLabelConfirm, irradiationDestination, note,
     coaMoisture, coaWaterActivity, coaTotalPlateCount, coaColiform, coaEcoli,
     fillFormDate, fillFormTime,
     releaseBy, filledBy, warehouseConfirm,
