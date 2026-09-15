@@ -342,6 +342,7 @@
   .badge.ship-tomorrow{ background:var(--panel); border:1px solid var(--teal); color:var(--teal); }
   .badge.ship-pickup{ background:var(--panel); border:1px solid var(--purple); color:var(--purple); }
   .badge.coa-badge{ background:var(--panel); border:1px solid var(--blue); color:var(--blue); }
+  .badge.batch-badge{ background:var(--panel); border:1px solid var(--purple); color:var(--purple); font-family:var(--mono); }
   .badge.irradiation-badge{ background:var(--panel); border:1px solid var(--orange); color:var(--orange); }
   .badge.irradiation-badge.pending{ background:var(--panel); border:1px solid var(--red); color:var(--red); }
   .badge.split-origin-badge{ background:var(--panel); border:1px solid var(--purple); color:var(--purple); cursor:pointer; }
@@ -1652,6 +1653,9 @@ function renderList(){
       if(needsCoa(item)){
         badges += '<span class="badge coa-badge">📄 需COA' + (item.coa === '需要(Email)' ? '(Email)' : '(隨貨)') + '</span>';
       }
+      if(item.productBatchNo){
+        badges += '<span class="badge batch-badge">🏷 批號 ' + escapeHtml(item.productBatchNo) + '</span>';
+      }
       if(item.needsIrradiation){
         const confirmed = !!item.irradiationLabelConfirm;
         badges += '<span class="badge irradiation-badge' + (confirmed ? '' : ' pending') + '">☢️ 照射滅菌' + (confirmed ? '(已確認)' : '') + '</span>';
@@ -2788,10 +2792,15 @@ function renderOrderSearchList(){
   listEl.innerHTML = results.map(x=>{
     const stageTag = '<span class="badge stage st-' + x.item.status + '">' + STATUS_LABEL[x.item.status] + '</span>';
     const dateTag = x.item.fillFormDate ? ('<span class="ship-list-tag">填寫日期 ' + x.item.fillFormDate + '</span>') : '';
+    const batchBits = [];
+    if(x.item.productBatchNo) batchBits.push('批號 ' + escapeHtml(x.item.productBatchNo));
+    if(x.item.productMfgDate) batchBits.push('製造日期 ' + x.item.productMfgDate);
+    if(x.item.productExpDate) batchBits.push('有效日期 ' + x.item.productExpDate);
+    const batchTag = batchBits.length > 0 ? ('<span class="ship-list-tag">' + batchBits.join('　') + '</span>') : '';
     return '<div class="ship-list-row" data-jump-oid="'+x.order.id+'" data-jump-iid="'+x.item.id+'" style="cursor:pointer;">' +
       '<div><div class="ship-list-name">' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '</div>' +
       '<div class="ship-list-meta">' + escapeHtml(x.order.orderNo || '') + (x.item.spec ? ' ・ ' + escapeHtml(x.item.spec) : '') + '</div>' +
-      stageTag + dateTag +
+      stageTag + dateTag + batchTag +
       '</div><div class="ship-list-qty">x' + x.item.qty + '</div></div>';
   }).join('');
 
