@@ -1819,6 +1819,26 @@ function renderList(){
       const order = orders.find(o=>o.id === btn.dataset.oid);
       const item = order && order.items.find(i=>i.id === btn.dataset.iid);
       if(!item) return;
+
+      // 曾用「⚡用現有庫存直接送出貨確認」跳過中間階段的品項，退回時應直接回到庫存確認、歸還預扣的成品庫存，
+      // 而不是照正常順序退到「裝箱確認」（因為這個品項實際上根本沒經過那個階段）
+      if(item.status === 'shipped' && item.stockPreDeducted){
+        const fg = findOrCreateFinishedGood(item.product);
+        addFinishedGoodBatchStock(fg, item.qty||0, item.productBatchNo||'', item.productMfgDate||'', item.productExpDate||'');
+        item.status = 'inprogress';
+        item.stockPreDeducted = false;
+        delete item.shippedAt;
+        item.shipMethod = '';
+        item.productBatchNo = '';
+        item.productMfgDate = '';
+        item.productExpDate = '';
+        await saveBomData();
+        renderFinishedGoodList();
+        await saveOrders(); render();
+        showToast('已退回「庫存確認」，並歸還先前預扣的成品庫存');
+        return;
+      }
+
       const idx = STATUS.indexOf(item.status);
       const wasLabeling = item.status === 'labeling';
       const wasDone = item.status === 'done';
