@@ -789,13 +789,17 @@
       <div class="ship-filter-bar">
         <div class="row2" style="margin-bottom:8px;">
           <div class="field" style="margin-bottom:0;">
-            <label>填寫日期</label>
-            <input type="date" id="searchFillDate">
+            <label>填寫日期（起）</label>
+            <input type="date" id="searchFillDateFrom">
           </div>
           <div class="field" style="margin-bottom:0;">
-            <label>客戶（可留空）</label>
-            <input type="text" id="searchCustomer" placeholder="輸入客戶名稱關鍵字">
+            <label>填寫日期（迄，可留空＝查單一天）</label>
+            <input type="date" id="searchFillDateTo">
           </div>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>客戶（可留空）</label>
+          <input type="text" id="searchCustomer" placeholder="輸入客戶名稱關鍵字">
         </div>
         <button type="button" class="split-btn" id="searchClearBtn" style="margin-top:10px;">清除搜尋</button>
       </div>
@@ -2655,17 +2659,22 @@ function renderOrderSearchList(){
   const listEl = document.getElementById('orderSearchList');
   if(!listEl) return;
 
-  const fillDate = document.getElementById('searchFillDate').value;
+  const fillDateFrom = document.getElementById('searchFillDateFrom').value;
+  const fillDateTo = document.getElementById('searchFillDateTo').value;
   const customerKeyword = document.getElementById('searchCustomer').value.trim().toLowerCase();
 
-  if(!fillDate && !customerKeyword){
+  if(!fillDateFrom && !fillDateTo && !customerKeyword){
     listEl.innerHTML = '<div class="ship-list-empty">請輸入填寫日期或客戶名稱開始查詢</div>';
     return;
   }
 
   let results = allActiveItems();
-  if(fillDate){
-    results = results.filter(x => x.item.fillFormDate === fillDate);
+  if(fillDateFrom && fillDateTo){
+    results = results.filter(x => x.item.fillFormDate && x.item.fillFormDate >= fillDateFrom && x.item.fillFormDate <= fillDateTo);
+  }else if(fillDateFrom){
+    results = results.filter(x => x.item.fillFormDate === fillDateFrom);
+  }else if(fillDateTo){
+    results = results.filter(x => x.item.fillFormDate && x.item.fillFormDate <= fillDateTo);
   }
   if(customerKeyword){
     results = results.filter(x => (x.order.customer || '').toLowerCase().includes(customerKeyword));
@@ -2698,10 +2707,12 @@ function renderOrderSearchList(){
     };
   });
 }
-document.getElementById('searchFillDate').addEventListener('input', renderOrderSearchList);
+document.getElementById('searchFillDateFrom').addEventListener('input', renderOrderSearchList);
+document.getElementById('searchFillDateTo').addEventListener('input', renderOrderSearchList);
 document.getElementById('searchCustomer').addEventListener('input', renderOrderSearchList);
 document.getElementById('searchClearBtn').onclick = ()=>{
-  document.getElementById('searchFillDate').value = '';
+  document.getElementById('searchFillDateFrom').value = '';
+  document.getElementById('searchFillDateTo').value = '';
   document.getElementById('searchCustomer').value = '';
   renderOrderSearchList();
 };
