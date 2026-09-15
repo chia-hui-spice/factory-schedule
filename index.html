@@ -78,6 +78,7 @@
   .tab[data-status="boxing"] .tab-count{ color:var(--pink); }
   .tab[data-status="shipped"] .tab-count{ color:var(--teal); }
   .tab[data-status="qc"] .tab-count{ color:var(--cyan); }
+  .tab[data-status="coa"] .tab-count{ color:var(--red); }
 
   main{ padding:14px 16px 4px 16px; max-width:680px; margin:0 auto; }
   .empty{ text-align:center; padding:60px 20px; color:var(--ink-dim); }
@@ -1238,7 +1239,9 @@ function showToastSafe(msg){
 }
 
 const STATUS = ['pending','inprogress','labeling','done','refill','boxing','shipped','qc'];
-const STATUS_LABEL = { pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'品管COA' };
+const STATUS_LABEL = { pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'已完成', coa:'品管COA' };
+const EXTRA_TABS = ['coa']; // 額外的跨階段檢視分頁，不是實際生產階段，不參與階段推進邏輯
+const ALL_TABS = STATUS.concat(EXTRA_TABS);
 const STATUS_FORWARD_LABEL = { pending:'訂單確認完成', inprogress:'庫存確認無庫存請生產', labeling:'排程生產完成', done:'標籤印製完成', refill:'充填包裝完成', boxing:'裝箱確認完成', shipped:'出貨確認完成' };
 const CHK_LABELS = { c1:'標籤品名核對', c2:'裝箱數量', c3:'包裝密封', c4:'生產/有效日期' };
 const SHIP_METHOD_LABEL = { today:'寄貨', tomorrow:'送貨', pickup:'自取' };
@@ -1543,10 +1546,10 @@ function needsCoa(item){ return !!item.coa && item.coa !== '無'; }
 function escapeHtml(s){ const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
 
 function getAllowedTabs(){
-  if(isCurrentUserAdmin) return STATUS.slice();
+  if(isCurrentUserAdmin) return ALL_TABS.slice();
   const perm = permissions[currentUserEmail];
-  if(!perm || !perm.tabs) return STATUS.slice();
-  return STATUS.filter(s => perm.tabs.includes(s));
+  if(!perm || !perm.tabs) return ALL_TABS.slice();
+  return ALL_TABS.filter(s => perm.tabs.includes(s));
 }
 function renderTabs(){
   const tabsEl = document.getElementById('tabs');
@@ -1573,8 +1576,8 @@ function itemMatchesZoneFilter(item){
 }
 function itemBelongsToTab(item, tab){
   if(item.deleted) return false;
-  if(tab === 'qc'){
-    // 品管COA分頁改為跨階段顯示:只要選了需要COA、還沒確認完成，不管實際在哪個生產階段都會出現在這裡
+  if(tab === 'coa'){
+    // 品管COA分頁:跨階段顯示需要COA但還沒確認完成的品項，不管實際在哪個生產階段
     return needsCoa(item) && !item.coaConfirmBy;
   }
   return item.status === tab;
@@ -1587,7 +1590,7 @@ function renderList(){
   if(matchingOrders.length === 0){
     const hint = (currentTab === 'pending') ? '<br>點右下角 + 新增一筆' : '';
     const zoneHint = (currentTab === 'labeling' && currentZoneFilter) ? '（「' + escapeHtml(currentZoneFilter) + '」目前沒有品項）' : '';
-    const qcHint = (currentTab === 'qc') ? '<br>（這裡只顯示需要COA的品項，不需要COA的不會出現）' : '';
+    const qcHint = (currentTab === 'coa') ? '<br>（這裡只顯示需要COA的品項，不需要COA的不會出現）' : '';
     listEl.innerHTML = '<div class="empty"><div class="empty-tag">🏷️</div><p>目前「' + STATUS_LABEL[currentTab] + '」沒有品項' + zoneHint + hint + qcHint + '</p></div>';
     return;
   }
@@ -2016,7 +2019,7 @@ const STAGE_COLLAPSE_SECTIONS = {
 };
 function updateStageVisibility(stage){
   const showBatch = stage !== 'pending';
-  const openedFromQcTab = (currentTab === 'qc'); // 從品管COA分頁開啟時，品管確認一律顯示，不管實際階段
+  const openedFromQcTab = (currentTab === 'coa'); // 從品管COA分頁開啟時，品管確認一律顯示，不管實際階段
   const showQc = openedFromQcTab || (STATUS.indexOf(stage) >= STATUS.indexOf('done')); // 排程生產完成(標籤印製)或以後
   const showProductionZone = (STATUS.indexOf(stage) >= STATUS.indexOf('inprogress')); // 庫存確認或以後
   const showPackaging = (STATUS.indexOf(stage) >= STATUS.indexOf('refill')); // 充填包裝或以後
@@ -2329,7 +2332,7 @@ function applyStageContentLock(item){
   const status = item ? item.status : null;
   const exemptSectionIds = (STAGE_LOCK_EXEMPT_SECTION[status] || []).slice();
   const exemptHintIds = (STAGE_LOCK_EXEMPT_HINT[status] || []).slice();
-  if(currentTab === 'qc'){
+  if(currentTab === 'coa'){
     // 從「品管COA」分頁開啟時，不管品項實際在哪個生產階段，品管確認一律可以直接填寫
     if(!exemptSectionIds.includes('sectionQc')) exemptSectionIds.push('sectionQc');
     if(!exemptHintIds.includes('stageHintQc')) exemptHintIds.push('stageHintQc');
@@ -3259,7 +3262,7 @@ function applyPermissions(){
 
 function renderPermCheckboxes(currentPerm){
   const tabsWrap = document.getElementById('permTabsCheckboxes');
-  tabsWrap.innerHTML = STATUS.map(s=>{
+  tabsWrap.innerHTML = ALL_TABS.map(s=>{
     const checked = !currentPerm || !currentPerm.tabs || currentPerm.tabs.includes(s);
     return '<label class="perm-checkbox-item"><input type="checkbox" class="permTabCheckbox" value="'+s+'" '+(checked?'checked':'')+'>' + STATUS_LABEL[s] + '</label>';
   }).join('');
