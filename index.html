@@ -1937,9 +1937,9 @@ function updateStageVisibility(stage){
 
   // 某些階段資訊量較多，預設收合指定的區塊，減少畫面雜訊，可用「顯示更多欄位」展開
   const collapseList = STAGE_COLLAPSE_SECTIONS[stage] || [];
-  const shouldCollapse = collapseList.length > 0 && !showMoreFieldsExpanded;
+  const shouldCollapse = (openedFromQcTab || collapseList.length > 0) && !showMoreFieldsExpanded;
   function finalShow(sectionId, ownVisible){
-    if(openedFromQcTab && sectionId === 'sectionQc') return true; // 品管COA分頁強制顯示，不受收合影響
+    if(openedFromQcTab && !showMoreFieldsExpanded) return sectionId === 'sectionQc'; // 品管COA分頁只顯示品管確認，其他全部收合
     if(shouldCollapse && collapseList.includes(sectionId)) return false;
     return ownVisible;
   }
