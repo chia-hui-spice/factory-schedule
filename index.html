@@ -1935,31 +1935,11 @@ function renderList(){
 
       // 扣除即將被領用的成品庫存(視為預留給這批貨，用FIFO從最早批次開始扣，回傳實際用到的每一批明細)
       const { consumed } = deductFinishedGoodStockFIFO(fg, fulfillQty);
-      const primaryBatch = consumed[0] || null;
-      const batchNoteLine = consumed.length > 0
-        ? '【出貨批次】' + consumed.map(c=> (c.batchNo||'未命名批次') + ' x' + c.taken + (fg.unit||'') + (c.expDate ? '(有效期限' + c.expDate + ')' : '')).join('、')
-        : '';
 
-      if(isFullCover){
-        item.status = 'shipped';
-        item.stockPreDeducted = true;
-        item.shipMethod = shipMethod;
-        item.shippedAt = Date.now();
-        if(primaryBatch){
-          item.productBatchNo = primaryBatch.batchNo || '';
-          item.productMfgDate = primaryBatch.mfgDate || '';
-          item.productExpDate = primaryBatch.expDate || '';
-        }
-        if(consumed.length > 1){
-          item.note = (item.note ? item.note + '\n' : '') + batchNoteLine;
-        }
-        showToast('已直接送去出貨確認' + (consumed.length > 1 ? '（用到 ' + consumed.length + ' 個批次，詳見備註）' : ''));
-      }else{
-        const originalTotal = item.originalQty || item.qty;
-        const splitGroupId = item.splitGroupId || ('sg_' + Date.now() + '_' + Math.random().toString(36).slice(2,7));
-        const newItem = Object.assign({}, item, {
+      function buildShippedBatchItem(batch, splitGroupId, originalTotal){
+        return Object.assign({}, item, {
           id: 'i_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
-          qty: fulfillQty,
+          qty: batch.taken,
           originalQty: originalTotal,
           splitGroupId: splitGroupId,
           status: 'shipped',
@@ -1969,17 +1949,46 @@ function renderList(){
           releaseBy: '', warehouseConfirm: '', checklist: {c1:false,c2:false,c3:false,c4:false},
           completedAt: null,
           packagingStaff: '',
-          productBatchNo: primaryBatch ? (primaryBatch.batchNo || '') : (item.productBatchNo || ''),
-          productMfgDate: primaryBatch ? (primaryBatch.mfgDate || '') : (item.productMfgDate || ''),
-          productExpDate: primaryBatch ? (primaryBatch.expDate || '') : (item.productExpDate || ''),
-          note: consumed.length > 1 ? ((item.note ? item.note + '\n' : '') + batchNoteLine) : (item.note || ''),
+          productBatchNo: batch.batchNo || '',
+          productMfgDate: batch.mfgDate || '',
+          productExpDate: batch.expDate || '',
+          note: item.note || '',
           productionZones: (item.productionZones || []).slice()
         });
-        order.items.push(newItem);
+      }
+
+      if(isFullCover){
+        if(consumed.length <= 1){
+          // 只用到一個批次，維持原本這筆品項直接變更狀態即可
+          const batch = consumed[0];
+          item.status = 'shipped';
+          item.stockPreDeducted = true;
+          item.shipMethod = shipMethod;
+          item.shippedAt = Date.now();
+          if(batch){
+            item.productBatchNo = batch.batchNo || '';
+            item.productMfgDate = batch.mfgDate || '';
+            item.productExpDate = batch.expDate || '';
+          }
+          showToast('已直接送去出貨確認');
+        }else{
+          // 跨多個批次，直接拆成多筆品項，一批一筆，方便一眼分辨各批數量
+          const originalTotal = item.originalQty || item.qty;
+          const splitGroupId = item.splitGroupId || ('sg_' + Date.now() + '_' + Math.random().toString(36).slice(2,7));
+          const newItems = consumed.map(batch => buildShippedBatchItem(batch, splitGroupId, originalTotal));
+          const idx = order.items.findIndex(i=>i.id===item.id);
+          order.items.splice(idx, 1, ...newItems);
+          showToast('已直接送去出貨確認，因用到 ' + consumed.length + ' 個批次，已自動拆成 ' + consumed.length + ' 筆品項');
+        }
+      }else{
+        const originalTotal = item.originalQty || item.qty;
+        const splitGroupId = item.splitGroupId || ('sg_' + Date.now() + '_' + Math.random().toString(36).slice(2,7));
+        const newItems = consumed.map(batch => buildShippedBatchItem(batch, splitGroupId, originalTotal));
+        order.items.push(...newItems);
         item.qty = item.qty - fulfillQty;
         item.originalQty = originalTotal;
         item.splitGroupId = splitGroupId;
-        showToast('已拆出 ' + fulfillQty + ' ' + (fg.unit||'') + ' 直接送去出貨確認，剩下 ' + item.qty + ' 留在庫存確認繼續生產' + (consumed.length > 1 ? '（用到 ' + consumed.length + ' 個批次，詳見備註）' : ''));
+        showToast('已拆出 ' + fulfillQty + ' ' + (fg.unit||'') + ' 直接送去出貨確認' + (consumed.length > 1 ? '（用到 ' + consumed.length + ' 個批次，已各自拆成獨立品項）' : '') + '，剩下 ' + item.qty + ' 留在庫存確認繼續生產');
       }
 
       await saveBomData();
