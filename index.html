@@ -27,6 +27,9 @@
     --teal: #3FB8AF;
     --green: #4CA872;
     --red: #E5544D;
+    --orange: #E8873C;
+    --pink: #D46FB3;
+    --cyan: #5AC8D8;
     --mono: 'JetBrains Mono', 'Roboto Mono', ui-monospace, SFMono-Regular, monospace;
     --sans: 'Archivo', 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
   }
@@ -71,7 +74,10 @@
   .tab[data-status="inprogress"] .tab-count{ color:var(--amber); }
   .tab[data-status="labeling"] .tab-count{ color:var(--purple); }
   .tab[data-status="done"] .tab-count{ color:var(--green); }
+  .tab[data-status="refill"] .tab-count{ color:var(--orange); }
+  .tab[data-status="boxing"] .tab-count{ color:var(--pink); }
   .tab[data-status="shipped"] .tab-count{ color:var(--teal); }
+  .tab[data-status="qc"] .tab-count{ color:var(--cyan); }
 
   main{ padding:14px 16px 4px 16px; max-width:680px; margin:0 auto; }
   .empty{ text-align:center; padding:60px 20px; color:var(--ink-dim); }
@@ -107,10 +113,10 @@
   .badge.stage.st-inprogress{ color:var(--amber); border-color:var(--amber); }
   .badge.stage.st-labeling{ color:var(--purple); border-color:var(--purple); }
   .badge.stage.st-done{ color:var(--green); border-color:var(--green); }
-  .badge.stage.st-refill{ color:var(--amber); border-color:var(--amber); }
-  .badge.stage.st-boxing{ color:var(--purple); border-color:var(--purple); }
+  .badge.stage.st-refill{ color:var(--orange); border-color:var(--orange); }
+  .badge.stage.st-boxing{ color:var(--pink); border-color:var(--pink); }
   .badge.stage.st-shipped{ color:var(--teal); border-color:var(--teal); }
-  .badge.stage.st-qc{ color:var(--green); border-color:var(--green); }
+  .badge.stage.st-qc{ color:var(--cyan); border-color:var(--cyan); }
 
   .item-meta{ display:flex; gap:8px 12px; flex-wrap:wrap; margin-bottom:8px; }
   .stock-info-row{
@@ -345,6 +351,7 @@
   .ship-list-meta{ font-size:16.2px; color:var(--ink-dim); margin-top:2px; }
   .ship-list-qty{ font-family:var(--mono); font-size:19.1px; font-weight:700; color:var(--teal); flex:0 0 auto; }
   .ship-list-tag{ font-size:15.1px; font-weight:700; padding:2px 6px; border-radius:5px; background:var(--panel); border:1px solid var(--line); color:var(--ink-dim); white-space:nowrap; margin-top:4px; display:inline-block; }
+  .ship-list-row .badge.stage{ margin-top:4px; margin-right:4px; display:inline-block; }
   .receipt-thumb{ width:52px; height:52px; border-radius:8px; object-fit:cover; flex:0 0 52px; border:1px solid var(--line); cursor:pointer; }
   .receipt-thumb-empty{ display:flex; align-items:center; justify-content:center; font-size:11.6px; line-height:1.3; color:var(--ink-dim); background:var(--panel); text-align:center; }
   .ship-list-empty{ font-size:18px; color:var(--ink-dim); padding:8px 2px 4px 2px; }
@@ -2624,7 +2631,7 @@ function renderCoaPendingList(){
 
   function rowHtml(x){
     const coaTypeTag = '<span class="ship-list-tag">' + escapeHtml(x.item.coa) + '</span>';
-    const stageTag = '<span class="ship-list-tag">' + STATUS_LABEL[x.item.status] + '</span>';
+    const stageTag = '<span class="badge stage st-' + x.item.status + '">' + STATUS_LABEL[x.item.status] + '</span>';
     const confirmBit = x.item.coaConfirmBy ? ('<span class="ship-list-tag">確認人 ' + escapeHtml(x.item.coaConfirmBy) + '</span>') : '';
     return '<div class="ship-list-row" data-jump-oid="'+x.order.id+'" data-jump-iid="'+x.item.id+'" data-jump-status="'+x.item.status+'" style="cursor:pointer;">' +
       '<div><div class="ship-list-name">' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '</div>' +
@@ -2687,7 +2694,7 @@ function renderOrderSearchList(){
   }
 
   listEl.innerHTML = results.map(x=>{
-    const stageTag = '<span class="ship-list-tag">' + STATUS_LABEL[x.item.status] + '</span>';
+    const stageTag = '<span class="badge stage st-' + x.item.status + '">' + STATUS_LABEL[x.item.status] + '</span>';
     const dateTag = x.item.fillFormDate ? ('<span class="ship-list-tag">填寫日期 ' + x.item.fillFormDate + '</span>') : '';
     return '<div class="ship-list-row" data-jump-oid="'+x.order.id+'" data-jump-iid="'+x.item.id+'" style="cursor:pointer;">' +
       '<div><div class="ship-list-name">' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '</div>' +
