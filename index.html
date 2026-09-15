@@ -1359,20 +1359,27 @@ function finishedGoodPrimaryBatch(f){
 function deductFinishedGoodStockFIFO(f, qty){
   let remaining = qty;
   const sorted = finishedGoodBatchesSorted(f);
+  const consumed = [];
   sorted.forEach(b=>{
     if(remaining <= 0) return;
     const take = Math.min(b.stock||0, remaining);
-    b.stock = Math.round(((b.stock||0) - take) * 1000) / 1000;
+    if(take > 0){
+      b.stock = Math.round(((b.stock||0) - take) * 1000) / 1000;
+      consumed.push({ batchNo: b.batchNo||'', mfgDate: b.mfgDate||'', expDate: b.expDate||'', taken: take });
+    }
     remaining = Math.round((remaining - take) * 1000) / 1000;
   });
-  if(remaining > 0){
+  const shortage = remaining > 0;
+  if(shortage){
     if(sorted.length > 0){
       sorted[0].stock = Math.round(((sorted[0].stock||0) - remaining) * 1000) / 1000;
+      consumed.push({ batchNo: sorted[0].batchNo||'', mfgDate: sorted[0].mfgDate||'', expDate: sorted[0].expDate||'', taken: remaining });
     }else{
       f.batches.push({ batchNo:'', mfgDate:'', expDate:'', stock: -remaining });
+      consumed.push({ batchNo:'', mfgDate:'', expDate:'', taken: remaining });
     }
   }
-  return remaining > 0; // true = 庫存不足
+  return { shortage, consumed };
 }
 function addFinishedGoodBatchStock(f, qty, batchNo, mfgDate, expDate){
   if(!f.batches) f.batches = [];
@@ -1922,11 +1929,12 @@ function renderList(){
         shipMethod = choice;
       }
 
-      // 記錄FIFO即將扣款的批次資訊(扣款前抓，因為扣款後這批可能已經歸零從清單消失)
-      const primaryBatch = finishedGoodPrimaryBatch(fg);
-
-      // 扣除即將被領用的成品庫存(視為預留給這批貨，用FIFO從最早批次開始扣)
-      deductFinishedGoodStockFIFO(fg, fulfillQty);
+      // 扣除即將被領用的成品庫存(視為預留給這批貨，用FIFO從最早批次開始扣，回傳實際用到的每一批明細)
+      const { consumed } = deductFinishedGoodStockFIFO(fg, fulfillQty);
+      const primaryBatch = consumed[0] || null;
+      const batchNoteLine = consumed.length > 0
+        ? '【出貨批次】' + consumed.map(c=> (c.batchNo||'未命名批次') + ' x' + c.taken + (fg.unit||'') + (c.expDate ? '(有效期限' + c.expDate + ')' : '')).join('、')
+        : '';
 
       if(isFullCover){
         item.status = 'shipped';
@@ -1938,7 +1946,10 @@ function renderList(){
           item.productMfgDate = primaryBatch.mfgDate || '';
           item.productExpDate = primaryBatch.expDate || '';
         }
-        showToast('已直接送去出貨確認');
+        if(consumed.length > 1){
+          item.note = (item.note ? item.note + '\n' : '') + batchNoteLine;
+        }
+        showToast('已直接送去出貨確認' + (consumed.length > 1 ? '（用到 ' + consumed.length + ' 個批次，詳見備註）' : ''));
       }else{
         const originalTotal = item.originalQty || item.qty;
         const splitGroupId = item.splitGroupId || ('sg_' + Date.now() + '_' + Math.random().toString(36).slice(2,7));
@@ -1957,13 +1968,14 @@ function renderList(){
           productBatchNo: primaryBatch ? (primaryBatch.batchNo || '') : (item.productBatchNo || ''),
           productMfgDate: primaryBatch ? (primaryBatch.mfgDate || '') : (item.productMfgDate || ''),
           productExpDate: primaryBatch ? (primaryBatch.expDate || '') : (item.productExpDate || ''),
+          note: consumed.length > 1 ? ((item.note ? item.note + '\n' : '') + batchNoteLine) : (item.note || ''),
           productionZones: (item.productionZones || []).slice()
         });
         order.items.push(newItem);
         item.qty = item.qty - fulfillQty;
         item.originalQty = originalTotal;
         item.splitGroupId = splitGroupId;
-        showToast('已拆出 ' + fulfillQty + ' ' + (fg.unit||'') + ' 直接送去出貨確認，剩下 ' + item.qty + ' 留在庫存確認繼續生產');
+        showToast('已拆出 ' + fulfillQty + ' ' + (fg.unit||'') + ' 直接送去出貨確認，剩下 ' + item.qty + ' 留在庫存確認繼續生產' + (consumed.length > 1 ? '（用到 ' + consumed.length + ' 個批次，詳見備註）' : ''));
       }
 
       await saveBomData();
@@ -4452,10 +4464,10 @@ async function addFinishedGoodStock(item, silent){
 
 async function deductFinishedGoodStock(item, silent){
   const f = findOrCreateFinishedGood(item.product);
-  const short = deductFinishedGoodStockFIFO(f, item.qty||0);
+  const { shortage } = deductFinishedGoodStockFIFO(f, item.qty||0);
   await saveBomData();
   renderFinishedGoodList();
-  if(short){
+  if(shortage){
     showToast('⚠ 成品庫存不足：' + item.product);
   }else if(!silent){
     showToast('已扣除成品庫存：' + item.product + ' -' + item.qty);
