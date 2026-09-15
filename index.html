@@ -1902,6 +1902,9 @@ function renderList(){
         shipMethod = choice;
       }
 
+      // 記錄FIFO即將扣款的批次資訊(扣款前抓，因為扣款後這批可能已經歸零從清單消失)
+      const primaryBatch = finishedGoodPrimaryBatch(fg);
+
       // 扣除即將被領用的成品庫存(視為預留給這批貨，用FIFO從最早批次開始扣)
       deductFinishedGoodStockFIFO(fg, fulfillQty);
 
@@ -1910,6 +1913,11 @@ function renderList(){
         item.stockPreDeducted = true;
         item.shipMethod = shipMethod;
         item.shippedAt = Date.now();
+        if(primaryBatch){
+          item.productBatchNo = primaryBatch.batchNo || '';
+          item.productMfgDate = primaryBatch.mfgDate || '';
+          item.productExpDate = primaryBatch.expDate || '';
+        }
         showToast('已直接送去出貨確認');
       }else{
         const originalTotal = item.originalQty || item.qty;
@@ -1926,6 +1934,9 @@ function renderList(){
           releaseBy: '', warehouseConfirm: '', checklist: {c1:false,c2:false,c3:false,c4:false},
           completedAt: null,
           packagingStaff: '',
+          productBatchNo: primaryBatch ? (primaryBatch.batchNo || '') : (item.productBatchNo || ''),
+          productMfgDate: primaryBatch ? (primaryBatch.mfgDate || '') : (item.productMfgDate || ''),
+          productExpDate: primaryBatch ? (primaryBatch.expDate || '') : (item.productExpDate || ''),
           productionZones: (item.productionZones || []).slice()
         });
         order.items.push(newItem);
