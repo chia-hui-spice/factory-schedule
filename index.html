@@ -2337,7 +2337,8 @@ function applyStageContentLock(item){
     if(!exemptSectionIds.includes('sectionQc')) exemptSectionIds.push('sectionQc');
     if(!exemptHintIds.includes('stageHintQc')) exemptHintIds.push('stageHintQc');
   }
-  const isLocked = exemptSectionIds.length > 0;
+  const isCompleted = (status === 'qc'); // 已完成的訂單一律鎖定禁止修改(除非是從品管COA分頁開啟補填COA，上面已經處理)
+  const isLocked = exemptSectionIds.length > 0 || isCompleted;
   const form = document.getElementById('orderForm');
   const exemptSections = exemptSectionIds.map(id=>document.getElementById(id)).filter(Boolean);
   function isInExemptSection(el){ return exemptSections.some(sec=>sec.contains(el)); }
