@@ -1396,7 +1396,9 @@ const ID_DICT = {
   '請選擇':'Silakan pilih', '請選擇原料':'Silakan pilih bahan baku', 'YYYY/MM/DD':'YYYY/MM/DD', '年 / 月 / 日':'Tahun/Bulan/Tanggal',
   // 溫溼度記錄
   '溫溼度記錄':'Catatan Suhu & Kelembaban', '記錄溫溼度':'Catat Suhu & Kelembaban', '溫度（°C）':'Suhu (°C)', '濕度（%）':'Kelembaban (%)',
+  '溫溼度記錄提醒':'Pengingat Catatan Suhu & Kelembaban', '時段還有':'masih ada', '個區域尚未記錄':'area belum dicatat',
   '記錄人員':'Dicatat Oleh', '+ 新增區域':'+ Tambah Area', '刪除此筆記錄':'Hapus Catatan Ini',
+  '前往記錄':'Pergi Mencatat',
 };
 const EN_DICT = {
   // 生產階段
@@ -1460,7 +1462,9 @@ const EN_DICT = {
   '請選擇':'Please select', '請選擇原料':'Please select material', 'YYYY/MM/DD':'YYYY/MM/DD', '年 / 月 / 日':'Year/Month/Day',
   // 溫溼度記錄
   '溫溼度記錄':'Temp & Humidity Log', '記錄溫溼度':'Record Temp & Humidity', '溫度（°C）':'Temperature (°C)', '濕度（%）':'Humidity (%)',
+  '溫溼度記錄提醒':'Temp & Humidity Reminder', '時段還有':'still has', '個區域尚未記錄':'area(s) not recorded',
   '記錄人員':'Recorded By', '+ 新增區域':'+ Add Area', '刪除此筆記錄':'Delete This Record',
+  '前往記錄':'Go to Record',
 };
 function t(zh){
   if(currentLang === 'id') return ID_DICT[zh] || zh;
@@ -2851,8 +2855,9 @@ function renderAlertBanner(){
   const todayAlerts = all.filter(x => isTodayAtRisk(x.item) && !dismissedIds.has('3pm-' + x.item.id));
   const tomorrowAlerts = all.filter(x => isTomorrowRisk(x.item) && !dismissedIds.has('tmrw-' + x.item.id));
   const showBackupReminder = backupNeeded() && !dismissedIds.has('backup-' + currentYearMonth());
+  const climateReminders = getClimateMissingReminders().filter(r => !dismissedIds.has(r.key));
 
-  if(overdueAlerts.length===0 && todayAlerts.length===0 && tomorrowAlerts.length===0 && !showBackupReminder){
+  if(overdueAlerts.length===0 && todayAlerts.length===0 && tomorrowAlerts.length===0 && !showBackupReminder && climateReminders.length===0){
     banner.classList.remove('show'); banner.innerHTML = ''; return;
   }
   banner.classList.add('show');
@@ -2871,6 +2876,9 @@ function renderAlertBanner(){
   tomorrowAlerts.forEach(x=>{
     html += '<div class="alert-item tomorrow"><div class="alert-text"><b>⏰ 明日出貨，今日尚未完成：</b>' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '</div><button class="alert-jump" data-jump="' + x.item.status + '">查看</button><button data-dismiss="tmrw-' + x.item.id + '">✕</button></div>';
   });
+  climateReminders.forEach(r=>{
+    html += '<div class="alert-item tomorrow"><div class="alert-text"><b>🌡️ ' + t('溫溼度記錄提醒') + '：</b>' + r.timeSlot + ' ' + t('時段還有') + ' ' + r.missingCount + ' ' + t('個區域尚未記錄') + '</div><button class="alert-jump" data-climate-jump="1">' + t('前往記錄') + '</button><button data-dismiss="' + r.key + '">✕</button></div>';
+  });
   if(showBackupReminder){
     html += '<div class="alert-item backup-reminder"><div class="alert-text"><b>📦 月底提醒：</b>這個月還沒匯出備份，建議存一份下來</div><button class="alert-jump" data-backup-now="1">立即匯出</button><button data-dismiss="backup-' + currentYearMonth() + '">✕</button></div>';
   }
@@ -2878,6 +2886,11 @@ function renderAlertBanner(){
   banner.querySelectorAll('[data-backup-now]').forEach(btn=> btn.onclick = exportBackup);
   banner.querySelectorAll('[data-dismiss]').forEach(btn=> btn.onclick = ()=>{ dismissedIds.add(btn.dataset.dismiss); renderAlertBanner(); });
   banner.querySelectorAll('[data-jump]').forEach(btn=> btn.onclick = ()=>{ currentTab = btn.dataset.jump; render(); });
+  banner.querySelectorAll('[data-climate-jump]').forEach(btn=> btn.onclick = ()=>{
+    climateSelectedDate = todayStr();
+    renderClimateGrid();
+    climateOverlay.classList.add('show');
+  });
   const dismissAllBtn = banner.querySelector('[data-dismiss-all]');
   if(dismissAllBtn){
     dismissAllBtn.onclick = ()=>{
@@ -2887,6 +2900,31 @@ function renderAlertBanner(){
       renderAlertBanner();
     };
   }
+}
+
+function getClimateMissingReminders(){
+  if(!climateAreas || climateAreas.length === 0) return [];
+  const now = new Date();
+  const nowMinutes = now.getHours()*60 + now.getMinutes();
+  const today = todayStr();
+  const reminders = [];
+  CLIMATE_TIME_SLOTS.forEach(slot=>{
+    const [h,m] = slot.split(':').map(Number);
+    if(nowMinutes < (h*60+m)) return; // 這個時段還沒到，不提醒
+    const missingCount = climateAreas.filter(area=> !climateLogs.some(l=>l.areaId===area.id && l.date===today && l.timeSlot===slot)).length;
+    if(missingCount > 0){
+      reminders.push({ key: 'climate-' + today + '-' + slot, timeSlot: slot, missingCount });
+    }
+  });
+  return reminders;
+}
+function checkClimateReminders(){
+  getClimateMissingReminders().forEach(r=>{
+    if(!notifiedIds.has(r.key)){
+      notifiedIds.add(r.key);
+      fireNotification('溫溼度記錄提醒', r.timeSlot + ' 時段還有 ' + r.missingCount + ' 個區域尚未記錄溫溼度', r.key);
+    }
+  });
 }
 
 function checkShipmentAlerts(){
@@ -3193,6 +3231,8 @@ function loadClimateData(){
     climateAreas = data.areas || [];
     climateLogs = data.logs || [];
     if(climateOverlay.classList.contains('show')) renderClimateGrid();
+    checkClimateReminders();
+    renderAlertBanner();
   }, (err)=>{ console.error(err); });
 }
 async function saveClimateData(){
@@ -3663,7 +3703,7 @@ async function purgeExpiredTrash(){
   if(changed) await saveOrders();
 }
 
-function tick(){ checkShipmentAlerts(); renderList(); }
+function tick(){ checkShipmentAlerts(); checkClimateReminders(); renderAlertBanner(); renderList(); }
 setInterval(tick, 60000);
 
 // ---- 測試模式 ----
