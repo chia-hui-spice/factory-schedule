@@ -296,6 +296,18 @@
   .trash-empty{ text-align:center; padding:40px 20px; color:var(--ink-dim); font-size:19.1px; }
 
   .material-item{ background:var(--panel-raised); border:1.5px solid var(--line); border-radius:10px; padding:12px; margin-bottom:10px; cursor:pointer; }
+  .climate-area-row{ background:var(--panel-raised); border:1.5px solid var(--line); border-radius:10px; padding:10px; margin-bottom:8px; }
+  .climate-area-name{ font-size:17.4px; font-weight:800; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; }
+  .climate-area-remove{ font-size:13.9px; color:var(--red); cursor:pointer; font-weight:700; }
+  .climate-slots{ display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; }
+  .climate-slot{
+    background:var(--panel); border:1.5px solid var(--line); border-radius:8px; padding:8px 4px; text-align:center;
+    cursor:pointer; font-size:13.3px; color:var(--ink-dim);
+  }
+  .climate-slot.filled{ border-color:var(--teal); color:var(--ink); }
+  .climate-slot.filled.abnormal{ border-color:var(--red); }
+  .climate-slot-time{ font-size:12.4px; color:var(--ink-dim); margin-bottom:2px; }
+  .climate-slot-value{ font-family:var(--mono); font-weight:700; font-size:14.8px; }
   .checkbox-field-label{
     display:flex; align-items:center; gap:10px; background:var(--panel-raised); border:1.5px solid var(--line);
     border-radius:8px; padding:12px; cursor:pointer; font-size:17.4px; user-select:none; width:100%;
@@ -388,6 +400,7 @@
     <button class="i18n bell-btn" id="signOutBtn" title="登出">👤</button>
     <button class="i18n bell-btn" id="trashBtn" title="查看垃圾桶">🗑️</button>
     <button class="bell-btn quick-stat-btn" id="reportBtn" title="查看統計報表">📊<span class="quick-badge todayrisk-badge" id="reportAlertCount" style="display:none;">0</span></button>
+    <button class="bell-btn" id="climateBtn" title="溫溼度記錄">🌡️</button>
     <button class="bell-btn" id="langToggleBtn" title="Bahasa / 語言 / Language">🌐</button>
     <button class="i18n bell-btn" id="bellBtn" title="開啟出貨提醒通知">🔔</button>
   </div>
@@ -859,6 +872,55 @@
   </div>
 </div>
 
+<div class="overlay" id="climateOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 class="i18n">溫溼度記錄</h2>
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:14px;">
+      <button type="button" class="btn-secondary" id="climatePrevDayBtn" style="flex:0 0 auto; padding:8px 14px;">‹</button>
+      <input type="date" id="climateDateInput" style="flex:1; text-align:center;">
+      <button type="button" class="btn-secondary" id="climateNextDayBtn" style="flex:0 0 auto; padding:8px 14px;">›</button>
+    </div>
+    <div id="climateGrid"></div>
+    <div style="margin-top:14px;">
+      <div class="field" style="margin-bottom:8px;">
+        <input type="text" id="climateNewAreaInput" placeholder="輸入新區域名稱，例如：原料倉庫">
+      </div>
+      <button type="button" class="split-btn" id="climateAddAreaBtn">+ 新增區域</button>
+    </div>
+    <div class="sheet-actions" style="margin-top:18px;">
+      <button type="button" class="i18n btn-secondary" style="flex:1;" id="btnCloseClimate">關閉</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="climateEntryOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 class="i18n">記錄溫溼度</h2>
+    <div class="sheet-sub" id="climateEntrySub"></div>
+    <div class="row2">
+      <div class="field">
+        <label class="i18n">溫度（°C）</label>
+        <input type="number" id="climateTempInput" step="any" placeholder="例如 25.5">
+      </div>
+      <div class="field">
+        <label class="i18n">濕度（%）</label>
+        <input type="number" id="climateHumidityInput" step="any" placeholder="例如 60">
+      </div>
+    </div>
+    <div class="field">
+      <label class="i18n">記錄人員</label>
+      <input type="text" id="climateRecordedByInput" placeholder="輸入姓名">
+    </div>
+    <div class="sheet-actions">
+      <button type="button" class="i18n btn-secondary" id="climateEntryCancelBtn">取消</button>
+      <button type="button" class="i18n btn-primary" id="climateEntrySaveBtn">儲存</button>
+    </div>
+    <button type="button" class="i18n btn-delete" id="climateEntryDeleteBtn" style="display:none;">刪除此筆記錄</button>
+  </div>
+</div>
+
 <div class="overlay" id="trashOverlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
@@ -1246,6 +1308,7 @@ const dataPrefix = isTestMode ? 'testData' : 'appData';
 const ordersDocRef = doc(db, dataPrefix, 'orders');
 const backupDocRef = doc(db, dataPrefix, 'backupState');
 const bomDataDocRef = doc(db, dataPrefix, 'bomData');
+const climateDataDocRef = doc(db, dataPrefix, 'climateData');
 const permissionsDocRef = doc(db, dataPrefix, 'permissions');
 // 正式資料的參照（測試模式下用於「合併到正式版」功能）
 const prodOrdersDocRef = doc(db, 'appData', 'orders');
@@ -1331,6 +1394,9 @@ const ID_DICT = {
   '請填寫原料名稱':'Mohon isi nama bahan baku', '請填寫產品名稱':'Mohon isi nama produk', '已更新原料':'Bahan baku diperbarui',
   '已新增原料':'Bahan baku ditambahkan', '已更新成品':'Produk jadi diperbarui', '已新增成品':'Produk jadi ditambahkan',
   '請選擇':'Silakan pilih', '請選擇原料':'Silakan pilih bahan baku', 'YYYY/MM/DD':'YYYY/MM/DD', '年 / 月 / 日':'Tahun/Bulan/Tanggal',
+  // 溫溼度記錄
+  '溫溼度記錄':'Catatan Suhu & Kelembaban', '記錄溫溼度':'Catat Suhu & Kelembaban', '溫度（°C）':'Suhu (°C)', '濕度（%）':'Kelembaban (%)',
+  '記錄人員':'Dicatat Oleh', '+ 新增區域':'+ Tambah Area', '刪除此筆記錄':'Hapus Catatan Ini',
 };
 const EN_DICT = {
   // 生產階段
@@ -1392,6 +1458,9 @@ const EN_DICT = {
   '請填寫原料名稱':'Please enter material name', '請填寫產品名稱':'Please enter product name', '已更新原料':'Material updated',
   '已新增原料':'Material added', '已更新成品':'Finished good updated', '已新增成品':'Finished good added',
   '請選擇':'Please select', '請選擇原料':'Please select material', 'YYYY/MM/DD':'YYYY/MM/DD', '年 / 月 / 日':'Year/Month/Day',
+  // 溫溼度記錄
+  '溫溼度記錄':'Temp & Humidity Log', '記錄溫溼度':'Record Temp & Humidity', '溫度（°C）':'Temperature (°C)', '濕度（%）':'Humidity (%)',
+  '記錄人員':'Recorded By', '+ 新增區域':'+ Add Area', '刪除此筆記錄':'Delete This Record',
 };
 function t(zh){
   if(currentLang === 'id') return ID_DICT[zh] || zh;
@@ -3109,6 +3178,155 @@ document.getElementById('reportBtn').onclick = ()=>{
 document.getElementById('btnCloseReport').onclick = ()=> reportOverlay.classList.remove('show');
 reportOverlay.onclick = (e)=>{ if(e.target === reportOverlay) reportOverlay.classList.remove('show'); };
 
+// ---- 溫溼度記錄 ----
+const CLIMATE_TIME_SLOTS = ['09:00','11:00','13:00','15:00'];
+let climateAreas = []; // [{id, name}]
+let climateLogs = []; // [{id, date, areaId, timeSlot, temperature, humidity, recordedBy, recordedAt}]
+let climateSelectedDate = todayStr();
+let editingClimateEntry = null; // { areaId, timeSlot, existingLog }
+const climateOverlay = document.getElementById('climateOverlay');
+const climateEntryOverlay = document.getElementById('climateEntryOverlay');
+
+function loadClimateData(){
+  onSnapshot(climateDataDocRef, (snap)=>{
+    const data = snap.exists() ? snap.data() : {};
+    climateAreas = data.areas || [];
+    climateLogs = data.logs || [];
+    if(climateOverlay.classList.contains('show')) renderClimateGrid();
+  }, (err)=>{ console.error(err); });
+}
+async function saveClimateData(){
+  try{
+    await setDoc(climateDataDocRef, { areas: climateAreas, logs: climateLogs });
+  }catch(e){
+    console.error(e);
+    showToast('儲存失敗，請檢查網路');
+  }
+}
+
+function renderClimateGrid(){
+  document.getElementById('climateDateInput').value = climateSelectedDate;
+  const gridEl = document.getElementById('climateGrid');
+  if(climateAreas.length === 0){
+    gridEl.innerHTML = '<div class="ship-list-empty">還沒有任何區域，先在下面新增一個開始記錄</div>';
+    return;
+  }
+  gridEl.innerHTML = climateAreas.map(area=>{
+    const slotsHtml = CLIMATE_TIME_SLOTS.map(slot=>{
+      const log = climateLogs.find(l=> l.areaId===area.id && l.date===climateSelectedDate && l.timeSlot===slot);
+      const filled = !!log;
+      return '<div class="climate-slot' + (filled?' filled':'') + '" data-area-id="'+area.id+'" data-slot="'+slot+'">' +
+        '<div class="climate-slot-time">' + slot + '</div>' +
+        (filled ? '<div class="climate-slot-value">' + (log.temperature!==''&&log.temperature!==null&&log.temperature!==undefined ? log.temperature+'°C' : '－') + '<br>' + (log.humidity!==''&&log.humidity!==null&&log.humidity!==undefined ? log.humidity+'%' : '－') + '</div>' : '<div class="climate-slot-value">+</div>') +
+      '</div>';
+    }).join('');
+    return '<div class="climate-area-row">' +
+      '<div class="climate-area-name"><span>' + escapeHtml(area.name) + '</span><span class="climate-area-remove" data-remove-area="'+area.id+'">✕ 移除區域</span></div>' +
+      '<div class="climate-slots">' + slotsHtml + '</div>' +
+    '</div>';
+  }).join('');
+
+  gridEl.querySelectorAll('.climate-slot').forEach(el=>{
+    el.onclick = ()=> openClimateEntry(el.dataset.areaId, el.dataset.slot);
+  });
+  gridEl.querySelectorAll('[data-remove-area]').forEach(el=>{
+    el.onclick = async (e)=>{
+      e.stopPropagation();
+      const ok = await showConfirm('這個區域過去記錄的溫溼度資料也會一併刪除，確定要移除嗎？', '確定要移除這個區域嗎？');
+      if(!ok) return;
+      const areaId = el.dataset.removeArea;
+      climateAreas = climateAreas.filter(a=>a.id!==areaId);
+      climateLogs = climateLogs.filter(l=>l.areaId!==areaId);
+      await saveClimateData();
+      renderClimateGrid();
+      showToast('已移除區域');
+    };
+  });
+}
+
+function openClimateEntry(areaId, timeSlot){
+  const area = climateAreas.find(a=>a.id===areaId);
+  if(!area) return;
+  const existingLog = climateLogs.find(l=> l.areaId===areaId && l.date===climateSelectedDate && l.timeSlot===timeSlot);
+  editingClimateEntry = { areaId, timeSlot, existingLog };
+  document.getElementById('climateEntrySub').textContent = area.name + '　' + climateSelectedDate + ' ' + timeSlot;
+  document.getElementById('climateTempInput').value = existingLog ? (existingLog.temperature ?? '') : '';
+  document.getElementById('climateHumidityInput').value = existingLog ? (existingLog.humidity ?? '') : '';
+  document.getElementById('climateRecordedByInput').value = existingLog ? (existingLog.recordedBy || '') : '';
+  document.getElementById('climateEntryDeleteBtn').style.display = existingLog ? 'block' : 'none';
+  climateEntryOverlay.classList.add('show');
+}
+document.getElementById('climateEntryCancelBtn').onclick = ()=> climateEntryOverlay.classList.remove('show');
+climateEntryOverlay.onclick = (e)=>{ if(e.target === climateEntryOverlay) climateEntryOverlay.classList.remove('show'); };
+document.getElementById('climateEntrySaveBtn').onclick = async ()=>{
+  if(!editingClimateEntry) return;
+  const temperature = document.getElementById('climateTempInput').value;
+  const humidity = document.getElementById('climateHumidityInput').value;
+  const recordedBy = document.getElementById('climateRecordedByInput').value.trim();
+  const { areaId, timeSlot, existingLog } = editingClimateEntry;
+  if(existingLog){
+    existingLog.temperature = temperature === '' ? '' : Number(temperature);
+    existingLog.humidity = humidity === '' ? '' : Number(humidity);
+    existingLog.recordedBy = recordedBy;
+    existingLog.recordedAt = Date.now();
+  }else{
+    climateLogs.push({
+      id: 'cl_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+      date: climateSelectedDate, areaId, timeSlot,
+      temperature: temperature === '' ? '' : Number(temperature),
+      humidity: humidity === '' ? '' : Number(humidity),
+      recordedBy, recordedAt: Date.now()
+    });
+  }
+  await saveClimateData();
+  climateEntryOverlay.classList.remove('show');
+  renderClimateGrid();
+  showToast('已記錄');
+};
+document.getElementById('climateEntryDeleteBtn').onclick = async ()=>{
+  if(!editingClimateEntry || !editingClimateEntry.existingLog) return;
+  climateLogs = climateLogs.filter(l=>l.id !== editingClimateEntry.existingLog.id);
+  await saveClimateData();
+  climateEntryOverlay.classList.remove('show');
+  renderClimateGrid();
+  showToast('已刪除記錄');
+};
+
+document.getElementById('climateAddAreaBtn').onclick = async ()=>{
+  const input = document.getElementById('climateNewAreaInput');
+  const name = input.value.trim();
+  if(!name){ showToast('請輸入區域名稱'); return; }
+  climateAreas.push({ id: 'ca_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), name });
+  await saveClimateData();
+  input.value = '';
+  renderClimateGrid();
+  showToast('已新增區域');
+};
+document.getElementById('climateDateInput').addEventListener('change', function(){
+  climateSelectedDate = this.value || todayStr();
+  renderClimateGrid();
+});
+document.getElementById('climatePrevDayBtn').onclick = ()=>{
+  const d = new Date(climateSelectedDate + 'T00:00:00');
+  d.setDate(d.getDate() - 1);
+  climateSelectedDate = d.toISOString().slice(0,10);
+  renderClimateGrid();
+};
+document.getElementById('climateNextDayBtn').onclick = ()=>{
+  const d = new Date(climateSelectedDate + 'T00:00:00');
+  d.setDate(d.getDate() + 1);
+  climateSelectedDate = d.toISOString().slice(0,10);
+  renderClimateGrid();
+};
+document.getElementById('climateBtn').onclick = ()=>{
+  climateSelectedDate = todayStr();
+  renderClimateGrid();
+  climateOverlay.classList.add('show');
+};
+document.getElementById('btnCloseClimate').onclick = ()=> climateOverlay.classList.remove('show');
+climateOverlay.onclick = (e)=>{ if(e.target === climateOverlay) climateOverlay.classList.remove('show'); };
+
+
 let currentStatDetailKey = null;
 const STAT_DETAIL_CONFIG = {
   overdue:  { title: '🚨 已逾期未出貨的品項', filter: (item)=> isOverdue(item) },
@@ -4702,6 +4920,7 @@ onAuthStateChanged(auth, async (user)=>{
     loadOrders();
     loadBomData();
     loadPermissions();
+    loadClimateData();
   }
 });
 </script>
