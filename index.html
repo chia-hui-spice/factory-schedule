@@ -369,7 +369,7 @@
     <div class="brand-mark" style="width:52px;height:52px;font-size:23.2px;margin:0 auto 20px auto;">工單</div>
     <h1 style="margin-bottom:6px;">工廠排程板</h1>
     <p style="color:var(--ink-dim); font-size:15.1px; margin-bottom:28px;">請使用公司 Google 帳號登入</p>
-    <button id="googleSignInBtn" class="btn-primary" style="width:100%; display:flex; align-items:center; justify-content:center; gap:8px;">使用 Google 帳號登入</button>
+    <button id="googleSignInBtn" class="i18n btn-primary" style="width:100%; display:flex; align-items:center; justify-content:center; gap:8px;">使用 Google 帳號登入</button>
     <p id="loginError" style="color:var(--red); font-size:14.5px; margin-top:16px; display:none;"></p>
   </div>
 </div>
@@ -383,17 +383,18 @@
         <div class="subtitle"><span class="sync-dot"></span>共用資料・自動同步</div>
       </div>
     </div>
-    <button class="bell-btn" id="permBtn" title="權限管理" style="display:none;">🔐</button>
-    <button class="bell-btn" id="bomBtn" title="進銷存管理">📦</button>
-    <button class="bell-btn" id="signOutBtn" title="登出">👤</button>
-    <button class="bell-btn" id="trashBtn" title="查看垃圾桶">🗑️</button>
+    <button class="i18n bell-btn" id="permBtn" title="權限管理" style="display:none;">🔐</button>
+    <button class="i18n bell-btn" id="bomBtn" title="進銷存管理">📦</button>
+    <button class="i18n bell-btn" id="signOutBtn" title="登出">👤</button>
+    <button class="i18n bell-btn" id="trashBtn" title="查看垃圾桶">🗑️</button>
     <button class="bell-btn quick-stat-btn" id="reportBtn" title="查看統計報表">📊<span class="quick-badge todayrisk-badge" id="reportAlertCount" style="display:none;">0</span></button>
-    <button class="bell-btn" id="bellBtn" title="開啟出貨提醒通知">🔔</button>
+    <button class="bell-btn" id="langToggleBtn" title="Bahasa / 語言 / Language">🌐</button>
+    <button class="i18n bell-btn" id="bellBtn" title="開啟出貨提醒通知">🔔</button>
   </div>
   <div class="alert-banner" id="alertBanner"></div>
   <div id="testModeBanner" class="test-mode-banner" style="display:none;">
     <div>🧪 <b>測試模式</b>：目前看到的資料跟正式版完全分開，不會影響共用資料</div>
-    <button type="button" id="btnMergeToProd">合併到正式版</button>
+    <button type="button" id="btnMergeToProd" class="i18n">合併到正式版</button>
   </div>
   <div class="tabs" id="tabs"></div>
 </header>
@@ -403,30 +404,30 @@
   <div id="listArea"></div>
 </main>
 
-<button class="fab" id="fabAdd" aria-label="新增訂單">+</button>
+<button class="i18n fab" id="fabAdd" aria-label="新增訂單">+</button>
 
 <div class="overlay" id="overlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
     <h2 id="sheetTitle">新增訂單</h2>
     <div class="sheet-sub" id="sheetSub"></div>
-    <button type="button" id="btnShowMoreFields" style="display:none; width:100%; margin-bottom:12px; padding:10px; border-radius:8px; border:1.5px dashed var(--line); background:var(--panel-raised); color:var(--ink-dim); font-size:16.2px; font-weight:700; cursor:pointer;">▾ 顯示更多欄位（COA、優先度/備註、品管確認、分區排產、包裝區域確認、出貨前檢查）</button>
+    <button type="button" id="btnShowMoreFields" style="display:none; width:100%; margin-bottom:12px; padding:10px; border-radius:8px; border:1.5px dashed var(--line); background:var(--panel-raised); color:var(--ink-dim); font-size:16.2px; font-weight:700; cursor:pointer;" class="i18n">▾ 顯示更多欄位（COA、優先度/備註、品管確認、分區排產、包裝區域確認、出貨前檢查）</button>
     <form id="orderForm" novalidate>
 
       <div class="row3">
         <div class="field">
-          <label>填寫日期</label>
+          <label class="i18n">填寫日期</label>
           <div class="flex-date-wrap">
               <input type="text" id="fFillFormDate" placeholder="YYYY/MM/DD" inputmode="numeric">
               <input type="date" id="fFillFormDate_native" class="flex-date-native-btn">
             </div>
         </div>
         <div class="field">
-          <label>填寫時間</label>
+          <label class="i18n">填寫時間</label>
           <input type="time" id="fFillFormTime">
         </div>
         <div class="field">
-          <label>填寫人員 <span style="color:var(--red);">*</span></label>
+          <label><span class="i18n">填寫人員</span> <span style="color:var(--red);">*</span></label>
           <select id="fFilledBy">
             <option value="">請選擇</option>
             <option value="呂思穎">呂思穎</option>
@@ -438,27 +439,27 @@
       </div>
       <input type="text" id="fFilledByCustom" placeholder="輸入姓名" style="display:none; margin:-6px 0 14px 0;">
 
-      <div class="section-label">基本資料</div>
+      <div class="section-label i18n">基本資料</div>
       <div class="field">
-        <label>客戶名稱</label>
+        <label class="i18n">客戶名稱</label>
         <input type="text" id="fCustomer" placeholder="例如 許桂花" required>
       </div>
       <div class="row2">
         <div class="field">
-          <label>產品名稱</label>
+          <label class="i18n">產品名稱</label>
           <input type="text" id="fProduct" placeholder="例如 炒香料" required>
         </div>
         <div class="field">
-          <label>規格</label>
+          <label class="i18n">規格</label>
           <input type="text" id="fSpec" placeholder="例如 箱">
         </div>
       </div>
       <div class="field">
-        <label>數量</label>
+        <label class="i18n">數量</label>
         <input type="number" id="fQty" placeholder="0" min="1" required>
       </div>
       <div class="field">
-        <label>產地</label>
+        <label class="i18n">產地</label>
         <select id="fOrigin">
           <option value="">請選擇</option>
           <option value="台灣TW">台灣 TW</option>
@@ -474,49 +475,49 @@
 
       <div id="stageHintBatch" class="stage-hint">🔒 訂單進入「庫存確認」後才會開放填寫生產批號、包材批號等欄位</div>
       <div id="sectionBatch">
-        <div class="section-label">批號 / 日期</div>
+        <div class="section-label i18n">批號 / 日期</div>
         <div class="row2">
           <div class="field">
-            <label style="color:var(--amber); font-weight:800;">產品製造日期(調配、研磨日期)</label>
+            <label class="i18n" style="color:var(--amber); font-weight:800;">產品製造日期(調配、研磨日期)</label>
             <div class="flex-date-wrap">
               <input type="text" id="fProductMfgDate" placeholder="YYYY/MM/DD" inputmode="numeric" style="border-color:var(--amber);">
               <input type="date" id="fProductMfgDate_native" class="flex-date-native-btn">
             </div>
           </div>
           <div class="field">
-            <label style="color:var(--amber); font-weight:800;">製造批號</label>
+            <label class="i18n" style="color:var(--amber); font-weight:800;">製造批號</label>
             <input type="text" id="fProductBatchNo" placeholder="製造批號" style="border-color:var(--amber);">
           </div>
         </div>
         <div class="row2">
           <div class="field">
-            <label>產品有效日期</label>
+            <label class="i18n">產品有效日期</label>
             <div class="flex-date-wrap">
               <input type="text" id="fProductExpDate" placeholder="YYYY/MM/DD" inputmode="numeric">
               <input type="date" id="fProductExpDate_native" class="flex-date-native-btn">
             </div>
           </div>
           <div class="field">
-            <label>包材批號</label>
+            <label class="i18n">包材批號</label>
             <input type="text" id="fTrayBatchNo" placeholder="包材批號">
           </div>
         </div>
         <div class="row3">
           <div class="field">
-            <label>原料進貨批號</label>
+            <label class="i18n">原料進貨批號</label>
             <input type="text" id="fMaterialBatchNo" placeholder="原料進貨批號">
           </div>
         </div>
         <div class="row2">
           <div class="field">
-            <label>原料製造日期</label>
+            <label class="i18n">原料製造日期</label>
             <div class="flex-date-wrap">
               <input type="text" id="fMaterialMfgDate" placeholder="YYYY/MM/DD" inputmode="numeric">
               <input type="date" id="fMaterialMfgDate_native" class="flex-date-native-btn">
             </div>
           </div>
           <div class="field">
-            <label>原料有效日期</label>
+            <label class="i18n">原料有效日期</label>
             <div class="flex-date-wrap">
               <input type="text" id="fMaterialExpDate" placeholder="YYYY/MM/DD" inputmode="numeric">
               <input type="date" id="fMaterialExpDate_native" class="flex-date-native-btn">
@@ -526,21 +527,21 @@
       </div>
 
       <div id="sectionPriorityNote">
-        <div class="section-label">優先度 / 備註</div>
+        <div class="section-label i18n">優先度 / 備註</div>
         <div class="field">
-          <label>優先度</label>
+          <label class="i18n">優先度</label>
           <div class="pri-toggle">
             <div class="pri-opt selected" data-p="normal" id="priNormal">一般</div>
             <div class="pri-opt" data-p="urgent" id="priUrgent">急件</div>
           </div>
         </div>
         <div class="field">
-          <label>備註 / 包裝注意事項</label>
+          <label class="i18n">備註 / 包裝注意事項</label>
           <textarea id="fNote" placeholder="例如：全廠請務必儘速提供正確批號，以利標籤連動"></textarea>
         </div>
       </div>
       <div class="field">
-        <label>預計需求出貨日期</label>
+        <label class="i18n">預計需求出貨日期</label>
         <div class="flex-date-wrap">
             <input type="text" id="fDue" placeholder="YYYY/MM/DD" inputmode="numeric" required>
             <input type="date" id="fDue_native" class="flex-date-native-btn">
@@ -548,7 +549,7 @@
       </div>
 
       <div id="sectionCoaType" class="field">
-        <label>COA <span style="color:var(--red);">*</span></label>
+        <label><span class="i18n">COA</span> <span style="color:var(--red);">*</span></label>
         <select id="fCoa">
           <option value="">請選擇</option>
           <option value="需要(隨貨附)">需要(隨貨附)</option>
@@ -565,9 +566,9 @@
 
       <div id="stageHintQc" class="stage-hint">🔒 訂單進入「排程生產完成」後才會開放品管確認（COA數值與確認人員）</div>
       <div id="sectionQc">
-        <div class="section-label">品管確認</div>
+        <div class="section-label i18n">品管確認</div>
         <div class="field" id="coaConfirmByField">
-          <label>COA確認人員 <span style="color:var(--red);">*</span></label>
+          <label><span class="i18n">COA確認人員</span> <span style="color:var(--red);">*</span></label>
           <select id="fCoaConfirmBy">
             <option value="">請選擇</option>
             <option value="謝牧華">謝牧華</option>
@@ -579,26 +580,26 @@
         <div id="coaValuesSection" style="display:none;">
           <div class="row2">
             <div class="field">
-              <label>水分</label>
+              <label class="i18n">水分</label>
               <input type="text" id="fCoaMoisture" placeholder="例如 5.2%">
             </div>
             <div class="field">
-              <label>水活性</label>
+              <label class="i18n">水活性</label>
               <input type="text" id="fCoaWaterActivity" placeholder="例如 0.45">
             </div>
           </div>
           <div class="row2">
             <div class="field">
-              <label>總生菌數</label>
+              <label class="i18n">總生菌數</label>
               <input type="text" id="fCoaTotalPlateCount" placeholder="例如 <10 CFU/g">
             </div>
             <div class="field">
-              <label>大腸桿菌群</label>
+              <label class="i18n">大腸桿菌群</label>
               <input type="text" id="fCoaColiform" placeholder="例如 陰性">
             </div>
           </div>
           <div class="field">
-            <label>大腸桿菌</label>
+            <label class="i18n">大腸桿菌</label>
             <input type="text" id="fCoaEcoli" placeholder="例如 陰性">
           </div>
         </div>
@@ -613,25 +614,25 @@
 
       <div id="stageHintProductionZone" class="stage-hint">🔒 訂單進入「庫存確認」後才會開放選擇產線</div>
       <div id="sectionProductionZone">
-        <div class="section-label">分區排產</div>
+        <div class="section-label i18n">分區排產</div>
         <div class="field">
-          <label>生產線 <span style="color:var(--red);">*</span></label>
+          <label><span class="i18n">生產線</span> <span style="color:var(--red);">*</span></label>
           <div id="fProductionZoneGroup" class="perm-checkbox-grid"></div>
         </div>
       </div>
 
       <div id="stageHintPackaging" class="stage-hint">🔒 訂單進入「充填包裝」後才會開放選擇包裝人員</div>
       <div id="sectionPackaging">
-        <div class="section-label">包裝區域確認</div>
+        <div class="section-label i18n">包裝區域確認</div>
         <div class="field">
-          <label>包裝人員 <span style="color:var(--red);">*</span></label>
+          <label><span class="i18n">包裝人員</span> <span style="color:var(--red);">*</span></label>
           <select id="fPackagingStaff">
             <option value="">請選擇</option>
           </select>
           <input type="text" id="fPackagingStaffCustom" placeholder="輸入姓名" style="margin-top:8px; display:none;">
         </div>
         <div class="field">
-          <label>包裝日期（選月/日，自動組成4碼）</label>
+          <label class="i18n">包裝日期（選月/日，自動組成4碼）</label>
           <div style="display:flex; gap:8px;">
             <select id="fPackagingMonth" style="flex:1;">
               <option value="">月</option>
@@ -648,14 +649,14 @@
       <div id="sectionChecklist">
         <div class="section-label" style="display:flex; align-items:center; justify-content:space-between; border-top:none; padding-top:0; margin-top:0;">
           <span>出貨前檢查項目及放行確認 <span style="color:var(--red);">*</span></span>
-          <button type="button" id="btnCheckAll" style="background:var(--panel-raised); border:1px solid var(--green); color:var(--green); font-size:12.8px; font-weight:700; padding:5px 10px; border-radius:6px; cursor:pointer; text-transform:none; letter-spacing:0;">✓ 一鍵確認</button>
+          <button type="button" id="btnCheckAll" style="background:var(--panel-raised); border:1px solid var(--green); color:var(--green); font-size:12.8px; font-weight:700; padding:5px 10px; border-radius:6px; cursor:pointer; text-transform:none; letter-spacing:0;" class="i18n">✓ 一鍵確認</button>
         </div>
         <div class="check-item" data-chk="c1"><div class="check-box">✓</div><div class="check-text">產品內容物與標籤品名是否核對正確</div></div>
         <div class="check-item" data-chk="c2"><div class="check-box">✓</div><div class="check-text">裝箱數量是否正確</div></div>
         <div class="check-item" data-chk="c3"><div class="check-box">✓</div><div class="check-text">包裝密封完整無歪斜及漏粉</div></div>
         <div class="check-item" data-chk="c4"><div class="check-box">✓</div><div class="check-text">生產日期有效日期是否印製正確</div></div>
         <div class="field" style="margin-top:14px;">
-          <label>裝箱確認及放行人員 <span style="color:var(--red);">*</span></label>
+          <label><span class="i18n">裝箱確認及放行人員</span> <span style="color:var(--red);">*</span></label>
           <select id="fReleaseBy">
             <option value="">請選擇</option>
             <option value="張春雪">張春雪</option>
@@ -674,9 +675,9 @@
 
       <div id="stageHintWarehouseConfirm" class="stage-hint">🔒 訂單進入「出貨確認」後才會開放倉管會計出貨確認</div>
       <div id="sectionWarehouseConfirm">
-        <div class="section-label">倉管會計出貨確認</div>
+        <div class="section-label i18n">倉管會計出貨確認</div>
         <div class="field">
-          <label>出貨方式 <span style="color:var(--red);">*</span></label>
+          <label><span class="i18n">出貨方式</span> <span style="color:var(--red);">*</span></label>
           <select id="fShipMethod">
             <option value="">請選擇</option>
             <option value="today">🚚 寄貨</option>
@@ -685,7 +686,7 @@
           </select>
         </div>
         <div class="field">
-          <label>倉管會計出貨確認 <span style="color:var(--red);">*</span></label>
+          <label><span class="i18n">倉管會計出貨確認</span> <span style="color:var(--red);">*</span></label>
           <select id="fWarehouseConfirm">
             <option value="">請選擇</option>
             <option value="潘麗娟">潘麗娟</option>
@@ -694,14 +695,14 @@
           <input type="text" id="fWarehouseConfirmCustom" placeholder="輸入姓名" style="margin-top:8px; display:none;">
         </div>
         <div class="field">
-          <label>實際出貨日期</label>
+          <label class="i18n">實際出貨日期</label>
           <div class="flex-date-wrap">
             <input type="text" id="fActualShipDate" placeholder="YYYY/MM/DD" inputmode="numeric">
             <input type="date" id="fActualShipDate_native" class="flex-date-native-btn">
           </div>
         </div>
         <div class="field" id="irradiationDestinationField" style="display:none;">
-          <label>☢️ 照射滅菌後去向</label>
+          <label class="i18n">☢️ 照射滅菌後去向</label>
           <select id="fIrradiationDestination">
             <option value="">請選擇</option>
             <option value="照射滅菌之後回工廠">照射滅菌之後回工廠</option>
@@ -711,10 +712,10 @@
       </div>
 
       <div class="sheet-actions">
-        <button type="button" class="btn-secondary" id="btnCancel">取消</button>
-        <button type="button" class="btn-primary" id="btnSave">儲存</button>
+        <button type="button" class="i18n btn-secondary" id="btnCancel">取消</button>
+        <button type="button" class="i18n btn-primary" id="btnSave">儲存</button>
       </div>
-      <button type="button" class="btn-delete" id="btnDelete" style="display:none;">刪除此品項</button>
+      <button type="button" class="i18n btn-delete" id="btnDelete" style="display:none;">刪除此品項</button>
     </form>
   </div>
 </div>
@@ -722,16 +723,16 @@
 <div class="overlay" id="reportOverlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
-    <h2>統計報表</h2>
+    <h2 class="i18n">統計報表</h2>
     <div class="report-updated" id="reportUpdated"></div>
 
     <div class="report-tabs" id="reportTabs">
-      <button type="button" class="report-tab active" data-report-tab="alerts">⚠ 警示</button>
-      <button type="button" class="report-tab" data-report-tab="coaPending">📄 COA待處理</button>
-      <button type="button" class="report-tab" data-report-tab="progress">📈 生產進度</button>
-      <button type="button" class="report-tab" data-report-tab="shipping">🚚 出貨清單</button>
-      <button type="button" class="report-tab" data-report-tab="search">🔍 訂單查詢</button>
-      <button type="button" class="report-tab" data-report-tab="backup">💾 備份</button>
+      <button type="button" class="i18n report-tab active" data-report-tab="alerts">⚠ 警示</button>
+      <button type="button" class="i18n report-tab" data-report-tab="coaPending">📄 COA待處理</button>
+      <button type="button" class="i18n report-tab" data-report-tab="progress">📈 生產進度</button>
+      <button type="button" class="i18n report-tab" data-report-tab="shipping">🚚 出貨清單</button>
+      <button type="button" class="i18n report-tab" data-report-tab="search">🔍 訂單查詢</button>
+      <button type="button" class="i18n report-tab" data-report-tab="backup">💾 備份</button>
     </div>
 
     <div class="report-tab-panel" id="reportPanelAlerts">
@@ -791,26 +792,26 @@
       <div class="report-section-title">✅ 已出貨品項清單（全部，最新在前）</div>
       <div class="ship-filter-bar">
         <div class="field" style="margin-bottom:8px;">
-          <label>出貨日期</label>
+          <label class="i18n">出貨日期</label>
           <input type="date" id="shipFilterDate">
         </div>
         <div class="row2" style="margin-bottom:8px;">
           <div class="field" style="margin-bottom:0;">
-            <label>客戶</label>
+            <label class="i18n">客戶</label>
             <input type="text" id="shipFilterCustomer" placeholder="輸入客戶名稱關鍵字">
           </div>
           <div class="field" style="margin-bottom:0;">
-            <label>產品</label>
+            <label class="i18n">產品</label>
             <input type="text" id="shipFilterProduct" placeholder="輸入產品名稱關鍵字">
           </div>
         </div>
         <div class="row2" style="margin-bottom:0;">
           <div class="field" style="margin-bottom:0;">
-            <label>原料批號</label>
+            <label class="i18n">原料批號</label>
             <input type="text" id="shipFilterMaterialBatch" placeholder="輸入原料批號關鍵字">
           </div>
         </div>
-        <button type="button" class="split-btn" id="shipFilterClearBtn" style="margin-top:10px;">清除篩選</button>
+        <button type="button" class="i18n split-btn" id="shipFilterClearBtn" style="margin-top:10px;">清除篩選</button>
       </div>
       <div id="shippedAllList"></div>
     </div>
@@ -820,19 +821,19 @@
       <div class="ship-filter-bar">
         <div class="row2" style="margin-bottom:8px;">
           <div class="field" style="margin-bottom:0;">
-            <label>填寫日期（起）</label>
+            <label class="i18n">填寫日期（起）</label>
             <input type="date" id="searchFillDateFrom">
           </div>
           <div class="field" style="margin-bottom:0;">
-            <label>填寫日期（迄，可留空＝查單一天）</label>
+            <label class="i18n">填寫日期（迄，可留空＝查單一天）</label>
             <input type="date" id="searchFillDateTo">
           </div>
         </div>
         <div class="field" style="margin-bottom:0;">
-          <label>客戶（可留空）</label>
+          <label class="i18n">客戶（可留空）</label>
           <input type="text" id="searchCustomer" placeholder="輸入客戶名稱關鍵字">
         </div>
-        <button type="button" class="split-btn" id="searchClearBtn" style="margin-top:10px;">清除搜尋</button>
+        <button type="button" class="i18n split-btn" id="searchClearBtn" style="margin-top:10px;">清除搜尋</button>
       </div>
       <div id="orderSearchList"></div>
     </div>
@@ -841,19 +842,19 @@
       <div class="report-section-title" style="margin-top:0;">資料備份</div>
       <div class="backup-info" id="backupInfo">尚未有備份紀錄</div>
       <div class="sheet-actions" style="margin-top:0;">
-        <button type="button" class="btn-primary" id="btnExportBackup">📥 匯出 Excel（含垃圾桶）</button>
+        <button type="button" class="i18n btn-primary" id="btnExportBackup">📥 匯出 Excel（含垃圾桶）</button>
       </div>
 
-      <div class="section-label">從備份還原資料</div>
+      <div class="section-label i18n">從備份還原資料</div>
       <div class="report-updated" style="margin-bottom:10px;">選擇之前匯出的 Excel 備份檔，系統會把裡面的訂單新增回目前的資料裡（不會刪除現有的訂單，只會補進去）。</div>
       <input type="file" id="importBackupFile" accept=".xlsx" style="margin-bottom:10px;">
       <div class="sheet-actions" style="margin-top:0;">
-        <button type="button" class="btn-secondary" id="btnImportBackup">📤 從備份還原</button>
+        <button type="button" class="i18n btn-secondary" id="btnImportBackup">📤 從備份還原</button>
       </div>
     </div>
 
     <div class="sheet-actions" style="margin-top:18px;">
-      <button type="button" class="btn-secondary" style="flex:1;" id="btnCloseReport">關閉</button>
+      <button type="button" class="i18n btn-secondary" style="flex:1;" id="btnCloseReport">關閉</button>
     </div>
   </div>
 </div>
@@ -861,11 +862,11 @@
 <div class="overlay" id="trashOverlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
-    <h2>垃圾桶</h2>
+    <h2 class="i18n">垃圾桶</h2>
     <div class="report-updated">刪除的品項會保留 30 天，逾期會自動清除</div>
     <div id="trashList"></div>
     <div class="sheet-actions" style="margin-top:18px;">
-      <button type="button" class="btn-primary" id="btnCloseTrash">關閉</button>
+      <button type="button" class="i18n btn-primary" id="btnCloseTrash">關閉</button>
     </div>
   </div>
 </div>
@@ -873,50 +874,50 @@
 <div class="overlay" id="bomOverlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
-    <h2>進銷存管理</h2>
+    <h2 class="i18n">進銷存管理</h2>
     <div class="report-updated">庫存確認→排程生產自動扣原料；排程生產→標籤印製自動加成品(並依配方扣半成品)；標籤印製→出貨自動扣成品</div>
 
     <div class="report-tabs" id="bomTabs">
-      <button type="button" class="report-tab active" data-bom-tab="receipts">📥 原料進貨</button>
-      <button type="button" class="report-tab" data-bom-tab="materials">📦 原料庫存</button>
-      <button type="button" class="report-tab" data-bom-tab="semiGoods">🧪 半成品</button>
-      <button type="button" class="report-tab" data-bom-tab="finishedGoods">🏷 成品庫存</button>
-      <button type="button" class="report-tab" data-bom-tab="boms">🧾 成品配方</button>
-      <button type="button" class="report-tab" data-bom-tab="semiBoms">🧫 半成品配方</button>
+      <button type="button" class="i18n report-tab active" data-bom-tab="receipts">📥 原料進貨</button>
+      <button type="button" class="i18n report-tab" data-bom-tab="materials">📦 原料庫存</button>
+      <button type="button" class="i18n report-tab" data-bom-tab="semiGoods">🧪 半成品</button>
+      <button type="button" class="i18n report-tab" data-bom-tab="finishedGoods">🏷 成品庫存</button>
+      <button type="button" class="i18n report-tab" data-bom-tab="boms">🧾 成品配方</button>
+      <button type="button" class="i18n report-tab" data-bom-tab="semiBoms">🧫 半成品配方</button>
     </div>
 
     <div class="report-tab-panel" id="bomPanelReceipts">
-      <button type="button" class="split-btn" id="btnGoToMaterialsForReceipt" style="margin-bottom:12px; text-align:left;">要記錄新進貨？點這裡前往「📦 原料庫存」選擇原料 →</button>
+      <button type="button" class="i18n split-btn" id="btnGoToMaterialsForReceipt" style="margin-bottom:12px; text-align:left;">要記錄新進貨？點這裡前往「📦 原料庫存」選擇原料 →</button>
       <div id="receiptList"></div>
     </div>
 
     <div class="report-tab-panel" id="bomPanelMaterials" style="display:none;">
-      <button type="button" class="add-item-btn" id="btnAddMaterial" style="margin-bottom:12px;">+ 新增原料</button>
+      <button type="button" class="i18n add-item-btn" id="btnAddMaterial" style="margin-bottom:12px;">+ 新增原料</button>
       <div id="materialList"></div>
     </div>
 
     <div class="report-tab-panel" id="bomPanelSemiGoods" style="display:none;">
-      <button type="button" class="add-item-btn" id="btnAddSemiGood" style="margin-bottom:12px;">+ 新增半成品</button>
+      <button type="button" class="i18n add-item-btn" id="btnAddSemiGood" style="margin-bottom:12px;">+ 新增半成品</button>
       <div id="semiGoodList"></div>
     </div>
 
     <div class="report-tab-panel" id="bomPanelFinishedGoods" style="display:none;">
-      <button type="button" class="add-item-btn" id="btnAddFinishedGood" style="margin-bottom:12px;">+ 新增成品</button>
+      <button type="button" class="i18n add-item-btn" id="btnAddFinishedGood" style="margin-bottom:12px;">+ 新增成品</button>
       <div id="finishedGoodList"></div>
     </div>
 
     <div class="report-tab-panel" id="bomPanelBoms" style="display:none;">
-      <button type="button" class="add-item-btn" id="btnAddBom" style="margin-bottom:12px;">+ 新增成品配方</button>
+      <button type="button" class="i18n add-item-btn" id="btnAddBom" style="margin-bottom:12px;">+ 新增成品配方</button>
       <div id="bomList"></div>
     </div>
 
     <div class="report-tab-panel" id="bomPanelSemiBoms" style="display:none;">
-      <button type="button" class="add-item-btn" id="btnAddSemiBom" style="margin-bottom:12px;">+ 新增半成品配方</button>
+      <button type="button" class="i18n add-item-btn" id="btnAddSemiBom" style="margin-bottom:12px;">+ 新增半成品配方</button>
       <div id="semiBomList"></div>
     </div>
 
     <div class="sheet-actions" style="margin-top:18px;">
-      <button type="button" class="btn-primary" id="btnCloseBom">關閉</button>
+      <button type="button" class="i18n btn-primary" id="btnCloseBom">關閉</button>
     </div>
   </div>
 </div>
@@ -926,44 +927,44 @@
     <div class="sheet-handle"></div>
     <h2 id="semiGoodFormTitle">新增半成品</h2>
     <div class="field">
-      <label>半成品名稱</label>
+      <label class="i18n">半成品名稱</label>
       <input type="text" id="sgName" placeholder="例如 香料基底">
     </div>
     <div class="row2">
       <div class="field">
-        <label>單位</label>
+        <label class="i18n">單位</label>
         <input type="text" id="sgUnit" placeholder="例如 kg">
       </div>
       <div class="field">
-        <label>目前庫存量</label>
+        <label class="i18n">目前庫存量</label>
         <input type="number" id="sgStock" placeholder="0" step="any">
       </div>
     </div>
     <div class="sheet-actions">
-      <button type="button" class="btn-secondary" id="btnCancelSg">取消</button>
-      <button type="button" class="btn-primary" id="btnSaveSg">儲存</button>
+      <button type="button" class="i18n btn-secondary" id="btnCancelSg">取消</button>
+      <button type="button" class="i18n btn-primary" id="btnSaveSg">儲存</button>
     </div>
-    <button type="button" class="btn-delete" id="btnDeleteSg" style="display:none;">刪除此半成品</button>
+    <button type="button" class="i18n btn-delete" id="btnDeleteSg" style="display:none;">刪除此半成品</button>
   </div>
 </div>
 
 <div class="overlay" id="semiProduceOverlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
-    <h2>生產半成品</h2>
+    <h2 class="i18n">生產半成品</h2>
     <div class="report-updated" id="semiProduceGoodName"></div>
     <div id="semiProduceRecipeInfo" class="stage-hint"></div>
     <div class="field">
-      <label>本次生產數量</label>
+      <label class="i18n">本次生產數量</label>
       <input type="number" id="spQty" placeholder="0" step="any">
     </div>
     <div class="field">
-      <label>生產日期</label>
+      <label class="i18n">生產日期</label>
       <input type="date" id="spDate">
     </div>
     <div class="sheet-actions">
-      <button type="button" class="btn-secondary" id="btnCancelSemiProduce">取消</button>
-      <button type="button" class="btn-primary" id="btnSaveSemiProduce">確認生產</button>
+      <button type="button" class="i18n btn-secondary" id="btnCancelSemiProduce">取消</button>
+      <button type="button" class="i18n btn-primary" id="btnSaveSemiProduce">確認生產</button>
     </div>
   </div>
 </div>
@@ -973,38 +974,38 @@
     <div class="sheet-handle"></div>
     <h2 id="semiBomFormTitle">新增半成品配方</h2>
     <div class="field">
-      <label>半成品</label>
+      <label class="i18n">半成品</label>
       <select id="sbfSemiGood"></select>
     </div>
     <div class="section-label" style="margin-top:8px;">所需原料（每 1 單位半成品的用量）</div>
     <div id="semiBomMaterialRows"></div>
-    <button type="button" class="add-item-btn" id="btnAddSemiBomRow" style="margin-bottom:8px;">+ 新增原料項目</button>
+    <button type="button" class="i18n add-item-btn" id="btnAddSemiBomRow" style="margin-bottom:8px;">+ 新增原料項目</button>
     <div class="sheet-actions">
-      <button type="button" class="btn-secondary" id="btnCancelSemiBom">取消</button>
-      <button type="button" class="btn-primary" id="btnSaveSemiBom">儲存</button>
+      <button type="button" class="i18n btn-secondary" id="btnCancelSemiBom">取消</button>
+      <button type="button" class="i18n btn-primary" id="btnSaveSemiBom">儲存</button>
     </div>
-    <button type="button" class="btn-delete" id="btnDeleteSemiBom" style="display:none;">刪除此配方</button>
+    <button type="button" class="i18n btn-delete" id="btnDeleteSemiBom" style="display:none;">刪除此配方</button>
   </div>
 </div>
 
 <div class="overlay" id="permOverlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
-    <h2>權限管理</h2>
+    <h2 class="i18n">權限管理</h2>
     <div class="report-updated">設定特定 Google 帳號能看到哪些分頁/功能按鈕。沒有特別設定的帳號預設可以看到全部。</div>
 
     <div class="field">
-      <label>Google 帳號（Email）</label>
+      <label class="i18n">Google 帳號（Email）</label>
       <input type="text" id="permEmail" placeholder="例如 abc@chia-hui.com.tw">
     </div>
 
-    <div class="section-label">可看到的生產階段分頁</div>
+    <div class="section-label i18n">可看到的生產階段分頁</div>
     <div id="permTabsCheckboxes" class="perm-checkbox-grid"></div>
 
-    <div class="section-label">可看到的功能按鈕</div>
+    <div class="section-label i18n">可看到的功能按鈕</div>
     <div id="permButtonsCheckboxes" class="perm-checkbox-grid"></div>
 
-    <div class="section-label">限定產線（只影響「排程生產」分頁看到的品項）</div>
+    <div class="section-label i18n">限定產線（只影響「排程生產」分頁看到的品項）</div>
     <div class="field">
       <select id="permProductionZone">
         <option value="">不限制（看得到所有產線）</option>
@@ -1012,12 +1013,12 @@
     </div>
 
     <div class="sheet-actions">
-      <button type="button" class="btn-secondary" id="btnCancelPerm">取消</button>
-      <button type="button" class="btn-primary" id="btnSavePerm">儲存</button>
+      <button type="button" class="i18n btn-secondary" id="btnCancelPerm">取消</button>
+      <button type="button" class="i18n btn-primary" id="btnSavePerm">儲存</button>
     </div>
-    <button type="button" class="btn-delete" id="btnResetPerm" style="display:none;">移除限制（恢復預設看全部）</button>
+    <button type="button" class="i18n btn-delete" id="btnResetPerm" style="display:none;">移除限制（恢復預設看全部）</button>
 
-    <div class="section-label">已設定限制的帳號</div>
+    <div class="section-label i18n">已設定限制的帳號</div>
     <div id="permUserList"></div>
   </div>
 </div>
@@ -1027,80 +1028,80 @@
     <div class="sheet-handle"></div>
     <h2 id="fgFormTitle">新增成品</h2>
     <div class="field">
-      <label>產品名稱（需與訂單品項的產品名稱完全一致）</label>
+      <label class="i18n">產品名稱（需與訂單品項的產品名稱完全一致）</label>
       <input type="text" id="fgProduct" placeholder="例如 炒香料">
     </div>
     <div class="row2">
       <div class="field">
-        <label>單位</label>
+        <label class="i18n">單位</label>
         <input type="text" id="fgUnit" placeholder="例如 箱、包">
       </div>
       <div class="field">
-        <label>目前庫存總量（自動加總所有批次）</label>
+        <label class="i18n">目前庫存總量（自動加總所有批次）</label>
         <input type="text" id="fgStockTotal" disabled style="opacity:0.75;">
       </div>
     </div>
     <div class="section-label" style="margin-top:8px;">批次庫存（可有多筆不同批號，出貨時會自動先扣最早的批次）</div>
     <div id="fgBatchList"></div>
-    <button type="button" id="btnAddFgBatchLot" class="split-btn" style="margin-top:6px;">+ 新增批次</button>
+    <button type="button" id="btnAddFgBatchLot" class="i18n split-btn" style="margin-top:6px;">+ 新增批次</button>
     <div class="sheet-actions">
-      <button type="button" class="btn-secondary" id="btnCancelFg">取消</button>
-      <button type="button" class="btn-primary" id="btnSaveFg">儲存</button>
+      <button type="button" class="i18n btn-secondary" id="btnCancelFg">取消</button>
+      <button type="button" class="i18n btn-primary" id="btnSaveFg">儲存</button>
     </div>
-    <button type="button" class="btn-delete" id="btnDeleteFg" style="display:none;">刪除此成品</button>
+    <button type="button" class="i18n btn-delete" id="btnDeleteFg" style="display:none;">刪除此成品</button>
   </div>
 </div>
 
 <div class="overlay" id="materialReceiptOverlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
-    <h2>原料進貨</h2>
+    <h2 class="i18n">原料進貨</h2>
     <div class="report-updated" id="receiptMaterialName"></div>
     <div class="row2">
       <div class="field">
-        <label>進貨件數</label>
+        <label class="i18n">進貨件數</label>
         <input type="number" id="mrPieces" placeholder="例如 10" step="any">
       </div>
       <div class="field">
-        <label>規格（每件重量/數量）</label>
+        <label class="i18n">規格（每件重量/數量）</label>
         <input type="number" id="mrSpec" placeholder="例如 25" step="any">
       </div>
     </div>
     <div class="backup-info" id="mrTotalDisplay" style="margin-bottom:14px;">總重量：0</div>
     <div class="field">
-      <label>進貨日期</label>
+      <label class="i18n">進貨日期</label>
       <input type="date" id="mrDate">
     </div>
     <div class="field">
-      <label>供應商</label>
+      <label class="i18n">供應商</label>
       <input type="text" id="mrSupplier" placeholder="供應商名稱">
     </div>
     <div class="section-label" style="margin-top:8px;">本次進貨批號資訊（會新增為獨立一筆批次，不影響其他批次）</div>
     <div class="field">
-      <label>批號</label>
+      <label class="i18n">批號</label>
       <input type="text" id="mrBatchNo" placeholder="原料進貨批號">
     </div>
     <div class="row2">
       <div class="field">
-        <label>製造日期</label>
+        <label class="i18n">製造日期</label>
         <input type="date" id="mrMfgDate">
       </div>
       <div class="field">
-        <label>有效日期</label>
+        <label class="i18n">有效日期</label>
         <input type="date" id="mrExpDate">
       </div>
     </div>
     <div class="field">
-      <label>標籤照片 <span style="color:var(--red);">*</span></label>
+      <label><span class="i18n">標籤照片</span> <span style="color:var(--red);">*</span></label>
       <input type="file" id="mrPhoto" accept="image/*">
       <div id="mrPhotoPreview" style="margin-top:8px; display:none;">
         <img id="mrPhotoPreviewImg" style="max-width:100%; border-radius:8px; border:1px solid var(--line); margin-bottom:8px;">
-        <button type="button" class="split-btn" id="btnChangePhoto">🔄 更換照片</button>
+        <button type="button" class="i18n split-btn" id="btnChangePhoto">🔄 更換照片</button>
       </div>
     </div>
     <div class="sheet-actions">
-      <button type="button" class="btn-secondary" id="btnCancelReceipt">取消</button>
-      <button type="button" class="btn-primary" id="btnSaveReceipt">確認進貨</button>
+      <button type="button" class="i18n btn-secondary" id="btnCancelReceipt">取消</button>
+      <button type="button" class="i18n btn-primary" id="btnSaveReceipt">確認進貨</button>
     </div>
   </div>
 </div>
@@ -1111,8 +1112,8 @@
     <img id="photoViewImg" style="max-width:100%; border-radius:10px;">
     <input type="file" id="photoViewReplaceInput" accept="image/*" style="display:none;">
     <div class="sheet-actions" style="margin-top:16px;">
-      <button type="button" class="btn-secondary" id="btnReplacePhotoView" style="flex:1;">🔄 更換照片</button>
-      <button type="button" class="btn-primary" id="btnClosePhotoView" style="flex:1;">關閉</button>
+      <button type="button" class="i18n btn-secondary" id="btnReplacePhotoView" style="flex:1;">🔄 更換照片</button>
+      <button type="button" class="i18n btn-primary" id="btnClosePhotoView" style="flex:1;">關閉</button>
     </div>
   </div>
 </div>
@@ -1122,35 +1123,35 @@
     <div class="sheet-handle"></div>
     <h2 id="materialFormTitle">新增原料</h2>
     <div class="field">
-      <label>原料料號</label>
+      <label class="i18n">原料料號</label>
       <input type="text" id="mfCode" placeholder="例如 M001">
     </div>
     <div class="field">
-      <label>原料名稱</label>
+      <label class="i18n">原料名稱</label>
       <input type="text" id="mfName" placeholder="例如 白胡椒粉">
     </div>
     <div class="row2">
       <div class="field">
-        <label>單位</label>
+        <label class="i18n">單位</label>
         <input type="text" id="mfUnit" placeholder="例如 kg、g、包">
       </div>
       <div class="field">
-        <label>目前庫存總量（自動加總所有批次）</label>
+        <label class="i18n">目前庫存總量（自動加總所有批次）</label>
         <input type="text" id="mfStockTotal" disabled style="opacity:0.75;">
       </div>
     </div>
     <div class="field">
-      <label>預設規格（每件重量/數量，進貨時會自動帶入）</label>
+      <label class="i18n">預設規格（每件重量/數量，進貨時會自動帶入）</label>
       <input type="number" id="mfDefaultSpec" placeholder="例如 25" step="any">
     </div>
     <div class="section-label" style="margin-top:8px;">批次庫存（可有多筆不同批號，生產時會自動先扣最早的批次）</div>
     <div id="materialBatchList"></div>
-    <button type="button" id="btnAddMaterialBatchLot" class="split-btn" style="margin-top:6px;">+ 新增批次</button>
+    <button type="button" id="btnAddMaterialBatchLot" class="i18n split-btn" style="margin-top:6px;">+ 新增批次</button>
     <div class="sheet-actions">
-      <button type="button" class="btn-secondary" id="btnCancelMaterial">取消</button>
-      <button type="button" class="btn-primary" id="btnSaveMaterial">儲存</button>
+      <button type="button" class="i18n btn-secondary" id="btnCancelMaterial">取消</button>
+      <button type="button" class="i18n btn-primary" id="btnSaveMaterial">儲存</button>
     </div>
-    <button type="button" class="btn-delete" id="btnDeleteMaterial" style="display:none;">刪除此原料</button>
+    <button type="button" class="i18n btn-delete" id="btnDeleteMaterial" style="display:none;">刪除此原料</button>
   </div>
 </div>
 
@@ -1159,17 +1160,17 @@
     <div class="sheet-handle"></div>
     <h2 id="bomFormTitle">新增成品配方</h2>
     <div class="field">
-      <label>產品名稱（需與訂單品項的產品名稱完全一致）</label>
+      <label class="i18n">產品名稱（需與訂單品項的產品名稱完全一致）</label>
       <input type="text" id="bfProduct" placeholder="例如 炒香料">
     </div>
     <div class="section-label" style="margin-top:8px;">所需材料（每 1 單位產品的用量，可混用原料與半成品）</div>
     <div id="bomMaterialRows"></div>
-    <button type="button" class="add-item-btn" id="btnAddBomRow" style="margin-bottom:8px;">+ 新增材料項目</button>
+    <button type="button" class="i18n add-item-btn" id="btnAddBomRow" style="margin-bottom:8px;">+ 新增材料項目</button>
     <div class="sheet-actions">
-      <button type="button" class="btn-secondary" id="btnCancelBom">取消</button>
-      <button type="button" class="btn-primary" id="btnSaveBom">儲存</button>
+      <button type="button" class="i18n btn-secondary" id="btnCancelBom">取消</button>
+      <button type="button" class="i18n btn-primary" id="btnSaveBom">儲存</button>
     </div>
-    <button type="button" class="btn-delete" id="btnDeleteBom" style="display:none;">刪除此配方</button>
+    <button type="button" class="i18n btn-delete" id="btnDeleteBom" style="display:none;">刪除此配方</button>
   </div>
 </div>
 
@@ -1179,8 +1180,8 @@
     <h2 id="confirmTitle">確定嗎？</h2>
     <p id="confirmMessage" style="font-size:15.7px; color:var(--ink-dim); line-height:1.6; margin:0 0 20px 0;"></p>
     <div class="sheet-actions">
-      <button type="button" class="btn-secondary" id="confirmCancelBtn">取消</button>
-      <button type="button" class="btn-primary" id="confirmOkBtn">確定</button>
+      <button type="button" class="i18n btn-secondary" id="confirmCancelBtn">取消</button>
+      <button type="button" class="i18n btn-primary" id="confirmOkBtn">確定</button>
     </div>
   </div>
 </div>
@@ -1188,15 +1189,15 @@
 <div class="overlay" id="shipMethodOverlay">
   <div class="sheet" style="padding-bottom:24px;">
     <div class="sheet-handle"></div>
-    <h2>出貨方式</h2>
+    <h2 class="i18n">出貨方式</h2>
     <p style="font-size:15.7px; color:var(--ink-dim); line-height:1.6; margin:0 0 20px 0;" id="shipMethodSub">請選擇這批貨的出貨方式</p>
     <div style="display:flex; flex-direction:column; gap:10px;">
-      <button type="button" class="ship-opt" data-ship="today">🚚 寄貨</button>
-      <button type="button" class="ship-opt" data-ship="tomorrow">📦 送貨</button>
-      <button type="button" class="ship-opt" data-ship="pickup">🙋 自取</button>
+      <button type="button" class="i18n ship-opt" data-ship="today">🚚 寄貨</button>
+      <button type="button" class="i18n ship-opt" data-ship="tomorrow">📦 送貨</button>
+      <button type="button" class="i18n ship-opt" data-ship="pickup">🙋 自取</button>
     </div>
     <div class="sheet-actions" style="margin-top:16px;">
-      <button type="button" class="btn-secondary" style="flex:1;" id="shipMethodCancelBtn">取消</button>
+      <button type="button" class="i18n btn-secondary" style="flex:1;" id="shipMethodCancelBtn">取消</button>
     </div>
   </div>
 </div>
@@ -1204,16 +1205,16 @@
 <div class="overlay" id="splitOverlay">
   <div class="sheet" style="padding-bottom:24px;">
     <div class="sheet-handle"></div>
-    <h2>拆分品項</h2>
+    <h2 class="i18n">拆分品項</h2>
     <p style="font-size:15.7px; color:var(--ink-dim); line-height:1.6; margin:0 0 4px 0;" id="splitSub">目前數量</p>
     <div class="field" style="margin-top:14px;">
-      <label>要拆出多少數量？</label>
+      <label class="i18n">要拆出多少數量？</label>
       <input type="number" id="splitQtyInput" min="1" placeholder="例如 40">
     </div>
     <p style="font-size:13.9px; color:var(--ink-dim); line-height:1.5; margin:0 0 4px 0;">拆出的部分會變成同一張訂單裡的新品項，狀態重新從「訂單確認」開始，批號等資訊需要重新填寫。</p>
     <div class="sheet-actions" style="margin-top:16px;">
-      <button type="button" class="btn-secondary" id="splitCancelBtn">取消</button>
-      <button type="button" class="btn-primary" id="splitConfirmBtn">確定拆分</button>
+      <button type="button" class="i18n btn-secondary" id="splitCancelBtn">取消</button>
+      <button type="button" class="i18n btn-primary" id="splitConfirmBtn">確定拆分</button>
     </div>
   </div>
 </div>
@@ -1262,13 +1263,179 @@ function showToastSafe(msg){
 }
 
 const STATUS = ['pending','inprogress','labeling','done','refill','boxing','shipped','qc'];
-const STATUS_LABEL = { pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'已完成', coa:'品管COA' };
 const EXTRA_TABS = ['coa']; // 額外的跨階段檢視分頁，不是實際生產階段，不參與階段推進邏輯
 const ALL_TABS = STATUS.concat(EXTRA_TABS);
-const STATUS_FORWARD_LABEL = { pending:'訂單確認完成', inprogress:'庫存確認無庫存請生產', labeling:'排程生產完成', done:'標籤印製完成', refill:'充填包裝完成', boxing:'裝箱確認完成', shipped:'出貨確認完成' };
-const CHK_LABELS = { c1:'標籤品名核對', c2:'裝箱數量', c3:'包裝密封', c4:'生產/有效日期' };
-const SHIP_METHOD_LABEL = { today:'寄貨', tomorrow:'送貨', pickup:'自取' };
-const SHIP_METHOD_LABEL_WITH_ICON = { today:'🚚 寄貨', tomorrow:'📦 送貨', pickup:'🙋 自取' };
+const CHK_LABELS_ZH = { c1:'標籤品名核對', c2:'裝箱數量', c3:'包裝密封', c4:'生產/有效日期' };
+const SHIP_METHOD_LABEL_ZH = { today:'寄貨', tomorrow:'送貨', pickup:'自取' };
+const SHIP_METHOD_LABEL_WITH_ICON_ZH = { today:'🚚 寄貨', tomorrow:'📦 送貨', pickup:'🙋 自取' };
+
+// ---- 語言切換系統(中文/印尼文 Bahasa Indonesia) ----
+let currentLang = localStorage.getItem('factoryScheduleLang') || 'zh';
+const ID_DICT = {
+  // 生產階段
+  '訂單確認':'Konfirmasi Pesanan', '庫存確認':'Konfirmasi Stok', '排程生產':'Jadwal Produksi', '標籤印製':'Cetak Label',
+  '充填包裝':'Pengisian & Pengemasan', '裝箱確認':'Konfirmasi Pengemasan Kotak', '出貨確認':'Konfirmasi Pengiriman',
+  '已完成':'Selesai', '品管COA':'COA Kontrol Kualitas',
+  // 推進按鈕
+  '訂單確認完成':'Konfirmasi Pesanan Selesai', '庫存確認無庫存請生產':'Stok Tidak Cukup, Mohon Produksi',
+  '排程生產完成':'Jadwal Produksi Selesai', '標籤印製完成':'Cetak Label Selesai', '充填包裝完成':'Pengisian & Pengemasan Selesai',
+  '裝箱確認完成':'Konfirmasi Pengemasan Kotak Selesai', '出貨確認完成':'Konfirmasi Pengiriman Selesai',
+  // 檢查清單 / 出貨方式
+  '標籤品名核對':'Periksa Nama Label', '裝箱數量':'Jumlah Kemasan Kotak', '包裝密封':'Segel Kemasan', '生產/有效日期':'Tanggal Produksi/Kedaluwarsa',
+  '寄貨':'Kirim', '送貨':'Antar', '自取':'Ambil Sendiri', '🚚 寄貨':'🚚 Kirim', '📦 送貨':'📦 Antar', '🙋 自取':'🙋 Ambil Sendiri',
+  // 靜態欄位/按鈕(表單)
+  '+ 新增半成品':'+ Tambah Produk Setengah Jadi', '+ 新增半成品配方':'+ Tambah Resep Produk Setengah Jadi',
+  '+ 新增原料':'+ Tambah Bahan Baku', '+ 新增原料項目':'+ Tambah Item Bahan Baku', '+ 新增成品':'+ Tambah Produk Jadi',
+  '+ 新增成品配方':'+ Tambah Resep Produk Jadi', '+ 新增批次':'+ Tambah Batch', '+ 新增材料項目':'+ Tambah Item Material',
+  'COA':'COA', 'COA確認人員':'Petugas Konfirmasi COA', 'Google 帳號（Email）':'Akun Google (Email)',
+  '▾ 顯示更多欄位（COA、優先度/備註、品管確認、分區排產、包裝區域確認、出貨前檢查）':'▾ Tampilkan Lebih Banyak Kolom (COA, Prioritas/Catatan, Konfirmasi QC, Zona Produksi, Area Kemasan, Pemeriksaan Sebelum Kirim)',
+  '☢️ 照射滅菌後去向':'☢️ Tujuan Setelah Sterilisasi Radiasi', '⚠ 警示':'⚠ Peringatan', '✓ 一鍵確認':'✓ Konfirmasi Sekali Klik',
+  '使用 Google 帳號登入':'Masuk dengan Akun Google', '供應商':'Pemasok', '倉管會計出貨確認':'Konfirmasi Pengiriman Gudang/Akunting',
+  '備註 / 包裝注意事項':'Catatan / Perhatian Pengemasan', '優先度':'Prioritas', '優先度 / 備註':'Prioritas / Catatan',
+  '儲存':'Simpan', '出貨方式':'Metode Pengiriman', '出貨日期':'Tanggal Pengiriman', '分區排產':'Penjadwalan Zona Produksi',
+  '刪除此半成品':'Hapus Produk Setengah Jadi Ini', '刪除此原料':'Hapus Bahan Baku Ini', '刪除此品項':'Hapus Item Ini',
+  '刪除此成品':'Hapus Produk Jadi Ini', '刪除此配方':'Hapus Resep Ini', '包材批號':'Nomor Batch Kemasan', '包裝人員':'Petugas Pengemasan',
+  '包裝區域確認':'Konfirmasi Area Kemasan', '包裝日期（選月/日，自動組成4碼）':'Tanggal Kemasan (Pilih Bulan/Tanggal)',
+  '半成品':'Produk Setengah Jadi', '半成品名稱':'Nama Produk Setengah Jadi', '原料名稱':'Nama Bahan Baku', '原料批號':'Nomor Batch Bahan Baku',
+  '原料料號':'Kode Bahan Baku', '原料有效日期':'Tanggal Kedaluwarsa Bahan Baku', '原料製造日期':'Tanggal Produksi Bahan Baku',
+  '原料進貨':'Penerimaan Bahan Baku', '原料進貨批號':'Nomor Batch Penerimaan', '取消':'Batal',
+  '可看到的功能按鈕':'Tombol Fungsi yang Terlihat', '可看到的生產階段分頁':'Tab Tahap Produksi yang Terlihat',
+  '合併到正式版':'Gabungkan ke Versi Resmi', '品管確認':'Konfirmasi Kontrol Kualitas', '單位':'Satuan', '垃圾桶':'Tempat Sampah',
+  '基本資料':'Data Dasar', '填寫人員':'Petugas Pengisian', '填寫日期':'Tanggal Pengisian', '填寫日期（起）':'Tanggal Pengisian (Dari)',
+  '填寫日期（迄，可留空＝查單一天）':'Tanggal Pengisian (Sampai, kosongkan = satu hari)', '填寫時間':'Waktu Pengisian',
+  '大腸桿菌':'E. coli', '大腸桿菌群':'Coliform', '客戶':'Pelanggan', '客戶名稱':'Nama Pelanggan', '客戶（可留空）':'Pelanggan (opsional)',
+  '實際出貨日期':'Tanggal Pengiriman Aktual', '已設定限制的帳號':'Akun dengan Batasan', '從備份還原資料':'Pulihkan Data dari Cadangan',
+  '批號':'Nomor Batch', '批號 / 日期':'Nomor Batch / Tanggal', '拆分品項':'Pisahkan Item', '數量':'Jumlah', '有效日期':'Tanggal Kedaluwarsa',
+  '本次生產數量':'Jumlah Produksi Kali Ini', '標籤照片':'Foto Label', '權限管理':'Manajemen Izin', '水分':'Kadar Air', '水活性':'Aktivitas Air',
+  '清除搜尋':'Hapus Pencarian', '清除篩選':'Hapus Filter', '生產半成品':'Produksi Produk Setengah Jadi', '生產日期':'Tanggal Produksi',
+  '生產線':'Lini Produksi', '產品':'Produk', '產品名稱':'Nama Produk',
+  '產品名稱（需與訂單品項的產品名稱完全一致）':'Nama Produk (harus sama persis dengan nama di pesanan)',
+  '產品有效日期':'Tanggal Kedaluwarsa Produk', '產品製造日期(調配、研磨日期)':'Tanggal Produksi Produk (Pencampuran/Penggilingan)',
+  '產地':'Asal Produk', '目前庫存總量（自動加總所有批次）':'Total Stok Saat Ini (Semua Batch)', '目前庫存量':'Jumlah Stok Saat Ini',
+  '確定':'Konfirmasi', '確定拆分':'Konfirmasi Pisahkan', '確認生產':'Konfirmasi Produksi', '確認進貨':'Konfirmasi Penerimaan',
+  '移除限制（恢復預設看全部）':'Hapus Batasan (Lihat Semua)', '統計報表':'Laporan Statistik', '總生菌數':'Jumlah Bakteri Total',
+  '裝箱確認及放行人員':'Petugas Konfirmasi & Pelepasan Kotak', '製造批號':'Nomor Batch Produksi', '製造日期':'Tanggal Produksi',
+  '要拆出多少數量？':'Berapa jumlah yang ingin dipisahkan?',
+  '要記錄新進貨？點這裡前往「📦 原料庫存」選擇原料 →':'Ingin mencatat penerimaan baru? Klik di sini ke "📦 Stok Bahan Baku" →',
+  '規格':'Spesifikasi', '規格（每件重量/數量）':'Spesifikasi (Berat/Jumlah per Unit)', '進貨件數':'Jumlah Unit Penerimaan',
+  '進貨日期':'Tanggal Penerimaan', '進銷存管理':'Manajemen Inventaris', '關閉':'Tutup',
+  '限定產線（只影響「排程生產」分頁看到的品項）':'Batasi Lini Produksi (hanya tab "Jadwal Produksi")',
+  '預計需求出貨日期':'Tanggal Pengiriman yang Diperlukan',
+  '預設規格（每件重量/數量，進貨時會自動帶入）':'Spesifikasi Default (otomatis terisi saat penerimaan)',
+  '🏷 成品庫存':'🏷 Stok Produk Jadi', '💾 備份':'💾 Cadangan', '📄 COA待處理':'📄 COA Tertunda', '📈 生產進度':'📈 Progres Produksi',
+  '📤 從備份還原':'📤 Pulihkan dari Cadangan', '📥 匯出 Excel（含垃圾桶）':'📥 Ekspor Excel (termasuk Sampah)',
+  '📥 原料進貨':'📥 Penerimaan Bahan Baku', '📦 原料庫存':'📦 Stok Bahan Baku', '🔄 更換照片':'🔄 Ganti Foto',
+  '🔍 訂單查詢':'🔍 Pencarian Pesanan', '🚚 出貨清單':'🚚 Daftar Pengiriman', '🧪 半成品':'🧪 Produk Setengah Jadi',
+  '🧫 半成品配方':'🧫 Resep Produk Setengah Jadi', '🧾 成品配方':'🧾 Resep Produk Jadi',
+  // 常用提示/驗證訊息
+  '請填寫原料名稱':'Mohon isi nama bahan baku', '請填寫產品名稱':'Mohon isi nama produk', '已更新原料':'Bahan baku diperbarui',
+  '已新增原料':'Bahan baku ditambahkan', '已更新成品':'Produk jadi diperbarui', '已新增成品':'Produk jadi ditambahkan',
+  '請選擇':'Silakan pilih', '請選擇原料':'Silakan pilih bahan baku', 'YYYY/MM/DD':'YYYY/MM/DD', '年 / 月 / 日':'Tahun/Bulan/Tanggal',
+};
+const EN_DICT = {
+  // 生產階段
+  '訂單確認':'Order Confirmation', '庫存確認':'Stock Check', '排程生產':'Production Schedule', '標籤印製':'Label Printing',
+  '充填包裝':'Filling & Packing', '裝箱確認':'Boxing Confirmation', '出貨確認':'Shipping Confirmation',
+  '已完成':'Completed', '品管COA':'QC / COA',
+  // 推進按鈕
+  '訂單確認完成':'Order Confirmed', '庫存確認無庫存請生產':'Insufficient Stock, Start Production',
+  '排程生產完成':'Production Scheduled', '標籤印製完成':'Labels Printed', '充填包裝完成':'Filling & Packing Done',
+  '裝箱確認完成':'Boxing Confirmed', '出貨確認完成':'Shipping Confirmed',
+  // 檢查清單 / 出貨方式
+  '標籤品名核對':'Label Name Check', '裝箱數量':'Box Quantity', '包裝密封':'Package Seal', '生產/有效日期':'Production/Expiry Date',
+  '寄貨':'Ship', '送貨':'Deliver', '自取':'Pickup', '🚚 寄貨':'🚚 Ship', '📦 送貨':'📦 Deliver', '🙋 自取':'🙋 Pickup',
+  // 靜態欄位/按鈕(表單)
+  '+ 新增半成品':'+ Add Semi-Finished Good', '+ 新增半成品配方':'+ Add Semi-Finished Recipe',
+  '+ 新增原料':'+ Add Raw Material', '+ 新增原料項目':'+ Add Material Item', '+ 新增成品':'+ Add Finished Good',
+  '+ 新增成品配方':'+ Add Product Recipe', '+ 新增批次':'+ Add Batch', '+ 新增材料項目':'+ Add Material Item',
+  'COA':'COA', 'COA確認人員':'COA Confirmed By', 'Google 帳號（Email）':'Google Account (Email)',
+  '▾ 顯示更多欄位（COA、優先度/備註、品管確認、分區排產、包裝區域確認、出貨前檢查）':'▾ Show More Fields (COA, Priority/Notes, QC, Production Zone, Packing Area, Pre-Ship Check)',
+  '☢️ 照射滅菌後去向':'☢️ Destination After Irradiation', '⚠ 警示':'⚠ Alerts', '✓ 一鍵確認':'✓ Check All',
+  '使用 Google 帳號登入':'Sign in with Google', '供應商':'Supplier', '倉管會計出貨確認':'Warehouse/Accounting Shipping Confirm',
+  '備註 / 包裝注意事項':'Notes / Packing Instructions', '優先度':'Priority', '優先度 / 備註':'Priority / Notes',
+  '儲存':'Save', '出貨方式':'Shipping Method', '出貨日期':'Ship Date', '分區排產':'Production Zone Assignment',
+  '刪除此半成品':'Delete This Semi-Finished Good', '刪除此原料':'Delete This Material', '刪除此品項':'Delete This Item',
+  '刪除此成品':'Delete This Finished Good', '刪除此配方':'Delete This Recipe', '包材批號':'Packaging Batch No.', '包裝人員':'Packing Staff',
+  '包裝區域確認':'Packing Area Confirmation', '包裝日期（選月/日，自動組成4碼）':'Packing Date (Select Month/Day)',
+  '半成品':'Semi-Finished Good', '半成品名稱':'Semi-Finished Good Name', '原料名稱':'Material Name', '原料批號':'Material Batch No.',
+  '原料料號':'Material Code', '原料有效日期':'Material Expiry Date', '原料製造日期':'Material Production Date',
+  '原料進貨':'Material Receiving', '原料進貨批號':'Receiving Batch No.', '取消':'Cancel',
+  '可看到的功能按鈕':'Visible Function Buttons', '可看到的生產階段分頁':'Visible Production Stage Tabs',
+  '合併到正式版':'Merge into Production', '品管確認':'QC Confirmation', '單位':'Unit', '垃圾桶':'Trash',
+  '基本資料':'Basic Info', '填寫人員':'Filled By', '填寫日期':'Fill Date', '填寫日期（起）':'Fill Date (From)',
+  '填寫日期（迄，可留空＝查單一天）':'Fill Date (To, leave blank for one day)', '填寫時間':'Fill Time',
+  '大腸桿菌':'E. coli', '大腸桿菌群':'Coliform', '客戶':'Customer', '客戶名稱':'Customer Name', '客戶（可留空）':'Customer (optional)',
+  '實際出貨日期':'Actual Ship Date', '已設定限制的帳號':'Accounts with Restrictions', '從備份還原資料':'Restore Data from Backup',
+  '批號':'Batch No.', '批號 / 日期':'Batch No. / Date', '拆分品項':'Split Item', '數量':'Quantity', '有效日期':'Expiry Date',
+  '本次生產數量':'Production Quantity This Time', '標籤照片':'Label Photo', '權限管理':'Permission Management', '水分':'Moisture', '水活性':'Water Activity',
+  '清除搜尋':'Clear Search', '清除篩選':'Clear Filter', '生產半成品':'Produce Semi-Finished Good', '生產日期':'Production Date',
+  '生產線':'Production Line', '產品':'Product', '產品名稱':'Product Name',
+  '產品名稱（需與訂單品項的產品名稱完全一致）':'Product Name (must exactly match order item name)',
+  '產品有效日期':'Product Expiry Date', '產品製造日期(調配、研磨日期)':'Product Production Date (Mixing/Grinding)',
+  '產地':'Origin', '目前庫存總量（自動加總所有批次）':'Current Total Stock (All Batches)', '目前庫存量':'Current Stock',
+  '確定':'Confirm', '確定拆分':'Confirm Split', '確認生產':'Confirm Production', '確認進貨':'Confirm Receiving',
+  '移除限制（恢復預設看全部）':'Remove Restriction (View All)', '統計報表':'Reports', '總生菌數':'Total Plate Count',
+  '裝箱確認及放行人員':'Boxing Confirmed & Released By', '製造批號':'Production Batch No.', '製造日期':'Production Date',
+  '要拆出多少數量？':'How much quantity to split out?',
+  '要記錄新進貨？點這裡前往「📦 原料庫存」選擇原料 →':'Want to log a new receipt? Click here to go to "📦 Material Stock" →',
+  '規格':'Spec', '規格（每件重量/數量）':'Spec (Weight/Qty per Unit)', '進貨件數':'Units Received',
+  '進貨日期':'Receiving Date', '進銷存管理':'Inventory Management', '關閉':'Close',
+  '限定產線（只影響「排程生產」分頁看到的品項）':'Restrict Production Line (only affects "Production Schedule" tab)',
+  '預計需求出貨日期':'Required Ship Date',
+  '預設規格（每件重量/數量，進貨時會自動帶入）':'Default Spec (auto-filled on receiving)',
+  '🏷 成品庫存':'🏷 Finished Goods Stock', '💾 備份':'💾 Backup', '📄 COA待處理':'📄 COA Pending', '📈 生產進度':'📈 Production Progress',
+  '📤 從備份還原':'📤 Restore from Backup', '📥 匯出 Excel（含垃圾桶）':'📥 Export Excel (incl. Trash)',
+  '📥 原料進貨':'📥 Material Receiving', '📦 原料庫存':'📦 Material Stock', '🔄 更換照片':'🔄 Change Photo',
+  '🔍 訂單查詢':'🔍 Order Search', '🚚 出貨清單':'🚚 Shipping List', '🧪 半成品':'🧪 Semi-Finished Goods',
+  '🧫 半成品配方':'🧫 Semi-Finished Recipes', '🧾 成品配方':'🧾 Product Recipes',
+  // 常用提示/驗證訊息
+  '請填寫原料名稱':'Please enter material name', '請填寫產品名稱':'Please enter product name', '已更新原料':'Material updated',
+  '已新增原料':'Material added', '已更新成品':'Finished good updated', '已新增成品':'Finished good added',
+  '請選擇':'Please select', '請選擇原料':'Please select material', 'YYYY/MM/DD':'YYYY/MM/DD', '年 / 月 / 日':'Year/Month/Day',
+};
+function t(zh){
+  if(currentLang === 'id') return ID_DICT[zh] || zh;
+  if(currentLang === 'en') return EN_DICT[zh] || zh;
+  return zh;
+}
+function makeI18nProxy(target){
+  return new Proxy(target, { get(obj, key){ return t(obj[key]); } });
+}
+const STATUS_LABEL_RAW = { pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'已完成', coa:'品管COA' };
+const STATUS_LABEL = makeI18nProxy({ pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'已完成', coa:'品管COA' });
+const STATUS_FORWARD_LABEL = makeI18nProxy({ pending:'訂單確認完成', inprogress:'庫存確認無庫存請生產', labeling:'排程生產完成', done:'標籤印製完成', refill:'充填包裝完成', boxing:'裝箱確認完成', shipped:'出貨確認完成' });
+const CHK_LABELS = makeI18nProxy(CHK_LABELS_ZH);
+const SHIP_METHOD_LABEL = makeI18nProxy(SHIP_METHOD_LABEL_ZH);
+const SHIP_METHOD_LABEL_WITH_ICON = makeI18nProxy(SHIP_METHOD_LABEL_WITH_ICON_ZH);
+function applyTranslation(){
+  document.querySelectorAll('.i18n').forEach(el=>{
+    if(el.dataset.zhOriginal === undefined) el.dataset.zhOriginal = el.textContent;
+    el.textContent = t(el.dataset.zhOriginal);
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{
+    if(el.dataset.zhOriginalPh === undefined) el.dataset.zhOriginalPh = el.placeholder;
+    el.placeholder = t(el.dataset.zhOriginalPh);
+  });
+  document.documentElement.lang = currentLang === 'id' ? 'id' : 'zh-Hant';
+}
+document.getElementById('langToggleBtn').onclick = ()=>{
+  const order = ['zh','id','en'];
+  const idx = order.indexOf(currentLang);
+  currentLang = order[(idx+1) % order.length];
+  try{ localStorage.setItem('factoryScheduleLang', currentLang); }catch(e){}
+  applyTranslation();
+  render();
+  if(typeof renderMaterialList === 'function') renderMaterialList();
+  if(typeof renderFinishedGoodList === 'function') renderFinishedGoodList();
+};
+function updateLangBtnLabel(){
+  const labels = { zh:'🌐 中', id:'🌐 ID', en:'🌐 EN' };
+  document.getElementById('langToggleBtn').textContent = labels[currentLang] || '🌐';
+}
+updateLangBtnLabel();
+const _origApplyTranslation = applyTranslation;
+applyTranslation = function(){ _origApplyTranslation(); updateLangBtnLabel(); };
+applyTranslation();
 
 function formatDateSlash(dateStr){
   if(!dateStr) return '';
@@ -3057,7 +3224,7 @@ async function exportBackup(){
         '數量': item.qty || '',
         '出貨日期': item.due || '',
         '優先度': item.priority === 'urgent' ? '急件' : '一般',
-        '狀態': item.deleted ? '已刪除(垃圾桶)' : (STATUS_LABEL[item.status] || item.status),
+        '狀態': item.deleted ? '已刪除(垃圾桶)' : (STATUS_LABEL_RAW[item.status] || item.status),
         '產品製造日期(調配、研磨日期)': item.productMfgDate || '',
         '製造批號': item.productBatchNo || '',
         '包裝日期': item.packagingDate || '',
@@ -3125,7 +3292,7 @@ document.getElementById('btnImportBackup').onclick = async ()=>{
     if(rows.length === 0){ showToast('這個檔案裡沒有讀到任何資料'); return; }
 
     const STATUS_LABEL_REVERSE = {};
-    Object.keys(STATUS_LABEL).forEach(k=>{ STATUS_LABEL_REVERSE[STATUS_LABEL[k]] = k; });
+    Object.keys(STATUS_LABEL_RAW).forEach(k=>{ STATUS_LABEL_REVERSE[STATUS_LABEL_RAW[k]] = k; });
 
     function parseShipMethod(text){
       if(!text) return '';
