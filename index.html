@@ -308,6 +308,18 @@
   .climate-slot.filled.abnormal{ border-color:var(--red); }
   .climate-slot-time{ font-size:12.4px; color:var(--ink-dim); margin-bottom:2px; }
   .climate-slot-value{ font-family:var(--mono); font-weight:700; font-size:14.8px; }
+  .hygiene-entity-row{ background:var(--panel-raised); border:1.5px solid var(--line); border-radius:10px; padding:12px; margin-bottom:8px; cursor:pointer; }
+  .hygiene-entity-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .hygiene-entity-name{ font-size:17.4px; font-weight:800; }
+  .hygiene-entity-remove{ font-size:13.9px; color:var(--red); cursor:pointer; font-weight:700; }
+  .hygiene-entity-status{ font-size:14.8px; color:var(--ink-dim); }
+  .hygiene-entity-status.done{ color:var(--teal); }
+  .hygiene-entity-status.partial{ color:var(--amber); }
+  .hygiene-checklist-item{
+    display:flex; align-items:center; gap:10px; background:var(--panel-raised); border:1.5px solid var(--line);
+    border-radius:8px; padding:12px; margin-bottom:8px; cursor:pointer; user-select:none;
+  }
+  .hygiene-checklist-item input{ width:20px; height:20px; }
   .checkbox-field-label{
     display:flex; align-items:center; gap:10px; background:var(--panel-raised); border:1.5px solid var(--line);
     border-radius:8px; padding:12px; cursor:pointer; font-size:17.4px; user-select:none; width:100%;
@@ -400,7 +412,7 @@
     <button class="i18n bell-btn" id="signOutBtn" title="登出">👤</button>
     <button class="i18n bell-btn" id="trashBtn" title="查看垃圾桶">🗑️</button>
     <button class="bell-btn quick-stat-btn" id="reportBtn" title="查看統計報表">📊<span class="quick-badge todayrisk-badge" id="reportAlertCount" style="display:none;">0</span></button>
-    <button class="bell-btn" id="climateBtn" title="溫溼度記錄">🌡️</button>
+    <button class="bell-btn" id="hygieneBtn" title="衛生管理">🧼</button>
     <button class="bell-btn" id="langToggleBtn" title="Bahasa / 語言 / Language">🌐</button>
     <button class="i18n bell-btn" id="bellBtn" title="開啟出貨提醒通知">🔔</button>
   </div>
@@ -872,24 +884,53 @@
   </div>
 </div>
 
-<div class="overlay" id="climateOverlay">
+<div class="overlay" id="hygieneOverlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
-    <h2 class="i18n">溫溼度記錄</h2>
+    <h2 class="i18n">衛生管理</h2>
+    <div class="report-tabs" style="margin-bottom:14px;">
+      <button type="button" class="report-tab active i18n" data-hygiene-tab="climate">🌡️ 溫溼度</button>
+      <button type="button" class="report-tab i18n" data-hygiene-tab="staff">👤 人員衛生</button>
+      <button type="button" class="report-tab i18n" data-hygiene-tab="machine">🔧 機器衛生</button>
+    </div>
     <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:14px;">
       <button type="button" class="btn-secondary" id="climatePrevDayBtn" style="flex:0 0 auto; padding:8px 14px;">‹</button>
       <input type="date" id="climateDateInput" style="flex:1; text-align:center;">
       <button type="button" class="btn-secondary" id="climateNextDayBtn" style="flex:0 0 auto; padding:8px 14px;">›</button>
     </div>
-    <div id="climateGrid"></div>
-    <div style="margin-top:14px;">
-      <div class="field" style="margin-bottom:8px;">
-        <input type="text" id="climateNewAreaInput" placeholder="輸入新區域名稱，例如：原料倉庫">
+
+    <div id="hygienePanelClimate">
+      <div id="climateGrid"></div>
+      <div style="margin-top:14px;">
+        <div class="field" style="margin-bottom:8px;">
+          <input type="text" id="climateNewAreaInput" placeholder="輸入新區域名稱，例如：原料倉庫">
+        </div>
+        <button type="button" class="split-btn i18n" id="climateAddAreaBtn">+ 新增區域</button>
       </div>
-      <button type="button" class="split-btn" id="climateAddAreaBtn">+ 新增區域</button>
     </div>
+
+    <div id="hygienePanelStaff" style="display:none;">
+      <div id="staffHygieneList"></div>
+      <div style="margin-top:14px;">
+        <div class="field" style="margin-bottom:8px;">
+          <input type="text" id="staffNewInput" placeholder="輸入人員姓名">
+        </div>
+        <button type="button" class="split-btn i18n" id="staffAddBtn">+ 新增人員</button>
+      </div>
+    </div>
+
+    <div id="hygienePanelMachine" style="display:none;">
+      <div id="machineHygieneList"></div>
+      <div style="margin-top:14px;">
+        <div class="field" style="margin-bottom:8px;">
+          <input type="text" id="machineNewInput" placeholder="輸入機器名稱">
+        </div>
+        <button type="button" class="split-btn i18n" id="machineAddBtn">+ 新增機器</button>
+      </div>
+    </div>
+
     <div class="sheet-actions" style="margin-top:18px;">
-      <button type="button" class="i18n btn-secondary" style="flex:1;" id="btnCloseClimate">關閉</button>
+      <button type="button" class="i18n btn-secondary" style="flex:1;" id="btnCloseHygiene">關閉</button>
     </div>
   </div>
 </div>
@@ -918,6 +959,24 @@
       <button type="button" class="i18n btn-primary" id="climateEntrySaveBtn">儲存</button>
     </div>
     <button type="button" class="i18n btn-delete" id="climateEntryDeleteBtn" style="display:none;">刪除此筆記錄</button>
+  </div>
+</div>
+
+<div class="overlay" id="hygieneEntryOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 id="hygieneEntryTitle">記錄衛生檢查</h2>
+    <div class="sheet-sub" id="hygieneEntrySub"></div>
+    <div id="hygieneEntryChecklist" style="margin-bottom:12px;"></div>
+    <div class="field">
+      <label class="i18n">備註（選填）</label>
+      <textarea id="hygieneEntryNoteInput" placeholder="有異常狀況可以在這裡說明"></textarea>
+    </div>
+    <div class="sheet-actions">
+      <button type="button" class="i18n btn-secondary" id="hygieneEntryCancelBtn">取消</button>
+      <button type="button" class="i18n btn-primary" id="hygieneEntrySaveBtn">儲存</button>
+    </div>
+    <button type="button" class="i18n btn-delete" id="hygieneEntryDeleteBtn" style="display:none;">刪除此筆記錄</button>
   </div>
 </div>
 
@@ -1399,6 +1458,14 @@ const ID_DICT = {
   '溫溼度記錄提醒':'Pengingat Catatan Suhu & Kelembaban', '時段還有':'masih ada', '個區域尚未記錄':'area belum dicatat',
   '記錄人員':'Dicatat Oleh', '+ 新增區域':'+ Tambah Area', '刪除此筆記錄':'Hapus Catatan Ini',
   '前往記錄':'Pergi Mencatat',
+  '衛生管理':'Manajemen Kebersihan', '🌡️ 溫溼度':'🌡️ Suhu & Kelembaban', '👤 人員衛生':'👤 Kebersihan Staf', '🔧 機器衛生':'🔧 Kebersihan Mesin',
+  '+ 新增人員':'+ Tambah Staf', '+ 新增機器':'+ Tambah Mesin', '記錄人員衛生':'Catat Kebersihan Staf', '記錄機器衛生':'Catat Kebersihan Mesin',
+  '制服整潔':'Seragam Rapi', '佩戴髮網/口罩':'Pakai Jaring Rambut/Masker', '勤洗手消毒':'Cuci Tangan & Sanitasi',
+  '健康狀況良好':'Kondisi Kesehatan Baik', '清洗乾淨':'Dibersihkan', '消毒完成':'Disanitasi', '無殘留物':'Tidak Ada Residu',
+  '尚未記錄':'Belum Dicatat', '有備註':'Ada Catatan', '備註（選填）':'Catatan (opsional)',
+  '有異常狀況可以在這裡說明':'Jelaskan di sini jika ada kondisi tidak normal',
+  '請輸入人員姓名':'Mohon masukkan nama staf', '請輸入機器名稱':'Mohon masukkan nama mesin',
+  '已新增人員':'Staf ditambahkan', '已新增機器':'Mesin ditambahkan', '已移除':'Dihapus',
 };
 const EN_DICT = {
   // 生產階段
@@ -1465,6 +1532,14 @@ const EN_DICT = {
   '溫溼度記錄提醒':'Temp & Humidity Reminder', '時段還有':'still has', '個區域尚未記錄':'area(s) not recorded',
   '記錄人員':'Recorded By', '+ 新增區域':'+ Add Area', '刪除此筆記錄':'Delete This Record',
   '前往記錄':'Go to Record',
+  '衛生管理':'Hygiene Management', '🌡️ 溫溼度':'🌡️ Temp & Humidity', '👤 人員衛生':'👤 Staff Hygiene', '🔧 機器衛生':'🔧 Machine Hygiene',
+  '+ 新增人員':'+ Add Staff', '+ 新增機器':'+ Add Machine', '記錄人員衛生':'Record Staff Hygiene', '記錄機器衛生':'Record Machine Hygiene',
+  '制服整潔':'Uniform Clean', '佩戴髮網/口罩':'Hairnet/Mask Worn', '勤洗手消毒':'Handwashing & Sanitizing',
+  '健康狀況良好':'Good Health Condition', '清洗乾淨':'Cleaned', '消毒完成':'Sanitized', '無殘留物':'No Residue',
+  '尚未記錄':'Not Recorded', '有備註':'Has Note', '備註（選填）':'Notes (optional)',
+  '有異常狀況可以在這裡說明':'Describe any abnormal conditions here',
+  '請輸入人員姓名':'Please enter staff name', '請輸入機器名稱':'Please enter machine name',
+  '已新增人員':'Staff added', '已新增機器':'Machine added', '已移除':'Removed',
 };
 function t(zh){
   if(currentLang === 'id') return ID_DICT[zh] || zh;
@@ -2888,8 +2963,9 @@ function renderAlertBanner(){
   banner.querySelectorAll('[data-jump]').forEach(btn=> btn.onclick = ()=>{ currentTab = btn.dataset.jump; render(); });
   banner.querySelectorAll('[data-climate-jump]').forEach(btn=> btn.onclick = ()=>{
     climateSelectedDate = todayStr();
-    renderClimateGrid();
-    climateOverlay.classList.add('show');
+    currentHygieneTab = 'climate';
+    renderHygieneActiveTab();
+    hygieneOverlay.classList.add('show');
   });
   const dismissAllBtn = banner.querySelector('[data-dismiss-all]');
   if(dismissAllBtn){
@@ -3216,36 +3292,73 @@ document.getElementById('reportBtn').onclick = ()=>{
 document.getElementById('btnCloseReport').onclick = ()=> reportOverlay.classList.remove('show');
 reportOverlay.onclick = (e)=>{ if(e.target === reportOverlay) reportOverlay.classList.remove('show'); };
 
-// ---- 溫溼度記錄 ----
+// ---- 衛生管理(溫溼度 / 人員衛生 / 機器衛生) ----
 const CLIMATE_TIME_SLOTS = ['09:00','11:00','13:00','15:00'];
+const HYGIENE_STAFF_CHECKLIST = [
+  { id:'c1', label:'制服整潔' }, { id:'c2', label:'佩戴髮網/口罩' },
+  { id:'c3', label:'勤洗手消毒' }, { id:'c4', label:'健康狀況良好' }
+];
+const HYGIENE_MACHINE_CHECKLIST = [
+  { id:'c1', label:'清洗乾淨' }, { id:'c2', label:'消毒完成' }, { id:'c3', label:'無殘留物' }
+];
 let climateAreas = []; // [{id, name}]
 let climateLogs = []; // [{id, date, areaId, timeSlot, temperature, humidity, recordedBy, recordedAt}]
+let hygieneStaffList = []; // [{id, name}]
+let hygieneStaffLogs = []; // [{id, date, entityId, checklist:{c1..}, note, recordedAt}]
+let hygieneMachineList = []; // [{id, name}]
+let hygieneMachineLogs = []; // [{id, date, entityId, checklist:{c1..}, note, recordedAt}]
 let climateSelectedDate = todayStr();
+let currentHygieneTab = 'climate';
 let editingClimateEntry = null; // { areaId, timeSlot, existingLog }
-const climateOverlay = document.getElementById('climateOverlay');
+let editingHygieneEntry = null; // { kind:'staff'|'machine', entityId, existingLog }
+const hygieneOverlay = document.getElementById('hygieneOverlay');
 const climateEntryOverlay = document.getElementById('climateEntryOverlay');
+const hygieneEntryOverlay = document.getElementById('hygieneEntryOverlay');
 
 function loadClimateData(){
   onSnapshot(climateDataDocRef, (snap)=>{
     const data = snap.exists() ? snap.data() : {};
     climateAreas = data.areas || [];
     climateLogs = data.logs || [];
-    if(climateOverlay.classList.contains('show')) renderClimateGrid();
+    hygieneStaffList = data.staffList || [];
+    hygieneStaffLogs = data.staffLogs || [];
+    hygieneMachineList = data.machineList || [];
+    hygieneMachineLogs = data.machineLogs || [];
+    if(hygieneOverlay.classList.contains('show')) renderHygieneActiveTab();
     checkClimateReminders();
     renderAlertBanner();
   }, (err)=>{ console.error(err); });
 }
 async function saveClimateData(){
   try{
-    await setDoc(climateDataDocRef, { areas: climateAreas, logs: climateLogs });
+    await setDoc(climateDataDocRef, {
+      areas: climateAreas, logs: climateLogs,
+      staffList: hygieneStaffList, staffLogs: hygieneStaffLogs,
+      machineList: hygieneMachineList, machineLogs: hygieneMachineLogs
+    });
   }catch(e){
     console.error(e);
     showToast('儲存失敗，請檢查網路');
   }
 }
 
-function renderClimateGrid(){
+function renderHygieneActiveTab(){
   document.getElementById('climateDateInput').value = climateSelectedDate;
+  document.getElementById('hygienePanelClimate').style.display = currentHygieneTab==='climate' ? '' : 'none';
+  document.getElementById('hygienePanelStaff').style.display = currentHygieneTab==='staff' ? '' : 'none';
+  document.getElementById('hygienePanelMachine').style.display = currentHygieneTab==='machine' ? '' : 'none';
+  hygieneOverlay.querySelectorAll('[data-hygiene-tab]').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.hygieneTab === currentHygieneTab);
+  });
+  if(currentHygieneTab === 'climate') renderClimateGrid();
+  else if(currentHygieneTab === 'staff') renderHygieneEntityList('staff');
+  else renderHygieneEntityList('machine');
+}
+hygieneOverlay.querySelectorAll('[data-hygiene-tab]').forEach(btn=>{
+  btn.onclick = ()=>{ currentHygieneTab = btn.dataset.hygieneTab; renderHygieneActiveTab(); };
+});
+
+function renderClimateGrid(){
   const gridEl = document.getElementById('climateGrid');
   if(climateAreas.length === 0){
     gridEl.innerHTML = '<div class="ship-list-empty">還沒有任何區域，先在下面新增一個開始記錄</div>';
@@ -3344,27 +3457,147 @@ document.getElementById('climateAddAreaBtn').onclick = async ()=>{
 };
 document.getElementById('climateDateInput').addEventListener('change', function(){
   climateSelectedDate = this.value || todayStr();
-  renderClimateGrid();
+  renderHygieneActiveTab();
 });
 document.getElementById('climatePrevDayBtn').onclick = ()=>{
   const d = new Date(climateSelectedDate + 'T00:00:00');
   d.setDate(d.getDate() - 1);
   climateSelectedDate = d.toISOString().slice(0,10);
-  renderClimateGrid();
+  renderHygieneActiveTab();
 };
 document.getElementById('climateNextDayBtn').onclick = ()=>{
   const d = new Date(climateSelectedDate + 'T00:00:00');
   d.setDate(d.getDate() + 1);
   climateSelectedDate = d.toISOString().slice(0,10);
-  renderClimateGrid();
+  renderHygieneActiveTab();
 };
-document.getElementById('climateBtn').onclick = ()=>{
+document.getElementById('hygieneBtn').onclick = ()=>{
   climateSelectedDate = todayStr();
-  renderClimateGrid();
-  climateOverlay.classList.add('show');
+  currentHygieneTab = 'climate';
+  renderHygieneActiveTab();
+  hygieneOverlay.classList.add('show');
 };
-document.getElementById('btnCloseClimate').onclick = ()=> climateOverlay.classList.remove('show');
-climateOverlay.onclick = (e)=>{ if(e.target === climateOverlay) climateOverlay.classList.remove('show'); };
+document.getElementById('btnCloseHygiene').onclick = ()=> hygieneOverlay.classList.remove('show');
+hygieneOverlay.onclick = (e)=>{ if(e.target === hygieneOverlay) hygieneOverlay.classList.remove('show'); };
+
+// ---- 人員衛生 / 機器衛生 共用邏輯 ----
+function hygieneKindConfig(kind){
+  return kind === 'staff'
+    ? { list: hygieneStaffList, logs: hygieneStaffLogs, checklist: HYGIENE_STAFF_CHECKLIST, listElId: 'staffHygieneList', entryTitle: '記錄人員衛生', emptyText: '還沒有任何人員，先在下面新增一位開始記錄' }
+    : { list: hygieneMachineList, logs: hygieneMachineLogs, checklist: HYGIENE_MACHINE_CHECKLIST, listElId: 'machineHygieneList', entryTitle: '記錄機器衛生', emptyText: '還沒有任何機器，先在下面新增一台開始記錄' };
+}
+function renderHygieneEntityList(kind){
+  const cfg = hygieneKindConfig(kind);
+  const listEl = document.getElementById(cfg.listElId);
+  if(cfg.list.length === 0){
+    listEl.innerHTML = '<div class="ship-list-empty">' + t(cfg.emptyText) + '</div>';
+    return;
+  }
+  listEl.innerHTML = cfg.list.map(entity=>{
+    const log = cfg.logs.find(l=> l.entityId===entity.id && l.date===climateSelectedDate);
+    const doneCount = log ? cfg.checklist.filter(c=>log.checklist && log.checklist[c.id]).length : 0;
+    const total = cfg.checklist.length;
+    const statusClass = !log ? '' : (doneCount === total ? 'done' : 'partial');
+    const statusText = !log ? t('尚未記錄') : (doneCount + ' / ' + total + (log.note ? '　📝 ' + t('有備註') : ''));
+    return '<div class="hygiene-entity-row" data-kind="'+kind+'" data-entity-id="'+entity.id+'">' +
+      '<div class="hygiene-entity-top"><span class="hygiene-entity-name">' + escapeHtml(entity.name) + '</span><span class="hygiene-entity-remove" data-remove-entity="'+entity.id+'">✕</span></div>' +
+      '<div class="hygiene-entity-status ' + statusClass + '">' + statusText + '</div>' +
+    '</div>';
+  }).join('');
+  listEl.querySelectorAll('.hygiene-entity-row').forEach(el=>{
+    el.onclick = (e)=>{
+      if(e.target.dataset.removeEntity) return;
+      openHygieneEntry(kind, el.dataset.entityId);
+    };
+  });
+  listEl.querySelectorAll('[data-remove-entity]').forEach(el=>{
+    el.onclick = async (e)=>{
+      e.stopPropagation();
+      const label = kind==='staff' ? '這位人員' : '這台機器';
+      const ok = await showConfirm(label + '過去記錄的衛生檢查資料也會一併刪除，確定要移除嗎？', '確定要移除嗎？');
+      if(!ok) return;
+      const entityId = el.dataset.removeEntity;
+      if(kind==='staff'){
+        hygieneStaffList = hygieneStaffList.filter(x=>x.id!==entityId);
+        hygieneStaffLogs = hygieneStaffLogs.filter(l=>l.entityId!==entityId);
+      }else{
+        hygieneMachineList = hygieneMachineList.filter(x=>x.id!==entityId);
+        hygieneMachineLogs = hygieneMachineLogs.filter(l=>l.entityId!==entityId);
+      }
+      await saveClimateData();
+      renderHygieneEntityList(kind);
+      showToast('已移除');
+    };
+  });
+}
+function openHygieneEntry(kind, entityId){
+  const cfg = hygieneKindConfig(kind);
+  const entity = cfg.list.find(x=>x.id===entityId);
+  if(!entity) return;
+  const existingLog = cfg.logs.find(l=> l.entityId===entityId && l.date===climateSelectedDate);
+  editingHygieneEntry = { kind, entityId, existingLog };
+  document.getElementById('hygieneEntryTitle').textContent = t(cfg.entryTitle);
+  document.getElementById('hygieneEntrySub').textContent = entity.name + '　' + climateSelectedDate;
+  const checklistEl = document.getElementById('hygieneEntryChecklist');
+  checklistEl.innerHTML = cfg.checklist.map(c=>{
+    const checked = existingLog && existingLog.checklist && existingLog.checklist[c.id];
+    return '<label class="hygiene-checklist-item"><input type="checkbox" class="hygieneChecklistInput" data-cid="'+c.id+'" '+(checked?'checked':'')+'>' + escapeHtml(t(c.label)) + '</label>';
+  }).join('');
+  document.getElementById('hygieneEntryNoteInput').value = existingLog ? (existingLog.note || '') : '';
+  document.getElementById('hygieneEntryDeleteBtn').style.display = existingLog ? 'block' : 'none';
+  hygieneEntryOverlay.classList.add('show');
+}
+document.getElementById('hygieneEntryCancelBtn').onclick = ()=> hygieneEntryOverlay.classList.remove('show');
+hygieneEntryOverlay.onclick = (e)=>{ if(e.target === hygieneEntryOverlay) hygieneEntryOverlay.classList.remove('show'); };
+document.getElementById('hygieneEntrySaveBtn').onclick = async ()=>{
+  if(!editingHygieneEntry) return;
+  const { kind, entityId, existingLog } = editingHygieneEntry;
+  const checklist = {};
+  document.querySelectorAll('.hygieneChecklistInput').forEach(el=>{ checklist[el.dataset.cid] = el.checked; });
+  const note = document.getElementById('hygieneEntryNoteInput').value.trim();
+  if(existingLog){
+    existingLog.checklist = checklist;
+    existingLog.note = note;
+    existingLog.recordedAt = Date.now();
+  }else{
+    const newLog = { id: 'hl_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), date: climateSelectedDate, entityId, checklist, note, recordedAt: Date.now() };
+    if(kind==='staff') hygieneStaffLogs.push(newLog); else hygieneMachineLogs.push(newLog);
+  }
+  await saveClimateData();
+  hygieneEntryOverlay.classList.remove('show');
+  renderHygieneEntityList(kind);
+  showToast('已記錄');
+};
+document.getElementById('hygieneEntryDeleteBtn').onclick = async ()=>{
+  if(!editingHygieneEntry || !editingHygieneEntry.existingLog) return;
+  const { kind, existingLog } = editingHygieneEntry;
+  if(kind==='staff') hygieneStaffLogs = hygieneStaffLogs.filter(l=>l.id!==existingLog.id);
+  else hygieneMachineLogs = hygieneMachineLogs.filter(l=>l.id!==existingLog.id);
+  await saveClimateData();
+  hygieneEntryOverlay.classList.remove('show');
+  renderHygieneEntityList(kind);
+  showToast('已刪除記錄');
+};
+document.getElementById('staffAddBtn').onclick = async ()=>{
+  const input = document.getElementById('staffNewInput');
+  const name = input.value.trim();
+  if(!name){ showToast('請輸入人員姓名'); return; }
+  hygieneStaffList.push({ id: 'hs_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), name });
+  await saveClimateData();
+  input.value = '';
+  renderHygieneEntityList('staff');
+  showToast('已新增人員');
+};
+document.getElementById('machineAddBtn').onclick = async ()=>{
+  const input = document.getElementById('machineNewInput');
+  const name = input.value.trim();
+  if(!name){ showToast('請輸入機器名稱'); return; }
+  hygieneMachineList.push({ id: 'hm_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), name });
+  await saveClimateData();
+  input.value = '';
+  renderHygieneEntityList('machine');
+  showToast('已新增機器');
+};
 
 
 let currentStatDetailKey = null;
