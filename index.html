@@ -323,6 +323,20 @@
   .machine-checklist-item-row{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
   .machine-checklist-item-row input[type="text"]{ flex:1; }
   .machine-checklist-item-remove{ flex:0 0 auto; color:var(--red); font-weight:700; cursor:pointer; padding:8px; }
+  .hygiene-stats-section-title{ font-size:16.7px; font-weight:800; margin:16px 0 8px 0; }
+  .hygiene-stats-table{ width:100%; border-collapse:collapse; font-size:14.4px; margin-bottom:10px; }
+  .hygiene-stats-table th, .hygiene-stats-table td{ padding:7px 8px; border-bottom:1px solid var(--line); text-align:left; }
+  .hygiene-stats-table th{ color:var(--ink-dim); font-weight:700; font-size:12.8px; }
+  .hygiene-stats-rate{ font-family:var(--mono); font-weight:700; }
+  .hygiene-stats-rate.good{ color:var(--teal); }
+  .hygiene-stats-rate.bad{ color:var(--red); }
+  .hygiene-stats-table tbody tr{ cursor:pointer; }
+  .hygiene-stats-table tbody tr:hover{ background:var(--panel-raised); }
+  .hygiene-detail-table{ width:100%; border-collapse:collapse; font-size:13.9px; white-space:nowrap; }
+  .hygiene-detail-table th, .hygiene-detail-table td{ padding:6px 10px; border-bottom:1px solid var(--line); text-align:left; }
+  .hygiene-detail-table th{ color:var(--ink-dim); font-weight:700; font-size:12.4px; position:sticky; top:0; background:var(--panel); }
+  .hygiene-detail-table td.pass{ color:var(--teal); font-weight:700; }
+  .hygiene-detail-table td.fail{ color:var(--ink-dim); }
   .checkbox-field-label{
     display:flex; align-items:center; gap:10px; background:var(--panel-raised); border:1.5px solid var(--line);
     border-radius:8px; padding:12px; cursor:pointer; font-size:17.4px; user-select:none; width:100%;
@@ -895,8 +909,9 @@
       <button type="button" class="report-tab active i18n" data-hygiene-tab="climate">🌡️ 溫溼度</button>
       <button type="button" class="report-tab i18n" data-hygiene-tab="staff">👤 人員衛生</button>
       <button type="button" class="report-tab i18n" data-hygiene-tab="machine">🔧 機器衛生</button>
+      <button type="button" class="report-tab i18n" data-hygiene-tab="stats">📊 年度統計</button>
     </div>
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:14px;">
+    <div id="hygieneDateNavRow" style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:14px;">
       <button type="button" class="btn-secondary" id="climatePrevDayBtn" style="flex:0 0 auto; padding:8px 14px;">‹</button>
       <input type="date" id="climateDateInput" style="flex:1; text-align:center;">
       <button type="button" class="btn-secondary" id="climateNextDayBtn" style="flex:0 0 auto; padding:8px 14px;">›</button>
@@ -929,6 +944,17 @@
       <div style="margin-top:14px;">
         <button type="button" class="split-btn i18n" id="machineAddBtn">+ 新增機器</button>
       </div>
+    </div>
+
+    <div id="hygienePanelStats" style="display:none;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:14px;">
+        <button type="button" class="btn-secondary" id="hygieneStatsPrevYearBtn" style="flex:0 0 auto; padding:8px 14px;">‹</button>
+        <div id="hygieneStatsYearLabel" style="flex:1; text-align:center; font-size:19.6px; font-weight:800;"></div>
+        <button type="button" class="btn-secondary" id="hygieneStatsNextYearBtn" style="flex:0 0 auto; padding:8px 14px;">›</button>
+      </div>
+      <button type="button" class="i18n btn-primary" id="hygieneStatsExportBtn" style="width:100%; margin-bottom:16px;">📥 匯出這一年的 Excel 記錄</button>
+      <div class="i18n" style="font-size:13.3px; color:var(--ink-dim); margin-bottom:8px;">點任一列可查看該項目全年逐筆點檢紀錄，適合給稽核員查看</div>
+      <div id="hygieneStatsContent"></div>
     </div>
 
     <div class="sheet-actions" style="margin-top:18px;">
@@ -999,6 +1025,19 @@
       <button type="button" class="i18n btn-primary" id="machineFormSaveBtn">儲存</button>
     </div>
     <button type="button" class="i18n btn-delete" id="machineFormDeleteBtn" style="display:none;">刪除此機器</button>
+  </div>
+</div>
+
+<div class="overlay" id="hygieneDetailOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 id="hygieneDetailTitle">點檢紀錄明細</h2>
+    <div class="sheet-sub" id="hygieneDetailSub"></div>
+    <button type="button" class="i18n btn-primary" id="hygieneDetailExportBtn" style="width:100%; margin-bottom:14px;">📥 匯出這筆明細 Excel</button>
+    <div id="hygieneDetailTableWrap" style="overflow-x:auto;"></div>
+    <div class="sheet-actions" style="margin-top:18px;">
+      <button type="button" class="i18n btn-secondary" style="flex:1;" id="btnCloseHygieneDetail">關閉</button>
+    </div>
   </div>
 </div>
 
@@ -1493,6 +1532,13 @@ const ID_DICT = {
   '尚未設定保養項目，點 ⚙️ 設定':'Item perawatan belum diatur, klik ⚙️ untuk mengatur',
   '請先點 ⚙️ 設定這台機器的保養項目':'Klik ⚙️ dulu untuk mengatur item perawatan mesin ini',
   '已更新機器':'Mesin diperbarui', '已移除機器':'Mesin dihapus',
+  '📊 年度統計':'📊 Statistik Tahunan', '📥 匯出這一年的 Excel 記錄':'📥 Ekspor Catatan Excel Tahun Ini',
+  '還沒有任何區域':'Belum ada area', '還沒有任何人員':'Belum ada staf', '還沒有任何機器':'Belum ada mesin',
+  '區域':'Area', '已記錄次數':'Kali Dicatat', '應記錄次數':'Kali Seharusnya', '完成率':'Tingkat Penyelesaian',
+  '人員':'Staf', '機器':'Mesin', '完整記錄天數':'Hari Tercatat Lengkap', '全年天數':'Total Hari Tahun Ini',
+  '點任一列可查看該項目全年逐筆點檢紀錄，適合給稽核員查看':'Klik baris mana pun untuk melihat catatan lengkap tahun ini, cocok untuk auditor',
+  '📥 匯出這筆明細 Excel':'📥 Ekspor Detail Ini ke Excel', '日期':'Tanggal', '時段':'Waktu', '共':'Total', '筆':'catatan',
+  '這一年還沒有任何記錄':'Belum ada catatan tahun ini', '已匯出':'Diekspor', '的點檢紀錄':'catatan pemeriksaan',
 };
 const EN_DICT = {
   // 生產階段
@@ -1572,6 +1618,13 @@ const EN_DICT = {
   '尚未設定保養項目，點 ⚙️ 設定':'Maintenance items not set, click ⚙️ to set up',
   '請先點 ⚙️ 設定這台機器的保養項目':'Click ⚙️ first to set up maintenance items for this machine',
   '已更新機器':'Machine updated', '已移除機器':'Machine removed',
+  '📊 年度統計':'📊 Annual Stats', '📥 匯出這一年的 Excel 記錄':'📥 Export This Year\'s Records to Excel',
+  '還沒有任何區域':'No areas yet', '還沒有任何人員':'No staff yet', '還沒有任何機器':'No machines yet',
+  '區域':'Area', '已記錄次數':'Times Recorded', '應記錄次數':'Times Expected', '完成率':'Completion Rate',
+  '人員':'Staff', '機器':'Machine', '完整記錄天數':'Days Fully Recorded', '全年天數':'Total Days This Year',
+  '點任一列可查看該項目全年逐筆點檢紀錄，適合給稽核員查看':'Click any row to see the full year\'s records, ideal for auditors',
+  '📥 匯出這筆明細 Excel':'📥 Export This Detail to Excel', '日期':'Date', '時段':'Time', '共':'Total', '筆':'records',
+  '這一年還沒有任何記錄':'No records yet this year', '已匯出':'Exported', '的點檢紀錄':'records',
 };
 function t(zh){
   if(currentLang === 'id') return ID_DICT[zh] || zh;
@@ -3338,6 +3391,7 @@ let hygieneMachineList = []; // [{id, name}]
 let hygieneMachineLogs = []; // [{id, date, entityId, checklist:{c1..}, note, recordedAt}]
 let climateSelectedDate = todayStr();
 let currentHygieneTab = 'climate';
+let hygieneStatsYear = new Date().getFullYear();
 let editingClimateEntry = null; // { areaId, timeSlot, existingLog }
 let editingHygieneEntry = null; // { kind:'staff'|'machine', entityId, existingLog }
 const hygieneOverlay = document.getElementById('hygieneOverlay');
@@ -3373,15 +3427,18 @@ async function saveClimateData(){
 
 function renderHygieneActiveTab(){
   document.getElementById('climateDateInput').value = climateSelectedDate;
+  document.getElementById('hygieneDateNavRow').style.display = currentHygieneTab==='stats' ? 'none' : '';
   document.getElementById('hygienePanelClimate').style.display = currentHygieneTab==='climate' ? '' : 'none';
   document.getElementById('hygienePanelStaff').style.display = currentHygieneTab==='staff' ? '' : 'none';
   document.getElementById('hygienePanelMachine').style.display = currentHygieneTab==='machine' ? '' : 'none';
+  document.getElementById('hygienePanelStats').style.display = currentHygieneTab==='stats' ? '' : 'none';
   hygieneOverlay.querySelectorAll('[data-hygiene-tab]').forEach(btn=>{
     btn.classList.toggle('active', btn.dataset.hygieneTab === currentHygieneTab);
   });
   if(currentHygieneTab === 'climate') renderClimateGrid();
   else if(currentHygieneTab === 'staff') renderHygieneEntityList('staff');
-  else renderHygieneEntityList('machine');
+  else if(currentHygieneTab === 'machine') renderHygieneEntityList('machine');
+  else renderHygieneStats();
 }
 hygieneOverlay.querySelectorAll('[data-hygiene-tab]').forEach(btn=>{
   btn.onclick = ()=>{ currentHygieneTab = btn.dataset.hygieneTab; renderHygieneActiveTab(); };
@@ -3745,6 +3802,221 @@ document.getElementById('machineFormDeleteBtn').onclick = async ()=>{
   machineFormOverlay.classList.remove('show');
   renderHygieneEntityList('machine');
   showToast('已移除機器');
+};
+
+// ---- 年度統計 ----
+function getStatsPeriodDates(year){
+  const start = new Date(year, 0, 1);
+  const now = new Date();
+  const end = (year === now.getFullYear()) ? now : new Date(year, 11, 31);
+  const dates = [];
+  let d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const endD = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  while(d <= endD){
+    dates.push(d.toISOString().slice(0,10));
+    d.setDate(d.getDate()+1);
+  }
+  return dates;
+}
+function ratePct(done, total){
+  if(total <= 0) return 0;
+  return Math.round((done/total) * 1000) / 10;
+}
+function rateClass(pct){ return pct >= 90 ? 'good' : (pct < 60 ? 'bad' : ''); }
+
+function renderHygieneStats(){
+  document.getElementById('hygieneStatsYearLabel').textContent = hygieneStatsYear + (currentLang==='zh' ? ' 年' : '');
+  const dates = getStatsPeriodDates(hygieneStatsYear);
+  const dateSet = new Set(dates);
+  const totalDays = dates.length;
+
+  let html = '';
+
+  // 溫溼度統計
+  html += '<div class="hygiene-stats-section-title">🌡️ ' + t('溫溼度') + '</div>';
+  if(climateAreas.length === 0){
+    html += '<div class="ship-list-empty">' + t('還沒有任何區域') + '</div>';
+  }else{
+    const totalSlots = totalDays * CLIMATE_TIME_SLOTS.length;
+    html += '<table class="hygiene-stats-table"><thead><tr><th>' + t('區域') + '</th><th>' + t('已記錄次數') + '</th><th>' + t('應記錄次數') + '</th><th>' + t('完成率') + '</th></tr></thead><tbody>';
+    climateAreas.forEach(area=>{
+      const filled = climateLogs.filter(l=> l.areaId===area.id && dateSet.has(l.date)).length;
+      const pct = ratePct(filled, totalSlots);
+      html += '<tr data-detail-kind="climate" data-detail-entity-id="'+area.id+'"><td>' + escapeHtml(area.name) + '</td><td>' + filled + '</td><td>' + totalSlots + '</td><td class="hygiene-stats-rate ' + rateClass(pct) + '">' + pct + '%</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+
+  // 人員衛生統計
+  html += '<div class="hygiene-stats-section-title">👤 ' + t('人員衛生') + '</div>';
+  if(hygieneStaffList.length === 0){
+    html += '<div class="ship-list-empty">' + t('還沒有任何人員') + '</div>';
+  }else{
+    html += '<table class="hygiene-stats-table"><thead><tr><th>' + t('人員') + '</th><th>' + t('完整記錄天數') + '</th><th>' + t('全年天數') + '</th><th>' + t('完成率') + '</th></tr></thead><tbody>';
+    hygieneStaffList.forEach(entity=>{
+      const relevantLogs = hygieneStaffLogs.filter(l=> l.entityId===entity.id && dateSet.has(l.date));
+      const fullDays = relevantLogs.filter(l=> HYGIENE_STAFF_CHECKLIST.every(c=> l.checklist && l.checklist[c.id])).length;
+      const pct = ratePct(fullDays, totalDays);
+      html += '<tr data-detail-kind="staff" data-detail-entity-id="'+entity.id+'"><td>' + escapeHtml(entity.name) + '</td><td>' + fullDays + '</td><td>' + totalDays + '</td><td class="hygiene-stats-rate ' + rateClass(pct) + '">' + pct + '%</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+
+  // 機器衛生統計
+  html += '<div class="hygiene-stats-section-title">🔧 ' + t('機器衛生') + '</div>';
+  if(hygieneMachineList.length === 0){
+    html += '<div class="ship-list-empty">' + t('還沒有任何機器') + '</div>';
+  }else{
+    html += '<table class="hygiene-stats-table"><thead><tr><th>' + t('機器') + '</th><th>' + t('完整記錄天數') + '</th><th>' + t('全年天數') + '</th><th>' + t('完成率') + '</th></tr></thead><tbody>';
+    hygieneMachineList.forEach(entity=>{
+      const checklist = entity.checklist || [];
+      const relevantLogs = hygieneMachineLogs.filter(l=> l.entityId===entity.id && dateSet.has(l.date));
+      const fullDays = checklist.length === 0 ? 0 : relevantLogs.filter(l=> checklist.every(c=> l.checklist && l.checklist[c.id])).length;
+      const pct = ratePct(fullDays, totalDays);
+      html += '<tr data-detail-kind="machine" data-detail-entity-id="'+entity.id+'"><td>' + escapeHtml(entity.name) + (checklist.length===0 ? ' <span style="color:var(--ink-dim); font-size:12.4px;">(' + t('尚未設定保養項目，點 ⚙️ 設定') + ')</span>' : '') + '</td><td>' + fullDays + '</td><td>' + totalDays + '</td><td class="hygiene-stats-rate ' + rateClass(pct) + '">' + pct + '%</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+
+  document.getElementById('hygieneStatsContent').innerHTML = html;
+  document.querySelectorAll('[data-detail-kind]').forEach(row=>{
+    row.onclick = ()=> openHygieneDetail(row.dataset.detailKind, row.dataset.detailEntityId);
+  });
+}
+document.getElementById('hygieneStatsPrevYearBtn').onclick = ()=>{ hygieneStatsYear--; renderHygieneStats(); };
+document.getElementById('hygieneStatsNextYearBtn').onclick = ()=>{ hygieneStatsYear++; renderHygieneStats(); };
+
+document.getElementById('hygieneStatsExportBtn').onclick = ()=>{
+  if(typeof XLSX === 'undefined'){
+    showToast('Excel 匯出元件載入失敗，請檢查網路後重新整理再試');
+    return;
+  }
+  const dates = getStatsPeriodDates(hygieneStatsYear);
+  const dateSet = new Set(dates);
+  const wb = XLSX.utils.book_new();
+
+  // 溫溼度明細
+  const climateRows = [];
+  climateLogs.filter(l=>dateSet.has(l.date)).sort((a,b)=> (a.date+a.timeSlot).localeCompare(b.date+b.timeSlot)).forEach(l=>{
+    const area = climateAreas.find(a=>a.id===l.areaId);
+    climateRows.push({
+      '日期': l.date, '時段': l.timeSlot, '區域': area ? area.name : '(已刪除)',
+      '溫度(°C)': l.temperature, '濕度(%)': l.humidity, '記錄人員': l.recordedBy || ''
+    });
+  });
+  const wsClimate = XLSX.utils.json_to_sheet(climateRows.length ? climateRows : [{'日期':'(無資料)'}]);
+  XLSX.utils.book_append_sheet(wb, wsClimate, '溫溼度記錄');
+
+  // 人員衛生明細
+  const staffRows = [];
+  hygieneStaffLogs.filter(l=>dateSet.has(l.date)).sort((a,b)=> a.date.localeCompare(b.date)).forEach(l=>{
+    const entity = hygieneStaffList.find(x=>x.id===l.entityId);
+    const row = { '日期': l.date, '人員': entity ? entity.name : '(已刪除)' };
+    HYGIENE_STAFF_CHECKLIST.forEach(c=>{ row[c.label] = (l.checklist && l.checklist[c.id]) ? 'V' : ''; });
+    row['備註'] = l.note || '';
+    staffRows.push(row);
+  });
+  const wsStaff = XLSX.utils.json_to_sheet(staffRows.length ? staffRows : [{'日期':'(無資料)'}]);
+  XLSX.utils.book_append_sheet(wb, wsStaff, '人員衛生記錄');
+
+  // 機器衛生明細(每台機器保養項目不同,分開各自建立sheet內容,合併在同一張表用機器名稱+項目名稱欄位呈現)
+  const machineRows = [];
+  hygieneMachineLogs.filter(l=>dateSet.has(l.date)).sort((a,b)=> a.date.localeCompare(b.date)).forEach(l=>{
+    const entity = hygieneMachineList.find(x=>x.id===l.entityId);
+    const checklist = entity ? (entity.checklist||[]) : [];
+    const row = { '日期': l.date, '機器': entity ? entity.name : '(已刪除)' };
+    checklist.forEach(c=>{ row[c.label] = (l.checklist && l.checklist[c.id]) ? 'V' : ''; });
+    row['備註'] = l.note || '';
+    machineRows.push(row);
+  });
+  const wsMachine = XLSX.utils.json_to_sheet(machineRows.length ? machineRows : [{'日期':'(無資料)'}]);
+  XLSX.utils.book_append_sheet(wb, wsMachine, '機器衛生記錄');
+
+  const wbout = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+  const blob = new Blob([wbout], { type:'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = '衛生管理記錄_' + hygieneStatsYear + '.xlsx';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('已匯出 ' + hygieneStatsYear + ' 年度衛生管理記錄');
+};
+
+// ---- 單一項目(區域/人員/機器)的年度逐筆明細，給稽核員查看用 ----
+let editingHygieneDetail = null; // { kind, entityId }
+const hygieneDetailOverlay = document.getElementById('hygieneDetailOverlay');
+function buildHygieneDetailRows(kind, entityId){
+  const dates = getStatsPeriodDates(hygieneStatsYear);
+  const dateSet = new Set(dates);
+  if(kind === 'climate'){
+    const area = climateAreas.find(a=>a.id===entityId);
+    const logs = climateLogs.filter(l=> l.areaId===entityId && dateSet.has(l.date)).sort((a,b)=> (a.date+a.timeSlot).localeCompare(b.date+b.timeSlot));
+    return { name: area ? area.name : '', columns: [t('日期'), t('時段'), t('溫度（°C）'), t('濕度（%）'), t('記錄人員')],
+      rows: logs.map(l=> [l.date, l.timeSlot, l.temperature, l.humidity, l.recordedBy||'']) };
+  }
+  const isStaff = kind === 'staff';
+  const list = isStaff ? hygieneStaffList : hygieneMachineList;
+  const logs = isStaff ? hygieneStaffLogs : hygieneMachineLogs;
+  const entity = list.find(x=>x.id===entityId);
+  const checklist = isStaff ? HYGIENE_STAFF_CHECKLIST : ((entity && entity.checklist) || []);
+  const entityLogs = logs.filter(l=> l.entityId===entityId && dateSet.has(l.date)).sort((a,b)=> a.date.localeCompare(b.date));
+  const columns = [t('日期')].concat(checklist.map(c=> isStaff ? t(c.label) : c.label)).concat([t('備註（選填）')]);
+  const rows = entityLogs.map(l=>{
+    const row = [l.date];
+    checklist.forEach(c=> row.push((l.checklist && l.checklist[c.id]) ? '✓' : '－'));
+    row.push(l.note || '');
+    return row;
+  });
+  return { name: entity ? entity.name : '', columns, rows };
+}
+function openHygieneDetail(kind, entityId){
+  editingHygieneDetail = { kind, entityId };
+  const kindLabel = kind==='climate' ? t('溫溼度') : (kind==='staff' ? t('人員衛生') : t('機器衛生'));
+  const { name, columns, rows } = buildHygieneDetailRows(kind, entityId);
+  document.getElementById('hygieneDetailTitle').textContent = name;
+  document.getElementById('hygieneDetailSub').textContent = kindLabel + '　' + hygieneStatsYear + (currentLang==='zh'?' 年':'') + '　' + t('共') + ' ' + rows.length + ' ' + t('筆');
+  const wrap = document.getElementById('hygieneDetailTableWrap');
+  if(rows.length === 0){
+    wrap.innerHTML = '<div class="ship-list-empty">' + t('這一年還沒有任何記錄') + '</div>';
+  }else{
+    let tableHtml = '<table class="hygiene-detail-table"><thead><tr>' + columns.map(c=>'<th>'+escapeHtml(String(c))+'</th>').join('') + '</tr></thead><tbody>';
+    rows.forEach(r=>{
+      tableHtml += '<tr>' + r.map((cell, idx)=>{
+        const cls = (idx>0 && idx<columns.length-1 && (cell==='✓'||cell==='－')) ? (cell==='✓'?'pass':'fail') : '';
+        return '<td class="'+cls+'">' + escapeHtml(cell===null||cell===undefined ? '' : String(cell)) + '</td>';
+      }).join('') + '</tr>';
+    });
+    tableHtml += '</tbody></table>';
+    wrap.innerHTML = tableHtml;
+  }
+  hygieneDetailOverlay.classList.add('show');
+}
+document.getElementById('btnCloseHygieneDetail').onclick = ()=> hygieneDetailOverlay.classList.remove('show');
+hygieneDetailOverlay.onclick = (e)=>{ if(e.target === hygieneDetailOverlay) hygieneDetailOverlay.classList.remove('show'); };
+document.getElementById('hygieneDetailExportBtn').onclick = ()=>{
+  if(!editingHygieneDetail) return;
+  if(typeof XLSX === 'undefined'){
+    showToast('Excel 匯出元件載入失敗，請檢查網路後重新整理再試');
+    return;
+  }
+  const { kind, entityId } = editingHygieneDetail;
+  const { name, columns, rows } = buildHygieneDetailRows(kind, entityId);
+  const sheetRows = rows.map(r=>{
+    const obj = {};
+    columns.forEach((c, idx)=>{ obj[c] = r[idx]; });
+    return obj;
+  });
+  const ws = XLSX.utils.json_to_sheet(sheetRows.length ? sheetRows : [{ [columns[0]]: '(無資料)' }]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, name.slice(0,28) || '點檢紀錄');
+  const wbout = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+  const blob = new Blob([wbout], { type:'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name + '_' + hygieneStatsYear + '年點檢紀錄.xlsx';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('已匯出 ' + name + ' 的點檢紀錄');
 };
 
 
