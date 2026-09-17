@@ -320,6 +320,9 @@
     border-radius:8px; padding:12px; margin-bottom:8px; cursor:pointer; user-select:none;
   }
   .hygiene-checklist-item input{ width:20px; height:20px; }
+  .machine-checklist-item-row{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .machine-checklist-item-row input[type="text"]{ flex:1; }
+  .machine-checklist-item-remove{ flex:0 0 auto; color:var(--red); font-weight:700; cursor:pointer; padding:8px; }
   .checkbox-field-label{
     display:flex; align-items:center; gap:10px; background:var(--panel-raised); border:1.5px solid var(--line);
     border-radius:8px; padding:12px; cursor:pointer; font-size:17.4px; user-select:none; width:100%;
@@ -924,9 +927,6 @@
       <button type="button" class="i18n split-btn" id="machineCheckAllBtn" style="margin-bottom:10px;">✓ 全部機器一鍵勾選（當天）</button>
       <div id="machineHygieneList"></div>
       <div style="margin-top:14px;">
-        <div class="field" style="margin-bottom:8px;">
-          <input type="text" id="machineNewInput" placeholder="輸入機器名稱">
-        </div>
         <button type="button" class="split-btn i18n" id="machineAddBtn">+ 新增機器</button>
       </div>
     </div>
@@ -980,6 +980,25 @@
       <button type="button" class="i18n btn-primary" id="hygieneEntrySaveBtn">儲存</button>
     </div>
     <button type="button" class="i18n btn-delete" id="hygieneEntryDeleteBtn" style="display:none;">刪除此筆記錄</button>
+  </div>
+</div>
+
+<div class="overlay" id="machineFormOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 id="machineFormTitle" class="i18n">新增機器</h2>
+    <div class="field">
+      <label class="i18n">機器名稱</label>
+      <input type="text" id="mfMachineName" placeholder="例如：自動下料磨粉機1號">
+    </div>
+    <div class="section-label i18n">保養項目</div>
+    <div id="machineChecklistItemList"></div>
+    <button type="button" class="i18n split-btn" id="btnAddMachineChecklistItem" style="margin-top:6px; margin-bottom:14px;">+ 新增保養項目</button>
+    <div class="sheet-actions">
+      <button type="button" class="i18n btn-secondary" id="machineFormCancelBtn">取消</button>
+      <button type="button" class="i18n btn-primary" id="machineFormSaveBtn">儲存</button>
+    </div>
+    <button type="button" class="i18n btn-delete" id="machineFormDeleteBtn" style="display:none;">刪除此機器</button>
   </div>
 </div>
 
@@ -1470,6 +1489,10 @@ const ID_DICT = {
   '有異常狀況可以在這裡說明':'Jelaskan di sini jika ada kondisi tidak normal',
   '請輸入人員姓名':'Mohon masukkan nama staf', '請輸入機器名稱':'Mohon masukkan nama mesin',
   '已新增人員':'Staf ditambahkan', '已新增機器':'Mesin ditambahkan', '已移除':'Dihapus',
+  '編輯機器':'Edit Mesin', '保養項目':'Item Perawatan', '+ 新增保養項目':'+ Tambah Item Perawatan',
+  '尚未設定保養項目，點 ⚙️ 設定':'Item perawatan belum diatur, klik ⚙️ untuk mengatur',
+  '請先點 ⚙️ 設定這台機器的保養項目':'Klik ⚙️ dulu untuk mengatur item perawatan mesin ini',
+  '已更新機器':'Mesin diperbarui', '已移除機器':'Mesin dihapus',
 };
 const EN_DICT = {
   // 生產階段
@@ -1545,6 +1568,10 @@ const EN_DICT = {
   '有異常狀況可以在這裡說明':'Describe any abnormal conditions here',
   '請輸入人員姓名':'Please enter staff name', '請輸入機器名稱':'Please enter machine name',
   '已新增人員':'Staff added', '已新增機器':'Machine added', '已移除':'Removed',
+  '編輯機器':'Edit Machine', '保養項目':'Maintenance Items', '+ 新增保養項目':'+ Add Maintenance Item',
+  '尚未設定保養項目，點 ⚙️ 設定':'Maintenance items not set, click ⚙️ to set up',
+  '請先點 ⚙️ 設定這台機器的保養項目':'Click ⚙️ first to set up maintenance items for this machine',
+  '已更新機器':'Machine updated', '已移除機器':'Machine removed',
 };
 function t(zh){
   if(currentLang === 'id') return ID_DICT[zh] || zh;
@@ -3303,9 +3330,6 @@ const HYGIENE_STAFF_CHECKLIST = [
   { id:'c1', label:'制服整潔' }, { id:'c2', label:'佩戴髮網/口罩' },
   { id:'c3', label:'勤洗手消毒' }, { id:'c4', label:'健康狀況良好' }
 ];
-const HYGIENE_MACHINE_CHECKLIST = [
-  { id:'c1', label:'清洗乾淨' }, { id:'c2', label:'消毒完成' }, { id:'c3', label:'無殘留物' }
-];
 let climateAreas = []; // [{id, name}]
 let climateLogs = []; // [{id, date, areaId, timeSlot, temperature, humidity, recordedBy, recordedAt}]
 let hygieneStaffList = []; // [{id, name}]
@@ -3488,8 +3512,12 @@ hygieneOverlay.onclick = (e)=>{ if(e.target === hygieneOverlay) hygieneOverlay.c
 // ---- 人員衛生 / 機器衛生 共用邏輯 ----
 function hygieneKindConfig(kind){
   return kind === 'staff'
-    ? { list: hygieneStaffList, logs: hygieneStaffLogs, checklist: HYGIENE_STAFF_CHECKLIST, listElId: 'staffHygieneList', entryTitle: '記錄人員衛生', emptyText: '還沒有任何人員，先在下面新增一位開始記錄' }
-    : { list: hygieneMachineList, logs: hygieneMachineLogs, checklist: HYGIENE_MACHINE_CHECKLIST, listElId: 'machineHygieneList', entryTitle: '記錄機器衛生', emptyText: '還沒有任何機器，先在下面新增一台開始記錄' };
+    ? { list: hygieneStaffList, logs: hygieneStaffLogs, listElId: 'staffHygieneList', entryTitle: '記錄人員衛生', emptyText: '還沒有任何人員，先在下面新增一位開始記錄' }
+    : { list: hygieneMachineList, logs: hygieneMachineLogs, listElId: 'machineHygieneList', entryTitle: '記錄機器衛生', emptyText: '還沒有任何機器，先在下面新增一台開始記錄' };
+}
+function getEntityChecklist(kind, entity){
+  if(kind === 'staff') return HYGIENE_STAFF_CHECKLIST;
+  return (entity && entity.checklist) || [];
 }
 function renderHygieneEntityList(kind){
   const cfg = hygieneKindConfig(kind);
@@ -3499,19 +3527,23 @@ function renderHygieneEntityList(kind){
     return;
   }
   listEl.innerHTML = cfg.list.map(entity=>{
+    const checklist = getEntityChecklist(kind, entity);
     const log = cfg.logs.find(l=> l.entityId===entity.id && l.date===climateSelectedDate);
-    const doneCount = log ? cfg.checklist.filter(c=>log.checklist && log.checklist[c.id]).length : 0;
-    const total = cfg.checklist.length;
-    const statusClass = !log ? '' : (doneCount === total ? 'done' : 'partial');
+    const doneCount = log ? checklist.filter(c=>log.checklist && log.checklist[c.id]).length : 0;
+    const total = checklist.length;
+    const statusClass = !log ? '' : (total > 0 && doneCount === total ? 'done' : 'partial');
     const statusText = !log ? t('尚未記錄') : (doneCount + ' / ' + total + (log.note ? '　📝 ' + t('有備註') : ''));
+    const settingsBtn = kind==='machine' ? '<span class="hygiene-entity-remove" data-edit-machine="'+entity.id+'" style="color:var(--ink-dim); margin-right:10px;">⚙️</span>' : '';
     return '<div class="hygiene-entity-row" data-kind="'+kind+'" data-entity-id="'+entity.id+'">' +
-      '<div class="hygiene-entity-top"><span class="hygiene-entity-name">' + escapeHtml(entity.name) + '</span><span class="hygiene-entity-remove" data-remove-entity="'+entity.id+'">✕</span></div>' +
-      '<div class="hygiene-entity-status ' + statusClass + '">' + statusText + '</div>' +
+      '<div class="hygiene-entity-top"><span class="hygiene-entity-name">' + escapeHtml(entity.name) + '</span><span>' + settingsBtn + '<span class="hygiene-entity-remove" data-remove-entity="'+entity.id+'">✕</span></span></div>' +
+      '<div class="hygiene-entity-status ' + statusClass + '">' + (total===0 ? t('尚未設定保養項目，點 ⚙️ 設定') : statusText) + '</div>' +
     '</div>';
   }).join('');
   listEl.querySelectorAll('.hygiene-entity-row').forEach(el=>{
     el.onclick = (e)=>{
-      if(e.target.dataset.removeEntity) return;
+      if(e.target.dataset.removeEntity || e.target.dataset.editMachine) return;
+      const checklist = getEntityChecklist(kind, cfg.list.find(x=>x.id===el.dataset.entityId));
+      if(checklist.length === 0){ showToast('請先點 ⚙️ 設定這台機器的保養項目'); return; }
       openHygieneEntry(kind, el.dataset.entityId);
     };
   });
@@ -3534,19 +3566,26 @@ function renderHygieneEntityList(kind){
       showToast('已移除');
     };
   });
+  listEl.querySelectorAll('[data-edit-machine]').forEach(el=>{
+    el.onclick = (e)=>{
+      e.stopPropagation();
+      openMachineForm(hygieneMachineList.find(x=>x.id===el.dataset.editMachine));
+    };
+  });
 }
 function openHygieneEntry(kind, entityId){
   const cfg = hygieneKindConfig(kind);
   const entity = cfg.list.find(x=>x.id===entityId);
   if(!entity) return;
+  const checklist = getEntityChecklist(kind, entity);
   const existingLog = cfg.logs.find(l=> l.entityId===entityId && l.date===climateSelectedDate);
   editingHygieneEntry = { kind, entityId, existingLog };
   document.getElementById('hygieneEntryTitle').textContent = t(cfg.entryTitle);
   document.getElementById('hygieneEntrySub').textContent = entity.name + '　' + climateSelectedDate;
   const checklistEl = document.getElementById('hygieneEntryChecklist');
-  checklistEl.innerHTML = cfg.checklist.map(c=>{
+  checklistEl.innerHTML = checklist.map(c=>{
     const checked = existingLog && existingLog.checklist && existingLog.checklist[c.id];
-    return '<label class="hygiene-checklist-item"><input type="checkbox" class="hygieneChecklistInput" data-cid="'+c.id+'" '+(checked?'checked':'')+'>' + escapeHtml(t(c.label)) + '</label>';
+    return '<label class="hygiene-checklist-item"><input type="checkbox" class="hygieneChecklistInput" data-cid="'+c.id+'" '+(checked?'checked':'')+'>' + escapeHtml(kind==='staff' ? t(c.label) : c.label) + '</label>';
   }).join('');
   document.getElementById('hygieneEntryNoteInput').value = existingLog ? (existingLog.note || '') : '';
   document.getElementById('hygieneEntryDeleteBtn').style.display = existingLog ? 'block' : 'none';
@@ -3598,23 +3637,15 @@ document.getElementById('staffAddBtn').onclick = async ()=>{
   renderHygieneEntityList('staff');
   showToast('已新增人員');
 };
-document.getElementById('machineAddBtn').onclick = async ()=>{
-  const input = document.getElementById('machineNewInput');
-  const name = input.value.trim();
-  if(!name){ showToast('請輸入機器名稱'); return; }
-  hygieneMachineList.push({ id: 'hm_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), name });
-  await saveClimateData();
-  input.value = '';
-  renderHygieneEntityList('machine');
-  showToast('已新增機器');
-};
 
 async function checkAllHygieneEntities(kind){
   const cfg = hygieneKindConfig(kind);
   if(cfg.list.length === 0){ showToast('目前還沒有任何項目可以勾選'); return; }
-  const allChecklistOn = {};
-  cfg.checklist.forEach(c=>{ allChecklistOn[c.id] = true; });
   cfg.list.forEach(entity=>{
+    const checklist = getEntityChecklist(kind, entity);
+    if(checklist.length === 0) return; // 機器還沒設定保養項目就跳過，不強制建立空記錄
+    const allChecklistOn = {};
+    checklist.forEach(c=>{ allChecklistOn[c.id] = true; });
     const existingLog = cfg.logs.find(l=> l.entityId===entity.id && l.date===climateSelectedDate);
     if(existingLog){
       existingLog.checklist = Object.assign({}, allChecklistOn);
@@ -3628,6 +3659,93 @@ async function checkAllHygieneEntities(kind){
 }
 document.getElementById('staffCheckAllBtn').onclick = ()=> checkAllHygieneEntities('staff');
 document.getElementById('machineCheckAllBtn').onclick = ()=> checkAllHygieneEntities('machine');
+
+// ---- 機器保養項目設定表單 ----
+let editingMachineId = null;
+const machineFormOverlay = document.getElementById('machineFormOverlay');
+const DEFAULT_MACHINE_CHECKLIST_TEMPLATE = [
+  { label:'清洗乾淨' }, { label:'消毒完成' }, { label:'無殘留物' }
+];
+function renderMachineChecklistItemList(items){
+  const container = document.getElementById('machineChecklistItemList');
+  if(!items || items.length === 0){
+    container.innerHTML = '<div class="ship-list-empty" style="margin-bottom:8px;">還沒有任何保養項目，點下面「+ 新增保養項目」加入第一筆</div>';
+    return;
+  }
+  container.innerHTML = items.map((c, idx)=>{
+    return '<div class="machine-checklist-item-row" data-idx="'+idx+'">' +
+      '<input type="text" class="machineChecklistLabelInput" placeholder="保養項目名稱" value="'+escapeHtml(c.label||'')+'">' +
+      '<span class="machine-checklist-item-remove" data-remove-checklist-item="1">✕</span>' +
+    '</div>';
+  }).join('');
+  container.querySelectorAll('[data-remove-checklist-item]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const current = getMachineChecklistItemsFromForm();
+      const idx = Number(btn.closest('.machine-checklist-item-row').dataset.idx);
+      current.splice(idx, 1);
+      renderMachineChecklistItemList(current);
+    };
+  });
+}
+function getMachineChecklistItemsFromForm(){
+  return Array.from(document.querySelectorAll('#machineChecklistItemList .machine-checklist-item-row')).map(row=>({
+    label: row.querySelector('.machineChecklistLabelInput').value.trim()
+  }));
+}
+document.getElementById('btnAddMachineChecklistItem').onclick = ()=>{
+  const current = getMachineChecklistItemsFromForm();
+  current.push({ label:'' });
+  renderMachineChecklistItemList(current);
+};
+function openMachineForm(machine){
+  editingMachineId = machine ? machine.id : null;
+  document.getElementById('machineFormTitle').textContent = t(machine ? '編輯機器' : '新增機器');
+  document.getElementById('mfMachineName').value = machine ? machine.name : '';
+  const initialChecklist = machine ? (machine.checklist || []).map(c=>({ label:c.label })) : DEFAULT_MACHINE_CHECKLIST_TEMPLATE.map(c=>({label:c.label}));
+  renderMachineChecklistItemList(initialChecklist);
+  document.getElementById('machineFormDeleteBtn').style.display = machine ? 'block' : 'none';
+  machineFormOverlay.classList.add('show');
+}
+document.getElementById('machineAddBtn').onclick = ()=> openMachineForm(null);
+document.getElementById('machineFormCancelBtn').onclick = ()=> machineFormOverlay.classList.remove('show');
+machineFormOverlay.onclick = (e)=>{ if(e.target === machineFormOverlay) machineFormOverlay.classList.remove('show'); };
+document.getElementById('machineFormSaveBtn').onclick = async ()=>{
+  const name = document.getElementById('mfMachineName').value.trim();
+  if(!name){ showToast('請輸入機器名稱'); return; }
+  const items = getMachineChecklistItemsFromForm().filter(c=>c.label);
+  if(editingMachineId){
+    const m = hygieneMachineList.find(x=>x.id===editingMachineId);
+    if(m){
+      // 盡量沿用舊的項目id(用label比對)，保留舊記錄的勾選狀態能對得上；全新的項目才給新id
+      const oldChecklist = m.checklist || [];
+      const newChecklist = items.map(item=>{
+        const matched = oldChecklist.find(oc=>oc.label===item.label);
+        return { id: matched ? matched.id : ('mc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)), label: item.label };
+      });
+      m.name = name;
+      m.checklist = newChecklist;
+    }
+    showToast('已更新機器');
+  }else{
+    const checklist = items.map(item=>({ id:'mc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'_'+Math.random().toString(36).slice(2,5), label:item.label }));
+    hygieneMachineList.push({ id: 'hm_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), name, checklist });
+    showToast('已新增機器');
+  }
+  await saveClimateData();
+  machineFormOverlay.classList.remove('show');
+  renderHygieneEntityList('machine');
+};
+document.getElementById('machineFormDeleteBtn').onclick = async ()=>{
+  if(!editingMachineId) return;
+  const ok = await showConfirm('這台機器過去記錄的衛生檢查資料也會一併刪除，確定要移除嗎？', '確定要移除這台機器嗎？');
+  if(!ok) return;
+  hygieneMachineList = hygieneMachineList.filter(x=>x.id!==editingMachineId);
+  hygieneMachineLogs = hygieneMachineLogs.filter(l=>l.entityId!==editingMachineId);
+  await saveClimateData();
+  machineFormOverlay.classList.remove('show');
+  renderHygieneEntityList('machine');
+  showToast('已移除機器');
+};
 
 
 let currentStatDetailKey = null;
