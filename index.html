@@ -910,6 +910,7 @@
     </div>
 
     <div id="hygienePanelStaff" style="display:none;">
+      <button type="button" class="i18n split-btn" id="staffCheckAllBtn" style="margin-bottom:10px;">✓ 全員一鍵勾選（當天）</button>
       <div id="staffHygieneList"></div>
       <div style="margin-top:14px;">
         <div class="field" style="margin-bottom:8px;">
@@ -920,6 +921,7 @@
     </div>
 
     <div id="hygienePanelMachine" style="display:none;">
+      <button type="button" class="i18n split-btn" id="machineCheckAllBtn" style="margin-bottom:10px;">✓ 全部機器一鍵勾選（當天）</button>
       <div id="machineHygieneList"></div>
       <div style="margin-top:14px;">
         <div class="field" style="margin-bottom:8px;">
@@ -967,6 +969,7 @@
     <div class="sheet-handle"></div>
     <h2 id="hygieneEntryTitle">記錄衛生檢查</h2>
     <div class="sheet-sub" id="hygieneEntrySub"></div>
+    <button type="button" class="i18n split-btn" id="hygieneEntryCheckAllBtn" style="margin-bottom:10px;">✓ 一鍵勾選</button>
     <div id="hygieneEntryChecklist" style="margin-bottom:12px;"></div>
     <div class="field">
       <label class="i18n">備註（選填）</label>
@@ -1459,6 +1462,7 @@ const ID_DICT = {
   '記錄人員':'Dicatat Oleh', '+ 新增區域':'+ Tambah Area', '刪除此筆記錄':'Hapus Catatan Ini',
   '前往記錄':'Pergi Mencatat',
   '衛生管理':'Manajemen Kebersihan', '🌡️ 溫溼度':'🌡️ Suhu & Kelembaban', '👤 人員衛生':'👤 Kebersihan Staf', '🔧 機器衛生':'🔧 Kebersihan Mesin',
+  '人員衛生':'Kebersihan Staf', '機器衛生':'Kebersihan Mesin', '全員一鍵勾選（當天）':'Centang Semua Staf (Hari Ini)', '全部機器一鍵勾選（當天）':'Centang Semua Mesin (Hari Ini)', '目前還沒有任何項目可以勾選':'Belum ada item untuk dicentang',
   '+ 新增人員':'+ Tambah Staf', '+ 新增機器':'+ Tambah Mesin', '記錄人員衛生':'Catat Kebersihan Staf', '記錄機器衛生':'Catat Kebersihan Mesin',
   '制服整潔':'Seragam Rapi', '佩戴髮網/口罩':'Pakai Jaring Rambut/Masker', '勤洗手消毒':'Cuci Tangan & Sanitasi',
   '健康狀況良好':'Kondisi Kesehatan Baik', '清洗乾淨':'Dibersihkan', '消毒完成':'Disanitasi', '無殘留物':'Tidak Ada Residu',
@@ -1533,6 +1537,7 @@ const EN_DICT = {
   '記錄人員':'Recorded By', '+ 新增區域':'+ Add Area', '刪除此筆記錄':'Delete This Record',
   '前往記錄':'Go to Record',
   '衛生管理':'Hygiene Management', '🌡️ 溫溼度':'🌡️ Temp & Humidity', '👤 人員衛生':'👤 Staff Hygiene', '🔧 機器衛生':'🔧 Machine Hygiene',
+  '人員衛生':'Staff Hygiene', '機器衛生':'Machine Hygiene', '全員一鍵勾選（當天）':'Check All Staff (Today)', '全部機器一鍵勾選（當天）':'Check All Machines (Today)', '目前還沒有任何項目可以勾選':'No items to check yet',
   '+ 新增人員':'+ Add Staff', '+ 新增機器':'+ Add Machine', '記錄人員衛生':'Record Staff Hygiene', '記錄機器衛生':'Record Machine Hygiene',
   '制服整潔':'Uniform Clean', '佩戴髮網/口罩':'Hairnet/Mask Worn', '勤洗手消毒':'Handwashing & Sanitizing',
   '健康狀況良好':'Good Health Condition', '清洗乾淨':'Cleaned', '消毒完成':'Sanitized', '無殘留物':'No Residue',
@@ -3548,6 +3553,11 @@ function openHygieneEntry(kind, entityId){
   hygieneEntryOverlay.classList.add('show');
 }
 document.getElementById('hygieneEntryCancelBtn').onclick = ()=> hygieneEntryOverlay.classList.remove('show');
+document.getElementById('hygieneEntryCheckAllBtn').onclick = ()=>{
+  const boxes = document.querySelectorAll('.hygieneChecklistInput');
+  const allOn = Array.from(boxes).every(b=>b.checked);
+  boxes.forEach(b=> b.checked = !allOn);
+};
 hygieneEntryOverlay.onclick = (e)=>{ if(e.target === hygieneEntryOverlay) hygieneEntryOverlay.classList.remove('show'); };
 document.getElementById('hygieneEntrySaveBtn').onclick = async ()=>{
   if(!editingHygieneEntry) return;
@@ -3598,6 +3608,26 @@ document.getElementById('machineAddBtn').onclick = async ()=>{
   renderHygieneEntityList('machine');
   showToast('已新增機器');
 };
+
+async function checkAllHygieneEntities(kind){
+  const cfg = hygieneKindConfig(kind);
+  if(cfg.list.length === 0){ showToast('目前還沒有任何項目可以勾選'); return; }
+  const allChecklistOn = {};
+  cfg.checklist.forEach(c=>{ allChecklistOn[c.id] = true; });
+  cfg.list.forEach(entity=>{
+    const existingLog = cfg.logs.find(l=> l.entityId===entity.id && l.date===climateSelectedDate);
+    if(existingLog){
+      existingLog.checklist = Object.assign({}, allChecklistOn);
+    }else{
+      cfg.logs.push({ id: 'hl_' + Date.now() + '_' + Math.random().toString(36).slice(2,7) + '_' + entity.id, date: climateSelectedDate, entityId: entity.id, checklist: Object.assign({}, allChecklistOn), note: '', recordedAt: Date.now() });
+    }
+  });
+  await saveClimateData();
+  renderHygieneEntityList(kind);
+  showToast('已將 ' + climateSelectedDate + ' 的所有' + (kind==='staff' ? t('人員衛生') : t('機器衛生')) + '項目全部勾選完成');
+}
+document.getElementById('staffCheckAllBtn').onclick = ()=> checkAllHygieneEntities('staff');
+document.getElementById('machineCheckAllBtn').onclick = ()=> checkAllHygieneEntities('machine');
 
 
 let currentStatDetailKey = null;
