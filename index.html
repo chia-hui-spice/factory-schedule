@@ -1683,6 +1683,7 @@ function shipMethodFullLabel(item){
 }
 
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
+const HYGIENE_FEATURE_ENABLED = false; // 衛生管理功能開關：改成 true 即可恢復顯示，資料不受影響
 const PERM_BUTTON_OPTIONS = [
   { id: 'bomBtn', label: '📦 進銷存管理' },
   { id: 'reportBtn', label: '📊 統計報表' },
@@ -3064,6 +3065,7 @@ function renderAlertBanner(){
 }
 
 function getClimateMissingReminders(){
+  if(!HYGIENE_FEATURE_ENABLED) return [];
   if(!climateAreas || climateAreas.length === 0) return [];
   const now = new Date();
   const nowMinutes = now.getHours()*60 + now.getMinutes();
@@ -5607,6 +5609,7 @@ onAuthStateChanged(auth, async (user)=>{
   gate.classList.add('hidden');
   currentUserEmail = (user.email || '').toLowerCase();
   isCurrentUserAdmin = ADMIN_EMAILS.includes(currentUserEmail);
+  document.getElementById('hygieneBtn').style.display = HYGIENE_FEATURE_ENABLED ? '' : 'none';
   if(!appInitialized){
     appInitialized = true;
     await loadBackupState();
