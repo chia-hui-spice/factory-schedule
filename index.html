@@ -859,7 +859,7 @@
     </div>
 
     <div class="report-tab-panel" id="reportPanelSearch" style="display:none;">
-      <div class="report-section-title" style="margin-top:0;">🔍 依填寫日期查詢訂單</div>
+      <div class="report-section-title i18n" style="margin-top:0;">🔍 訂單查詢</div>
       <div class="ship-filter-bar">
         <div class="row2" style="margin-bottom:8px;">
           <div class="field" style="margin-bottom:0;">
@@ -869,6 +869,16 @@
           <div class="field" style="margin-bottom:0;">
             <label class="i18n">填寫日期（迄，可留空＝查單一天）</label>
             <input type="date" id="searchFillDateTo">
+          </div>
+        </div>
+        <div class="row2" style="margin-bottom:8px;">
+          <div class="field" style="margin-bottom:0;">
+            <label class="i18n">出貨日期（起）</label>
+            <input type="date" id="searchDueDateFrom">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label class="i18n">出貨日期（迄，可留空＝查單一天）</label>
+            <input type="date" id="searchDueDateTo">
           </div>
         </div>
         <div class="field" style="margin-bottom:0;">
@@ -1486,6 +1496,8 @@ const ID_DICT = {
   '合併到正式版':'Gabungkan ke Versi Resmi', '品管確認':'Konfirmasi Kontrol Kualitas', '單位':'Satuan', '垃圾桶':'Tempat Sampah',
   '基本資料':'Data Dasar', '填寫人員':'Petugas Pengisian', '填寫日期':'Tanggal Pengisian', '填寫日期（起）':'Tanggal Pengisian (Dari)',
   '填寫日期（迄，可留空＝查單一天）':'Tanggal Pengisian (Sampai, kosongkan = satu hari)', '填寫時間':'Waktu Pengisian',
+  '出貨日期（起）':'Tanggal Pengiriman (Dari)', '出貨日期（迄，可留空＝查單一天）':'Tanggal Pengiriman (Sampai, kosongkan = satu hari)',
+  '請輸入填寫日期、出貨日期或客戶名稱開始查詢':'Masukkan tanggal pengisian, tanggal pengiriman, atau nama pelanggan untuk mencari',
   '大腸桿菌':'E. coli', '大腸桿菌群':'Coliform', '客戶':'Pelanggan', '客戶名稱':'Nama Pelanggan', '客戶（可留空）':'Pelanggan (opsional)',
   '實際出貨日期':'Tanggal Pengiriman Aktual', '已設定限制的帳號':'Akun dengan Batasan', '從備份還原資料':'Pulihkan Data dari Cadangan',
   '批號':'Nomor Batch', '批號 / 日期':'Nomor Batch / Tanggal', '拆分品項':'Pisahkan Item', '數量':'Jumlah', '有效日期':'Tanggal Kedaluwarsa',
@@ -1572,6 +1584,8 @@ const EN_DICT = {
   '合併到正式版':'Merge into Production', '品管確認':'QC Confirmation', '單位':'Unit', '垃圾桶':'Trash',
   '基本資料':'Basic Info', '填寫人員':'Filled By', '填寫日期':'Fill Date', '填寫日期（起）':'Fill Date (From)',
   '填寫日期（迄，可留空＝查單一天）':'Fill Date (To, leave blank for one day)', '填寫時間':'Fill Time',
+  '出貨日期（起）':'Ship Date (From)', '出貨日期（迄，可留空＝查單一天）':'Ship Date (To, leave blank for one day)',
+  '請輸入填寫日期、出貨日期或客戶名稱開始查詢':'Enter a fill date, ship date, or customer name to search',
   '大腸桿菌':'E. coli', '大腸桿菌群':'Coliform', '客戶':'Customer', '客戶名稱':'Customer Name', '客戶（可留空）':'Customer (optional)',
   '實際出貨日期':'Actual Ship Date', '已設定限制的帳號':'Accounts with Restrictions', '從備份還原資料':'Restore Data from Backup',
   '批號':'Batch No.', '批號 / 日期':'Batch No. / Date', '拆分品項':'Split Item', '數量':'Quantity', '有效日期':'Expiry Date',
@@ -3210,10 +3224,12 @@ function renderOrderSearchList(){
 
   const fillDateFrom = document.getElementById('searchFillDateFrom').value;
   const fillDateTo = document.getElementById('searchFillDateTo').value;
+  const dueDateFrom = document.getElementById('searchDueDateFrom').value;
+  const dueDateTo = document.getElementById('searchDueDateTo').value;
   const customerKeyword = document.getElementById('searchCustomer').value.trim().toLowerCase();
 
-  if(!fillDateFrom && !fillDateTo && !customerKeyword){
-    listEl.innerHTML = '<div class="ship-list-empty">請輸入填寫日期或客戶名稱開始查詢</div>';
+  if(!fillDateFrom && !fillDateTo && !dueDateFrom && !dueDateTo && !customerKeyword){
+    listEl.innerHTML = '<div class="ship-list-empty">' + t('請輸入填寫日期、出貨日期或客戶名稱開始查詢') + '</div>';
     return;
   }
 
@@ -3225,10 +3241,18 @@ function renderOrderSearchList(){
   }else if(fillDateTo){
     results = results.filter(x => x.item.fillFormDate && x.item.fillFormDate <= fillDateTo);
   }
+  if(dueDateFrom && dueDateTo){
+    results = results.filter(x => x.item.due && x.item.due >= dueDateFrom && x.item.due <= dueDateTo);
+  }else if(dueDateFrom){
+    results = results.filter(x => x.item.due === dueDateFrom);
+  }else if(dueDateTo){
+    results = results.filter(x => x.item.due && x.item.due <= dueDateTo);
+  }
   if(customerKeyword){
     results = results.filter(x => (x.order.customer || '').toLowerCase().includes(customerKeyword));
   }
-  results.sort((a,b)=> (a.item.fillFormDate||'').localeCompare(b.item.fillFormDate||''));
+  const sortByDue = (dueDateFrom || dueDateTo) && !fillDateFrom && !fillDateTo;
+  results.sort((a,b)=> sortByDue ? (a.item.due||'').localeCompare(b.item.due||'') : (a.item.fillFormDate||'').localeCompare(b.item.fillFormDate||''));
 
   if(results.length === 0){
     listEl.innerHTML = '<div class="ship-list-empty">沒有符合條件的訂單</div>';
@@ -3237,16 +3261,17 @@ function renderOrderSearchList(){
 
   listEl.innerHTML = results.map(x=>{
     const stageTag = '<span class="badge stage st-' + x.item.status + '">' + STATUS_LABEL[x.item.status] + '</span>';
-    const dateTag = x.item.fillFormDate ? ('<span class="ship-list-tag">填寫日期 ' + x.item.fillFormDate + '</span>') : '';
+    const dateTag = x.item.fillFormDate ? ('<span class="ship-list-tag">' + t('填寫日期') + ' ' + x.item.fillFormDate + '</span>') : '';
+    const dueTag = x.item.due ? ('<span class="ship-list-tag">' + t('出貨日期') + ' ' + x.item.due + '</span>') : '';
     const batchBits = [];
-    if(x.item.productBatchNo) batchBits.push('批號 ' + escapeHtml(x.item.productBatchNo));
-    if(x.item.productMfgDate) batchBits.push('製造日期 ' + x.item.productMfgDate);
-    if(x.item.productExpDate) batchBits.push('有效日期 ' + x.item.productExpDate);
+    if(x.item.productBatchNo) batchBits.push(t('批號') + ' ' + escapeHtml(x.item.productBatchNo));
+    if(x.item.productMfgDate) batchBits.push(t('製造日期') + ' ' + x.item.productMfgDate);
+    if(x.item.productExpDate) batchBits.push(t('有效日期') + ' ' + x.item.productExpDate);
     const batchTag = batchBits.length > 0 ? ('<span class="ship-list-tag">' + batchBits.join('　') + '</span>') : '';
     return '<div class="ship-list-row" data-jump-oid="'+x.order.id+'" data-jump-iid="'+x.item.id+'" style="cursor:pointer;">' +
       '<div><div class="ship-list-name">' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + '</div>' +
       '<div class="ship-list-meta">' + escapeHtml(x.order.orderNo || '') + (x.item.spec ? ' ・ ' + escapeHtml(x.item.spec) : '') + '</div>' +
-      stageTag + dateTag + batchTag +
+      stageTag + dateTag + dueTag + batchTag +
       '</div><div class="ship-list-qty">x' + x.item.qty + '</div></div>';
   }).join('');
 
@@ -3263,10 +3288,14 @@ function renderOrderSearchList(){
 }
 document.getElementById('searchFillDateFrom').addEventListener('input', renderOrderSearchList);
 document.getElementById('searchFillDateTo').addEventListener('input', renderOrderSearchList);
+document.getElementById('searchDueDateFrom').addEventListener('input', renderOrderSearchList);
+document.getElementById('searchDueDateTo').addEventListener('input', renderOrderSearchList);
 document.getElementById('searchCustomer').addEventListener('input', renderOrderSearchList);
 document.getElementById('searchClearBtn').onclick = ()=>{
   document.getElementById('searchFillDateFrom').value = '';
   document.getElementById('searchFillDateTo').value = '';
+  document.getElementById('searchDueDateFrom').value = '';
+  document.getElementById('searchDueDateTo').value = '';
   document.getElementById('searchCustomer').value = '';
   renderOrderSearchList();
 };
