@@ -493,9 +493,33 @@
         </div>
         <div class="field">
           <label class="i18n">規格</label>
-          <input type="text" id="fSpec" placeholder="例如 箱">
+          <input type="text" id="fSpec" placeholder="例如 500g/包" list="specSuggestions">
         </div>
       </div>
+
+      <datalist id="specSuggestions">
+        <option value="補充包/100g/包">
+        <option value="顆粒補充包/100g/包">
+        <option value="2公斤/桶">
+        <option value="1公斤/包">
+        <option value="600g/包">
+        <option value="500g/包">
+        <option value="150g/包">
+        <option value="300g/包">
+        <option value="5公斤/袋">
+        <option value="10公斤/袋">
+        <option value="20公斤/袋">
+        <option value="25公斤/袋">
+        <option value="4g/5包/袋">
+        <option value="10g/5包/袋">
+        <option value="75g/包">
+        <option value="5包入">
+        <option value="100包/袋">
+        <option value="50g*2包/盒">
+        <option value="25入/袋">
+        <option value="50包/袋">
+        <option value="1500包/箱">
+      </datalist>
       <div class="field">
         <label class="i18n">數量</label>
         <input type="number" id="fQty" placeholder="0" min="1" required>
@@ -1225,7 +1249,7 @@
     </div>
     <div class="field">
       <label class="i18n">規格（需與訂單品項的規格完全一致，留空表示不分規格）</label>
-      <input type="text" id="fgSpec" placeholder="例如 500g/包">
+      <input type="text" id="fgSpec" placeholder="例如 500g/包" list="specSuggestions">
     </div>
     <div class="row2">
       <div class="field">
