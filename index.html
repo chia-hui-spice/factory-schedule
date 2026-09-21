@@ -2726,10 +2726,26 @@ function getAllKnownProductNames(){
   finishedGoods.forEach(f=>{ if(f.product) names.add(f.product); });
   return Array.from(names).sort();
 }
-function populateProductSuggestions(){
+function getProductsForCustomer(customerName){
+  if(!customerName) return [];
+  const names = new Set();
+  orders.forEach(o=>{
+    if(o.customer === customerName){
+      (o.items||[]).forEach(it=>{ if(it.product) names.add(it.product); });
+    }
+  });
+  return Array.from(names);
+}
+function populateProductSuggestions(customerName){
   const listEl = document.getElementById('productSuggestions');
   if(!listEl) return;
-  listEl.innerHTML = getAllKnownProductNames().map(n=>'<option value="'+escapeHtml(n)+'">').join('');
+  const customerProducts = getProductsForCustomer(customerName);
+  const allProducts = getAllKnownProductNames();
+  // 這個客戶以前訂過的產品排最前面，方便快速選，其他產品也都還在後面
+  const orderedProducts = customerProducts.length > 0
+    ? customerProducts.concat(allProducts.filter(n=>!customerProducts.includes(n)))
+    : allProducts;
+  listEl.innerHTML = orderedProducts.map(n=>'<option value="'+escapeHtml(n)+'">').join('');
 }
 function populateSpecSelect(selectId, customId, productName, currentValue){
   const select = document.getElementById(selectId);
@@ -2811,7 +2827,7 @@ document.getElementById('btnCheckAll').onclick = ()=>{
 function openSheet(order, item){
   editingOrderId = order ? order.id : null;
   editingItemId = item ? item.id : null;
-  populateProductSuggestions();
+  populateProductSuggestions(order ? order.customer : '');
 
   const isNewOrder = !order;
   const isNewItem = order && !item;
@@ -5598,6 +5614,9 @@ function autoFillMaterialFromBom(){
   if(!mfgEl.value) setFlexDateValue('fMaterialMfgDate', primaryBatch.mfgDate || '');
   if(!expEl.value) setFlexDateValue('fMaterialExpDate', primaryBatch.expDate || '');
 }
+document.getElementById('fCustomer').addEventListener('input', function(){
+  populateProductSuggestions(this.value.trim());
+});
 document.getElementById('fProduct').addEventListener('blur', autoFillMaterialFromBom);
 document.getElementById('fProduct').addEventListener('input', function(){
   const currentSpec = getPickerValue('fSpec', 'fSpecCustom');
