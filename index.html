@@ -1223,6 +1223,10 @@
       <label class="i18n">產品名稱（需與訂單品項的產品名稱完全一致）</label>
       <input type="text" id="fgProduct" placeholder="例如 炒香料">
     </div>
+    <div class="field">
+      <label class="i18n">規格（需與訂單品項的規格完全一致，留空表示不分規格）</label>
+      <input type="text" id="fgSpec" placeholder="例如 500g/包">
+    </div>
     <div class="row2">
       <div class="field">
         <label class="i18n">單位</label>
@@ -2116,7 +2120,7 @@ function renderList(){
 
       let stockInfoHtml = '';
       if(item.status === 'inprogress'){
-        const fg = finishedGoods.find(f=>f.product === item.product);
+        const fg = finishedGoods.find(f=>f.product === item.product && (f.spec||'') === (item.spec||''));
         const currentStock = fg ? finishedGoodTotalStock(fg) : 0;
         const unit = fg ? (fg.unit||'') : '';
         const stillNeed = Math.max(item.qty - currentStock, 0);
@@ -2130,7 +2134,7 @@ function renderList(){
               '<div class="stock-batch-item">批號 <b>' + escapeHtml(b.batchNo||'未命名') + '</b>　剩 <b>' + b.stock + '</b>' + (unit?' '+escapeHtml(unit):'') + (b.expDate ? '　有效期限 ' + b.expDate : '') + '</div>'
             ).join('') + '</div>'
           : '';
-        stockInfoHtml = '<div class="stock-info-row" data-stock-product="'+escapeHtml(item.product)+'">📦 目前成品庫存 <b>' + currentStock + '</b>' + (unit?' '+escapeHtml(unit):'') +
+        stockInfoHtml = '<div class="stock-info-row" data-stock-product="'+escapeHtml(item.product)+'" data-stock-spec="'+escapeHtml(item.spec||'')+'">📦 目前成品庫存 <b>' + currentStock + '</b>' + (unit?' '+escapeHtml(unit):'') +
           '　還需要生產 <b class="' + (stillNeed > 0 ? 'need' : 'enough') + '">' + stillNeed + '</b>' + (unit?' '+escapeHtml(unit):'') +
           '<span class="stock-info-edit">✎ 點擊修改庫存</span></div>' + batchListHtml + fastTrackBtn;
       }
@@ -2249,7 +2253,7 @@ function renderList(){
       // 曾用「⚡用現有庫存直接送出貨確認」跳過中間階段的品項，退回時應直接回到庫存確認、歸還預扣的成品庫存，
       // 而不是照正常順序退到「裝箱確認」（因為這個品項實際上根本沒經過那個階段）
       if(item.status === 'shipped' && item.stockPreDeducted){
-        const fg = findOrCreateFinishedGood(item.product);
+        const fg = findOrCreateFinishedGood(item.product, item.spec);
         addFinishedGoodBatchStock(fg, item.qty||0, item.productBatchNo||'', item.productMfgDate||'', item.productExpDate||'');
         item.status = 'inprogress';
         item.stockPreDeducted = false;
@@ -2313,8 +2317,9 @@ function renderList(){
   wrap.querySelectorAll('[data-stock-product]').forEach(row=>{
     row.onclick = ()=>{
       const productName = row.dataset.stockProduct;
-      const existing = finishedGoods.find(f=>f.product === productName);
-      const fg = findOrCreateFinishedGood(productName);
+      const spec = row.dataset.stockSpec || '';
+      const existing = finishedGoods.find(f=>f.product === productName && (f.spec||'') === spec);
+      const fg = findOrCreateFinishedGood(productName, spec);
       pendingNewFgId = existing ? null : fg.id;
       openFgForm(fg);
       if(!existing){
@@ -2329,7 +2334,7 @@ function renderList(){
       const item = order && order.items.find(i=>i.id === btn.dataset.iid);
       if(!order || !item) return;
 
-      const fg = findOrCreateFinishedGood(item.product);
+      const fg = findOrCreateFinishedGood(item.product, item.spec);
       const currentStock = finishedGoodTotalStock(fg);
       const fulfillQty = Math.min(currentStock, item.qty);
       if(fulfillQty <= 0){ showToast('目前沒有可用的成品庫存'); return; }
@@ -4564,7 +4569,7 @@ function loadBomData(){
     materials = (data.materials || []).map(ensureMaterialBatches);
     boms = data.boms || [];
     receipts = data.receipts || [];
-    finishedGoods = (data.finishedGoods || []).map(ensureFinishedGoodBatches);
+    finishedGoods = (data.finishedGoods || []).map(ensureFinishedGoodBatches).map(f=>{ if(f.spec === undefined) f.spec = ''; return f; });
     semiGoods = data.semiGoods || [];
     semiBoms = data.semiBoms || [];
     renderMaterialList();
@@ -4778,7 +4783,7 @@ function renderFinishedGoodList(){
           ? ('批號 ' + escapeHtml(activeBatches[0].batchNo||'－') + '　有效期限 ' + (activeBatches[0].expDate||'－'))
           : (activeBatches.length + ' 個批次：' + activeBatches.map(b=>escapeHtml(b.batchNo||'未命名')+'('+b.stock+')').join('、'))) + '</div>';
     return '<div class="material-item" data-fgid="'+f.id+'">' +
-      '<div class="material-item-top"><div class="material-item-name">'+escapeHtml(f.product)+'</div><div class="material-item-stock">'+ total +' '+escapeHtml(f.unit||'')+'</div></div>' +
+      '<div class="material-item-top"><div class="material-item-name">'+escapeHtml(f.product)+(f.spec ? '<span class="item-spec"> ・ '+escapeHtml(f.spec)+'</span>' : '')+'</div><div class="material-item-stock">'+ total +' '+escapeHtml(f.unit||'')+'</div></div>' +
       metaLine +
     '</div>';
   }).join('');
@@ -4790,10 +4795,11 @@ function renderFinishedGoodList(){
   });
 }
 
-function findOrCreateFinishedGood(productName){
-  let f = finishedGoods.find(x=>x.product === productName);
+function findOrCreateFinishedGood(productName, spec){
+  const specNorm = spec || '';
+  let f = finishedGoods.find(x=>x.product === productName && (x.spec||'') === specNorm);
   if(!f){
-    f = { id:'fg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), product: productName, unit:'', batches:[] };
+    f = { id:'fg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), product: productName, spec: specNorm, unit:'', batches:[] };
     finishedGoods.push(f);
   }
   return f;
@@ -4856,6 +4862,7 @@ function openFgForm(f){
   editingFgId = f ? f.id : null;
   document.getElementById('fgFormTitle').textContent = f ? '編輯成品' : '新增成品';
   document.getElementById('fgProduct').value = f ? f.product : '';
+  document.getElementById('fgSpec').value = f ? (f.spec||'') : '';
   document.getElementById('fgUnit').value = f ? (f.unit||'') : '';
   renderFgBatchLotList(f ? (f.batches||[]) : []);
   updateFgStockTotalDisplay();
@@ -4873,15 +4880,16 @@ document.getElementById('btnCancelFg').onclick = ()=>{
 fgFormOverlay.onclick = (e)=>{ if(e.target === fgFormOverlay) fgFormOverlay.classList.remove('show'); };
 document.getElementById('btnSaveFg').onclick = async ()=>{
   const product = document.getElementById('fgProduct').value.trim();
+  const spec = document.getElementById('fgSpec').value.trim();
   const unit = document.getElementById('fgUnit').value.trim();
   const batches = getFgBatchLotsFromForm().filter(b=> b.batchNo || b.mfgDate || b.expDate || b.stock);
   if(!product){ showToast('請填寫產品名稱'); return; }
   if(editingFgId){
     const f = finishedGoods.find(x=>x.id===editingFgId);
-    if(f) Object.assign(f, { product, unit, batches });
+    if(f) Object.assign(f, { product, spec, unit, batches });
     showToast('已更新成品');
   }else{
-    finishedGoods.push({ id:'fg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), product, unit, batches });
+    finishedGoods.push({ id:'fg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), product, spec, unit, batches });
     showToast('已新增成品');
   }
   await saveBomData();
@@ -5582,7 +5590,7 @@ async function restoreStockForItem(item){
 }
 
 async function addFinishedGoodStock(item, silent){
-  const f = findOrCreateFinishedGood(item.product);
+  const f = findOrCreateFinishedGood(item.product, item.spec);
   addFinishedGoodBatchStock(f, item.qty||0, item.productBatchNo||'', item.productMfgDate||'', item.productExpDate||'');
   await saveBomData();
   renderFinishedGoodList();
@@ -5590,7 +5598,7 @@ async function addFinishedGoodStock(item, silent){
 }
 
 async function deductFinishedGoodStock(item, silent){
-  const f = findOrCreateFinishedGood(item.product);
+  const f = findOrCreateFinishedGood(item.product, item.spec);
   const { shortage } = deductFinishedGoodStockFIFO(f, item.qty||0);
   await saveBomData();
   renderFinishedGoodList();
