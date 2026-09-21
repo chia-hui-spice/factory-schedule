@@ -489,38 +489,15 @@
       <div class="row2">
         <div class="field">
           <label class="i18n">產品名稱</label>
-          <input type="text" id="fProduct" placeholder="例如 炒香料" required>
+          <input type="text" id="fProduct" placeholder="例如 炒香料" required list="productSuggestions">
         </div>
         <div class="field">
           <label class="i18n">規格</label>
-          <select id="fSpec">
-            <option value="">請選擇</option>
-            <option value="補充包/100g/包">補充包/100g/包</option>
-            <option value="顆粒補充包/100g/包">顆粒補充包/100g/包</option>
-            <option value="2公斤/桶">2公斤/桶</option>
-            <option value="1公斤/包">1公斤/包</option>
-            <option value="600g/包">600g/包</option>
-            <option value="500g/包">500g/包</option>
-            <option value="150g/包">150g/包</option>
-            <option value="300g/包">300g/包</option>
-            <option value="5公斤/袋">5公斤/袋</option>
-            <option value="10公斤/袋">10公斤/袋</option>
-            <option value="20公斤/袋">20公斤/袋</option>
-            <option value="25公斤/袋">25公斤/袋</option>
-            <option value="4g/5包/袋">4g/5包/袋</option>
-            <option value="10g/5包/袋">10g/5包/袋</option>
-            <option value="75g/包">75g/包</option>
-            <option value="5包入">5包入</option>
-            <option value="100包/袋">100包/袋</option>
-            <option value="50g*2包/盒">50g*2包/盒</option>
-            <option value="25入/袋">25入/袋</option>
-            <option value="50包/袋">50包/袋</option>
-            <option value="1500包/箱">1500包/箱</option>
-            <option value="自訂">自訂</option>
-          </select>
+          <select id="fSpec"></select>
           <input type="text" id="fSpecCustom" placeholder="輸入規格" style="margin-top:8px; display:none;">
         </div>
       </div>
+      <datalist id="productSuggestions"></datalist>
       <div class="field">
         <label class="i18n">數量</label>
         <input type="number" id="fQty" placeholder="0" min="1" required>
@@ -1246,7 +1223,7 @@
     <h2 id="fgFormTitle">新增成品</h2>
     <div class="field">
       <label class="i18n">產品名稱（需與訂單品項的產品名稱完全一致）</label>
-      <input type="text" id="fgProduct" placeholder="例如 炒香料">
+      <input type="text" id="fgProduct" placeholder="例如 炒香料" list="productSuggestions">
     </div>
     <div class="field">
       <label class="i18n">規格（需與訂單品項的規格完全一致，留空表示不分規格）</label>
@@ -2727,6 +2704,47 @@ function setFlexDateValue(textId, value){
 }
 ['fFillFormDate','fDue','fProductMfgDate','fProductExpDate','fMaterialMfgDate','fMaterialExpDate','fActualShipDate'].forEach(setupFlexDate);
 
+const ALL_SPEC_OPTIONS = [
+  '補充包/100g/包', '顆粒補充包/100g/包', '2公斤/桶', '1公斤/包', '600g/包', '500g/包', '150g/包', '300g/包',
+  '5公斤/袋', '10公斤/袋', '20公斤/袋', '25公斤/袋', '4g/5包/袋', '10g/5包/袋', '75g/包', '5包入',
+  '100包/袋', '50g*2包/盒', '25入/袋', '50包/袋', '1500包/箱'
+];
+function getSpecsForProduct(productName){
+  if(!productName) return [];
+  const specs = new Set();
+  orders.forEach(o=> (o.items||[]).forEach(it=>{
+    if(it.product === productName && it.spec) specs.add(it.spec);
+  }));
+  finishedGoods.forEach(f=>{
+    if(f.product === productName && f.spec) specs.add(f.spec);
+  });
+  return Array.from(specs);
+}
+function getAllKnownProductNames(){
+  const names = new Set();
+  orders.forEach(o=> (o.items||[]).forEach(it=>{ if(it.product) names.add(it.product); }));
+  finishedGoods.forEach(f=>{ if(f.product) names.add(f.product); });
+  return Array.from(names).sort();
+}
+function populateProductSuggestions(){
+  const listEl = document.getElementById('productSuggestions');
+  if(!listEl) return;
+  listEl.innerHTML = getAllKnownProductNames().map(n=>'<option value="'+escapeHtml(n)+'">').join('');
+}
+function populateSpecSelect(selectId, customId, productName, currentValue){
+  const select = document.getElementById(selectId);
+  const productSpecs = getSpecsForProduct(productName);
+  // 這個產品之前用過的規格排在最上面，方便快速選；沒用過的規格也保留在下面，避免真的要用別的規格時選不到
+  const orderedSpecs = productSpecs.length > 0
+    ? productSpecs.concat(ALL_SPEC_OPTIONS.filter(s=>!productSpecs.includes(s)))
+    : ALL_SPEC_OPTIONS.slice();
+  let html = '<option value="">請選擇' + (productSpecs.length > 0 ? '（前 '+productSpecs.length+' 項為此產品常用規格）' : '') + '</option>';
+  orderedSpecs.forEach(s=>{ html += '<option value="'+escapeHtml(s)+'">'+escapeHtml(s)+'</option>'; });
+  html += '<option value="自訂">自訂</option>';
+  select.innerHTML = html;
+  setPickerValue(selectId, customId, currentValue || '');
+}
+
 function setPickerValue(selectId, customId, value){
   const select = document.getElementById(selectId);
   const custom = document.getElementById(customId);
@@ -2793,6 +2811,7 @@ document.getElementById('btnCheckAll').onclick = ()=>{
 function openSheet(order, item){
   editingOrderId = order ? order.id : null;
   editingItemId = item ? item.id : null;
+  populateProductSuggestions();
 
   const isNewOrder = !order;
   const isNewItem = order && !item;
@@ -2805,7 +2824,7 @@ function openSheet(order, item){
   setFlexDateValue('fFillFormDate', item ? (item.fillFormDate || todayStr()) : todayStr());
   document.getElementById('fFillFormTime').value = item ? (item.fillFormTime || nowTimeStr()) : nowTimeStr();
   document.getElementById('fProduct').value = item ? item.product : '';
-  setPickerValue('fSpec', 'fSpecCustom', item ? (item.spec || '') : '');
+  populateSpecSelect('fSpec', 'fSpecCustom', item ? item.product : '', item ? (item.spec || '') : '');
   document.getElementById('fQty').value = item ? item.qty : '';
   setFlexDateValue('fDue', item ? item.due : (firstItem ? firstItem.due : todayStr()));
   setPickerValue('fOrigin', 'fOriginCustom', item ? (item.origin || '') : '');
@@ -4910,9 +4929,10 @@ let editingFgId = null;
 const fgFormOverlay = document.getElementById('fgFormOverlay');
 function openFgForm(f){
   editingFgId = f ? f.id : null;
+  populateProductSuggestions();
   document.getElementById('fgFormTitle').textContent = f ? '編輯成品' : '新增成品';
   document.getElementById('fgProduct').value = f ? f.product : '';
-  setPickerValue('fgSpec', 'fgSpecCustom', f ? (f.spec||'') : '');
+  populateSpecSelect('fgSpec', 'fgSpecCustom', f ? f.product : '', f ? (f.spec||'') : '');
   document.getElementById('fgUnit').value = f ? (f.unit||'') : '';
   renderFgBatchLotList(f ? (f.batches||[]) : []);
   updateFgStockTotalDisplay();
@@ -5579,6 +5599,14 @@ function autoFillMaterialFromBom(){
   if(!expEl.value) setFlexDateValue('fMaterialExpDate', primaryBatch.expDate || '');
 }
 document.getElementById('fProduct').addEventListener('blur', autoFillMaterialFromBom);
+document.getElementById('fProduct').addEventListener('input', function(){
+  const currentSpec = getPickerValue('fSpec', 'fSpecCustom');
+  populateSpecSelect('fSpec', 'fSpecCustom', this.value.trim(), currentSpec);
+});
+document.getElementById('fgProduct').addEventListener('input', function(){
+  const currentSpec = getPickerValue('fgSpec', 'fgSpecCustom');
+  populateSpecSelect('fgSpec', 'fgSpecCustom', this.value.trim(), currentSpec);
+});
 
 // ---- 生產完成時自動扣庫存（依配方混用原料與半成品）----
 async function deductStockForItem(item){
