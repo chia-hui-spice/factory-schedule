@@ -1199,7 +1199,7 @@
     <div class="section-label i18n">可看到的功能按鈕</div>
     <div id="permButtonsCheckboxes" class="perm-checkbox-grid"></div>
 
-    <div class="section-label i18n">限定產線（只影響「排程生產」分頁看到的品項）</div>
+    <div class="section-label i18n">限定產線（只影響「排程生產」「充填包裝」分頁看到的品項）</div>
     <div class="field">
       <select id="permProductionZone">
         <option value="">不限制（看得到所有產線）</option>
@@ -1545,7 +1545,7 @@ const ID_DICT = {
   '要記錄新進貨？點這裡前往「📦 原料庫存」選擇原料 →':'Ingin mencatat penerimaan baru? Klik di sini ke "📦 Stok Bahan Baku" →',
   '規格':'Spesifikasi', '規格（每件重量/數量）':'Spesifikasi (Berat/Jumlah per Unit)', '進貨件數':'Jumlah Unit Penerimaan',
   '進貨日期':'Tanggal Penerimaan', '進銷存管理':'Manajemen Inventaris', '關閉':'Tutup',
-  '限定產線（只影響「排程生產」分頁看到的品項）':'Batasi Lini Produksi (hanya tab "Jadwal Produksi")',
+  '限定產線（只影響「排程生產」「充填包裝」分頁看到的品項）':'Batasi Lini Produksi (hanya tab "Jadwal Produksi" dan "Pengisian & Pengemasan")',
   '預計需求出貨日期':'Tanggal Pengiriman yang Diperlukan',
   '預設規格（每件重量/數量，進貨時會自動帶入）':'Spesifikasi Default (otomatis terisi saat penerimaan)',
   '🏷 成品庫存':'🏷 Stok Produk Jadi', '💾 備份':'💾 Cadangan', '📄 COA待處理':'📄 COA Tertunda', '📈 生產進度':'📈 Progres Produksi',
@@ -1633,7 +1633,7 @@ const EN_DICT = {
   '要記錄新進貨？點這裡前往「📦 原料庫存」選擇原料 →':'Want to log a new receipt? Click here to go to "📦 Material Stock" →',
   '規格':'Spec', '規格（每件重量/數量）':'Spec (Weight/Qty per Unit)', '進貨件數':'Units Received',
   '進貨日期':'Receiving Date', '進銷存管理':'Inventory Management', '關閉':'Close',
-  '限定產線（只影響「排程生產」分頁看到的品項）':'Restrict Production Line (only affects "Production Schedule" tab)',
+  '限定產線（只影響「排程生產」「充填包裝」分頁看到的品項）':'Restrict Production Line (only affects "Production Schedule" and "Filling & Packing" tabs)',
   '預計需求出貨日期':'Required Ship Date',
   '預設規格（每件重量/數量，進貨時會自動帶入）':'Default Spec (auto-filled on receiving)',
   '🏷 成品庫存':'🏷 Finished Goods Stock', '💾 備份':'💾 Backup', '📄 COA待處理':'📄 COA Pending', '📈 生產進度':'📈 Production Progress',
@@ -2047,7 +2047,7 @@ function renderTabs(){
 }
 
 function itemMatchesZoneFilter(item){
-  if(currentTab !== 'labeling' || !currentZoneFilter) return true;
+  if((currentTab !== 'labeling' && currentTab !== 'refill') || !currentZoneFilter) return true;
   return (item.productionZones || []).includes(currentZoneFilter);
 }
 function itemBelongsToTab(item, tab){
@@ -2065,7 +2065,7 @@ function renderList(){
 
   if(matchingOrders.length === 0){
     const hint = (currentTab === 'pending') ? '<br>點右下角 + 新增一筆' : '';
-    const zoneHint = (currentTab === 'labeling' && currentZoneFilter) ? '（「' + escapeHtml(currentZoneFilter) + '」目前沒有品項）' : '';
+    const zoneHint = ((currentTab === 'labeling' || currentTab === 'refill') && currentZoneFilter) ? '（「' + escapeHtml(currentZoneFilter) + '」目前沒有品項）' : '';
     const qcHint = (currentTab === 'coa') ? '<br>（這裡只顯示需要COA的品項，不需要COA的不會出現）' : '';
     listEl.innerHTML = '<div class="empty"><div class="empty-tag">🏷️</div><p>目前「' + STATUS_LABEL[currentTab] + '」沒有品項' + zoneHint + hint + qcHint + '</p></div>';
     return;
@@ -2501,7 +2501,7 @@ function render(){
 
 function renderZoneFilterBar(){
   const bar = document.getElementById('zoneFilterBar');
-  if(currentTab !== 'labeling'){
+  if(currentTab !== 'labeling' && currentTab !== 'refill'){
     bar.style.display = 'none';
     return;
   }
