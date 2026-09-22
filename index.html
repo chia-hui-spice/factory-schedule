@@ -1075,6 +1075,18 @@
   </div>
 </div>
 
+<div class="overlay" id="inventoryLogOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 id="inventoryLogTitle">出入庫紀錄</h2>
+    <div class="sheet-sub" id="inventoryLogSub"></div>
+    <div id="inventoryLogTableWrap" style="overflow-x:auto;"></div>
+    <div class="sheet-actions" style="margin-top:18px;">
+      <button type="button" class="i18n btn-secondary" style="flex:1;" id="btnCloseInventoryLog">關閉</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="trashOverlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
@@ -1170,10 +1182,13 @@
         <input type="text" id="sgUnit" placeholder="例如 kg">
       </div>
       <div class="field">
-        <label class="i18n">目前庫存量</label>
-        <input type="number" id="sgStock" placeholder="0" step="any">
+        <label class="i18n">目前庫存總量（自動加總所有批次）</label>
+        <input type="text" id="sgStockTotal" disabled style="opacity:0.75;">
       </div>
     </div>
+    <div class="section-label" style="margin-top:8px;">批次庫存（可有多筆不同批號，消耗時會自動先扣最早的批次）</div>
+    <div id="semiGoodBatchList"></div>
+    <button type="button" class="i18n split-btn" id="btnAddSemiGoodBatchLot" style="margin-top:6px; margin-bottom:14px;">+ 新增批次</button>
     <div class="sheet-actions">
       <button type="button" class="i18n btn-secondary" id="btnCancelSg">取消</button>
       <button type="button" class="i18n btn-primary" id="btnSaveSg">儲存</button>
@@ -1195,6 +1210,10 @@
     <div class="field">
       <label class="i18n">生產日期</label>
       <input type="date" id="spDate">
+    </div>
+    <div class="field">
+      <label class="i18n">批號（選填）</label>
+      <input type="text" id="spBatchNo" placeholder="不填會自動用生產日期當批號">
     </div>
     <div class="sheet-actions">
       <button type="button" class="i18n btn-secondary" id="btnCancelSemiProduce">取消</button>
@@ -1643,6 +1662,10 @@ const ID_DICT = {
   '還沒有任何區域':'Belum ada area', '還沒有任何人員':'Belum ada staf', '還沒有任何機器':'Belum ada mesin',
   '區域':'Area', '已記錄次數':'Kali Dicatat', '應記錄次數':'Kali Seharusnya', '完成率':'Tingkat Penyelesaian',
   '人員':'Staf', '機器':'Mesin', '完整記錄天數':'Hari Tercatat Lengkap', '全年天數':'Total Hari Tahun Ini',
+  '成品':'Produk Jadi', '時間':'Waktu', '類型':'Jenis', '原因':'Alasan', '相關訂單':'Pesanan Terkait',
+  '入庫':'Masuk', '出庫':'Keluar', '目前還沒有任何出入庫紀錄':'Belum ada catatan masuk/keluar',
+  '標籤印製完成':'Cetak Label Selesai', '快速出貨(用現有庫存)':'Kirim Cepat (Stok Tersedia)', '退回庫存確認(取消快速出貨)':'Kembali ke Konfirmasi Stok (Batal Kirim Cepat)',
+  '半成品生產':'Produksi Setengah Jadi', '生產訂單消耗':'Konsumsi Pesanan Produksi', '退回階段(取消訂單消耗)':'Kembali Tahap (Batal Konsumsi)',
   '點任一列可查看該項目全年逐筆點檢紀錄，適合給稽核員查看':'Klik baris mana pun untuk melihat catatan lengkap tahun ini, cocok untuk auditor',
   '📥 匯出這筆明細 Excel':'📥 Ekspor Detail Ini ke Excel', '日期':'Tanggal', '時段':'Waktu', '共':'Total', '筆':'catatan',
   '這一年還沒有任何記錄':'Belum ada catatan tahun ini', '已匯出':'Diekspor', '的點檢紀錄':'catatan pemeriksaan',
@@ -1735,6 +1758,10 @@ const EN_DICT = {
   '還沒有任何區域':'No areas yet', '還沒有任何人員':'No staff yet', '還沒有任何機器':'No machines yet',
   '區域':'Area', '已記錄次數':'Times Recorded', '應記錄次數':'Times Expected', '完成率':'Completion Rate',
   '人員':'Staff', '機器':'Machine', '完整記錄天數':'Days Fully Recorded', '全年天數':'Total Days This Year',
+  '成品':'Finished Good', '時間':'Time', '類型':'Type', '原因':'Reason', '相關訂單':'Related Order',
+  '入庫':'Stock In', '出庫':'Stock Out', '目前還沒有任何出入庫紀錄':'No in/out records yet',
+  '標籤印製完成':'Label Printing Done', '快速出貨(用現有庫存)':'Fast Ship (Existing Stock)', '退回庫存確認(取消快速出貨)':'Back to Stock Check (Cancel Fast Ship)',
+  '半成品生產':'Semi-Good Production', '生產訂單消耗':'Order Production Consumption', '退回階段(取消訂單消耗)':'Stage Reverted (Cancel Consumption)',
   '點任一列可查看該項目全年逐筆點檢紀錄，適合給稽核員查看':'Click any row to see the full year\'s records, ideal for auditors',
   '📥 匯出這筆明細 Excel':'📥 Export This Detail to Excel', '日期':'Date', '時段':'Time', '共':'Total', '筆':'records',
   '這一年還沒有任何記錄':'No records yet this year', '已匯出':'Exported', '的點檢紀錄':'records',
@@ -1932,7 +1959,16 @@ function addFinishedGoodBatchStock(f, qty, batchNo, mfgDate, expDate){
   }
 }
 let pendingNewFgId = null; // 追蹤透過卡片快速編輯新建、但尚未確認儲存的成品項目
-let semiGoods = []; // [{id, name, unit, stock}]
+let semiGoods = []; // [{id, name, unit, batches:[{batchNo, mfgDate, expDate, stock}]}] 跟原料一樣改用批次結構
+let inventoryTransactions = []; // [{id, kind:'finishedGood'|'semiGood', itemId, itemName, type:'in'|'out', batchNo, qty, reason, relatedOrderId, relatedOrderNo, relatedCustomer, createdAt}]
+function logInventoryTransaction(kind, itemId, itemName, type, batchNo, qty, reason, relatedOrder){
+  inventoryTransactions.push({
+    id: 'tx_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+    kind, itemId, itemName, type, batchNo: batchNo||'', qty,
+    reason: reason||'', relatedOrderId: relatedOrder ? relatedOrder.id : '', relatedOrderNo: relatedOrder ? (relatedOrder.orderNo||'') : '', relatedCustomer: relatedOrder ? (relatedOrder.customer||'') : '',
+    createdAt: Date.now()
+  });
+}
 let semiBoms = []; // [{id, semiGoodId, rows:[{materialId, qtyPerUnit}]}]
 let currentTab = 'pending';
 let currentEditingStage = 'pending';
@@ -2353,13 +2389,13 @@ function renderList(){
       saveOrders(); render();
       showToast('已移至「' + STATUS_LABEL[item.status] + '」');
       if(wasInprogress && item.status === 'labeling'){
-        await deductStockForItem(item);
+        await deductStockForItem(item, order);
       }
       if(wasLabeling && item.status === 'done'){
-        await addFinishedGoodStock(item);
+        await addFinishedGoodStock(item, false, order);
       }
       if(wasBoxing && item.status === 'shipped' && !item.stockPreDeducted){
-        await deductFinishedGoodStock(item);
+        await deductFinishedGoodStock(item, false, order);
       }
     };
   });
@@ -2374,6 +2410,7 @@ function renderList(){
       if(item.status === 'shipped' && item.stockPreDeducted){
         const fg = findOrCreateFinishedGood(item.product, item.spec);
         addFinishedGoodBatchStock(fg, item.qty||0, item.productBatchNo||'', item.productMfgDate||'', item.productExpDate||'');
+        logInventoryTransaction('finishedGood', fg.id, fg.product, 'in', item.productBatchNo||'', item.qty||0, '退回庫存確認(取消快速出貨)', order);
         item.status = 'inprogress';
         item.stockPreDeducted = false;
         delete item.shippedAt;
@@ -2398,13 +2435,13 @@ function renderList(){
       saveOrders(); render();
       showToast('已移至「' + STATUS_LABEL[item.status] + '」');
       if(wasLabeling && item.status === 'inprogress'){
-        await restoreStockForItem(item);
+        await restoreStockForItem(item, order);
       }
       if(wasDone && item.status === 'labeling'){
-        await deductFinishedGoodStock(item, true);
+        await deductFinishedGoodStock(item, true, order);
       }
       if(wasShipped && item.status === 'boxing' && !item.stockPreDeducted){
-        await addFinishedGoodStock(item, true);
+        await addFinishedGoodStock(item, true, order);
       }
     };
   });
@@ -2474,6 +2511,9 @@ function renderList(){
 
       // 扣除即將被領用的成品庫存(視為預留給這批貨，用FIFO從最早批次開始扣，回傳實際用到的每一批明細)
       const { consumed } = deductFinishedGoodStockFIFO(fg, fulfillQty);
+      consumed.forEach(c=>{
+        logInventoryTransaction('finishedGood', fg.id, fg.product, 'out', c.batchNo, c.taken, '快速出貨(用現有庫存)', order);
+      });
 
       function buildShippedBatchItem(batch, splitGroupId, originalTotal){
         return Object.assign({}, item, {
@@ -4675,24 +4715,28 @@ document.getElementById('btnMergeToProd').onclick = async ()=>{
     const prodBomSnap = await getDoc(prodBomDataDocRef);
     const prodBomData = prodBomSnap.exists() ? prodBomSnap.data() : {};
     const prodMaterials = prodBomData.materials || [];
+    const prodAdditives = prodBomData.additives || [];
     const prodBoms = prodBomData.boms || [];
     const prodReceipts = prodBomData.receipts || [];
     const prodFinishedGoods = prodBomData.finishedGoods || [];
     const prodSemiGoods = prodBomData.semiGoods || [];
     const prodSemiBoms = prodBomData.semiBoms || [];
+    const prodInventoryTransactions = prodBomData.inventoryTransactions || [];
     const mergedMaterials = prodMaterials.concat(materials);
+    const mergedAdditives = prodAdditives.concat(additives);
     const mergedBoms = prodBoms.concat(boms);
     const mergedReceipts = prodReceipts.concat(receipts);
     const mergedFinishedGoods = prodFinishedGoods.concat(finishedGoods);
     const mergedSemiGoods = prodSemiGoods.concat(semiGoods);
     const mergedSemiBoms = prodSemiBoms.concat(semiBoms);
-    await setDoc(prodBomDataDocRef, { materials: mergedMaterials, boms: mergedBoms, receipts: mergedReceipts, finishedGoods: mergedFinishedGoods, semiGoods: mergedSemiGoods, semiBoms: mergedSemiBoms });
+    const mergedInventoryTransactions = prodInventoryTransactions.concat(inventoryTransactions);
+    await setDoc(prodBomDataDocRef, { materials: mergedMaterials, additives: mergedAdditives, boms: mergedBoms, receipts: mergedReceipts, finishedGoods: mergedFinishedGoods, semiGoods: mergedSemiGoods, semiBoms: mergedSemiBoms, inventoryTransactions: mergedInventoryTransactions });
 
     showToast('已合併到正式版！');
 
     const clearOk = await showConfirm('要不要順便清空測試資料，讓測試環境恢復乾淨？', '清空測試資料？');
     if(clearOk){
-      orders = []; materials = []; boms = []; receipts = []; finishedGoods = []; semiGoods = []; semiBoms = [];
+      orders = []; materials = []; additives = []; boms = []; receipts = []; finishedGoods = []; semiGoods = []; semiBoms = []; inventoryTransactions = [];
       await saveOrders();
       await saveBomData();
       showToast('測試資料已清空');
@@ -4829,8 +4873,9 @@ function loadBomData(){
     boms = data.boms || [];
     receipts = data.receipts || [];
     finishedGoods = (data.finishedGoods || []).map(ensureFinishedGoodBatches).map(f=>{ if(f.spec === undefined) f.spec = ''; return f; });
-    semiGoods = data.semiGoods || [];
+    semiGoods = (data.semiGoods || []).map(ensureMaterialBatches);
     semiBoms = data.semiBoms || [];
+    inventoryTransactions = data.inventoryTransactions || [];
     renderMaterialList();
     renderAdditiveList();
     renderBomList();
@@ -4845,7 +4890,7 @@ function loadBomData(){
 }
 async function saveBomData(){
   try{
-    await setDoc(bomDataDocRef, { materials, additives, boms, receipts, finishedGoods, semiGoods, semiBoms });
+    await setDoc(bomDataDocRef, { materials, additives, boms, receipts, finishedGoods, semiGoods, semiBoms, inventoryTransactions });
   }catch(e){
     console.error(e);
     showToast('儲存失敗，請檢查網路');
@@ -5079,6 +5124,37 @@ document.getElementById('btnDeleteMaterial').onclick = async ()=>{
 };
 
 // ---- 成品庫存 ----
+const inventoryLogOverlay = document.getElementById('inventoryLogOverlay');
+function openInventoryLog(kind, itemId){
+  const kindLabel = kind === 'finishedGood' ? t('成品') : t('半成品');
+  const list = kind === 'finishedGood' ? finishedGoods : semiGoods;
+  const nameField = kind === 'finishedGood' ? 'product' : 'name';
+  const item = list.find(x=>x.id===itemId);
+  const itemName = item ? item[nameField] : '';
+  const rows = inventoryTransactions.filter(tx=> tx.kind===kind && tx.itemId===itemId).sort((a,b)=> b.createdAt - a.createdAt);
+  document.getElementById('inventoryLogTitle').textContent = itemName;
+  document.getElementById('inventoryLogSub').textContent = kindLabel + '　' + t('共') + ' ' + rows.length + ' ' + t('筆');
+  const wrap = document.getElementById('inventoryLogTableWrap');
+  if(rows.length === 0){
+    wrap.innerHTML = '<div class="ship-list-empty">' + t('目前還沒有任何出入庫紀錄') + '</div>';
+  }else{
+    let tableHtml = '<table class="hygiene-detail-table"><thead><tr><th>' + t('時間') + '</th><th>' + t('類型') + '</th><th>' + t('批號') + '</th><th>' + t('數量') + '</th><th>' + t('原因') + '</th><th>' + t('相關訂單') + '</th></tr></thead><tbody>';
+    rows.forEach(r=>{
+      const d = new Date(r.createdAt);
+      const dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+      const typeLabel = r.type === 'in' ? ('▲ ' + t('入庫')) : ('▼ ' + t('出庫'));
+      const typeCls = r.type === 'in' ? 'pass' : 'fail';
+      const orderInfo = r.relatedOrderNo ? (escapeHtml(r.relatedCustomer||'') + ' ・ ' + escapeHtml(r.relatedOrderNo)) : '';
+      tableHtml += '<tr><td>' + dateStr + '</td><td class="' + typeCls + '">' + typeLabel + '</td><td>' + escapeHtml(r.batchNo||'－') + '</td><td>' + r.qty + '</td><td>' + escapeHtml(t(r.reason)) + '</td><td>' + orderInfo + '</td></tr>';
+    });
+    tableHtml += '</tbody></table>';
+    wrap.innerHTML = tableHtml;
+  }
+  inventoryLogOverlay.classList.add('show');
+}
+document.getElementById('btnCloseInventoryLog').onclick = ()=> inventoryLogOverlay.classList.remove('show');
+inventoryLogOverlay.onclick = (e)=>{ if(e.target === inventoryLogOverlay) inventoryLogOverlay.classList.remove('show'); };
+
 function renderFinishedGoodList(){
   const listEl = document.getElementById('finishedGoodList');
   if(!listEl) return;
@@ -5104,8 +5180,15 @@ function renderFinishedGoodList(){
     return '<div class="material-item" data-fgid="'+f.id+'">' +
       '<div class="material-item-top"><div class="material-item-name">'+escapeHtml(f.product)+(f.spec ? '<span class="item-spec"> ・ '+escapeHtml(f.spec)+'</span>' : '')+'</div><div class="material-item-stock">'+ total +' '+escapeHtml(f.unit||'')+'</div></div>' +
       metaLine +
+      '<button type="button" class="split-btn" data-log-kind="finishedGood" data-log-id="'+f.id+'" style="margin-top:8px; width:100%;">📋 出入庫紀錄</button>' +
     '</div>';
   }).join('');
+  listEl.querySelectorAll('[data-log-kind]').forEach(btn=>{
+    btn.onclick = (e)=>{
+      e.stopPropagation();
+      openInventoryLog(btn.dataset.logKind, btn.dataset.logId);
+    };
+  });
   listEl.querySelectorAll('[data-fgid]').forEach(el=>{
     el.onclick = ()=>{
       const f = finishedGoods.find(x=>x.id===el.dataset.fgid);
@@ -5247,9 +5330,18 @@ function renderSemiGoodList(){
     return;
   }
   listEl.innerHTML = filtered.map(s=>{
+    const total = materialTotalStock(s);
+    const activeBatches = (s.batches||[]).filter(b=>(b.stock||0) > 0);
+    const batchSummary = activeBatches.length === 0 ? '目前沒有庫存批次'
+      : activeBatches.length === 1 ? ('批號 ' + escapeHtml(activeBatches[0].batchNo||'－') + '　有效期限 ' + (activeBatches[0].expDate||'－'))
+      : (activeBatches.length + ' 個批次：' + activeBatches.map(b=>escapeHtml(b.batchNo||'未命名')+' x'+b.stock).join('、'));
     return '<div class="material-item">' +
-      '<div class="material-item-top" data-sgid="'+s.id+'" style="cursor:pointer;"><div class="material-item-name">'+escapeHtml(s.name)+'</div><div class="material-item-stock">'+ (s.stock ?? 0) +' '+escapeHtml(s.unit||'')+'</div></div>' +
-      '<button type="button" class="split-btn" data-produce-sgid="'+s.id+'" style="margin-top:8px;">🏭 生產半成品</button>' +
+      '<div class="material-item-top" data-sgid="'+s.id+'" style="cursor:pointer;"><div class="material-item-name">'+escapeHtml(s.name)+'</div><div class="material-item-stock">'+ total +' '+escapeHtml(s.unit||'')+'</div></div>' +
+      '<div class="material-item-meta" data-sgid="'+s.id+'" style="cursor:pointer;">'+batchSummary+'</div>' +
+      '<div style="display:flex; gap:8px; margin-top:8px;">' +
+      '<button type="button" class="split-btn" data-produce-sgid="'+s.id+'" style="flex:1;">🏭 生產半成品</button>' +
+      '<button type="button" class="split-btn" data-log-kind="semiGood" data-log-id="'+s.id+'" style="flex:1;">📋 出入庫紀錄</button>' +
+      '</div>' +
     '</div>';
   }).join('');
   listEl.querySelectorAll('[data-sgid]').forEach(el=>{
@@ -5265,16 +5357,74 @@ function renderSemiGoodList(){
       if(s) openSemiProduceForm(s);
     };
   });
+  listEl.querySelectorAll('[data-log-kind]').forEach(btn=>{
+    btn.onclick = (e)=>{
+      e.stopPropagation();
+      openInventoryLog(btn.dataset.logKind, btn.dataset.logId);
+    };
+  });
 }
 
 let editingSgId = null;
 const semiGoodFormOverlay = document.getElementById('semiGoodFormOverlay');
+function renderSemiGoodBatchLotList(batches){
+  const list = (batches && batches.length > 0) ? batches : [];
+  const container = document.getElementById('semiGoodBatchList');
+  if(list.length === 0){
+    container.innerHTML = '<div class="ship-list-empty" style="margin-bottom:8px;">還沒有任何批次，用「🏭 生產半成品」建立第一批</div>';
+    return;
+  }
+  container.innerHTML = list.map((b, idx)=>{
+    return '<div class="material-batch-row" data-idx="'+idx+'">' +
+      '<div class="row3">' +
+        '<div class="field"><label>批號</label><input type="text" class="sgbBatchNo" placeholder="批號" value="'+escapeHtml(b.batchNo||'')+'"></div>' +
+        '<div class="field"><label>製造日期</label><input type="date" class="sgbMfgDate" value="'+escapeHtml(b.mfgDate||'')+'"></div>' +
+        '<div class="field"><label>有效日期</label><input type="date" class="sgbExpDate" value="'+escapeHtml(b.expDate||'')+'"></div>' +
+      '</div>' +
+      '<div class="field"><label>這批剩餘庫存</label><input type="number" class="sgbStock" step="any" value="'+(b.stock ?? 0)+'"></div>' +
+      '<button type="button" class="material-batch-remove-btn">✕ 移除這個批次</button>' +
+    '</div>';
+  }).join('');
+  container.querySelectorAll('.material-batch-remove-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      const current = getSemiGoodBatchLotsFromForm();
+      const idx = Number(btn.closest('.material-batch-row').dataset.idx);
+      current.splice(idx, 1);
+      renderSemiGoodBatchLotList(current);
+      updateSemiGoodStockTotalDisplay();
+    };
+  });
+  container.querySelectorAll('.sgbStock').forEach(el=>{
+    el.addEventListener('input', updateSemiGoodStockTotalDisplay);
+  });
+}
+function getSemiGoodBatchLotsFromForm(){
+  return Array.from(document.querySelectorAll('#semiGoodBatchList .material-batch-row')).map(row=>({
+    batchNo: row.querySelector('.sgbBatchNo').value.trim(),
+    mfgDate: row.querySelector('.sgbMfgDate').value,
+    expDate: row.querySelector('.sgbExpDate').value,
+    stock: parseFloat(row.querySelector('.sgbStock').value) || 0
+  }));
+}
+function updateSemiGoodStockTotalDisplay(){
+  const total = getSemiGoodBatchLotsFromForm().reduce((sum,b)=>sum+(b.stock||0), 0);
+  document.getElementById('sgStockTotal').value = (Math.round(total*1000)/1000) + (document.getElementById('sgUnit').value ? ' ' + document.getElementById('sgUnit').value.trim() : '');
+}
+document.getElementById('btnAddSemiGoodBatchLot').onclick = ()=>{
+  const current = getSemiGoodBatchLotsFromForm();
+  current.push({ batchNo:'', mfgDate:'', expDate:'', stock: 0 });
+  renderSemiGoodBatchLotList(current);
+  updateSemiGoodStockTotalDisplay();
+};
+document.getElementById('sgUnit').addEventListener('input', updateSemiGoodStockTotalDisplay);
+
 function openSgForm(s){
   editingSgId = s ? s.id : null;
   document.getElementById('semiGoodFormTitle').textContent = s ? '編輯半成品' : '新增半成品';
   document.getElementById('sgName').value = s ? s.name : '';
   document.getElementById('sgUnit').value = s ? (s.unit||'') : '';
-  document.getElementById('sgStock').value = s ? (s.stock ?? '') : '';
+  renderSemiGoodBatchLotList(s ? (s.batches||[]) : []);
+  updateSemiGoodStockTotalDisplay();
   document.getElementById('btnDeleteSg').style.display = s ? 'block' : 'none';
   semiGoodFormOverlay.classList.add('show');
 }
@@ -5285,14 +5435,14 @@ semiGoodFormOverlay.onclick = (e)=>{ if(e.target === semiGoodFormOverlay) semiGo
 document.getElementById('btnSaveSg').onclick = async ()=>{
   const name = document.getElementById('sgName').value.trim();
   const unit = document.getElementById('sgUnit').value.trim();
-  const stock = parseFloat(document.getElementById('sgStock').value);
+  const batches = getSemiGoodBatchLotsFromForm().filter(b=> b.batchNo || b.mfgDate || b.expDate || b.stock);
   if(!name){ showToast('請填寫半成品名稱'); return; }
   if(editingSgId){
     const s = semiGoods.find(x=>x.id===editingSgId);
-    if(s) Object.assign(s, { name, unit, stock: isNaN(stock)?0:stock });
+    if(s) Object.assign(s, { name, unit, batches });
     showToast('已更新半成品');
   }else{
-    semiGoods.push({ id:'sg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), name, unit, stock: isNaN(stock)?0:stock });
+    semiGoods.push({ id:'sg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), name, unit, batches });
     showToast('已新增半成品');
   }
   await saveBomData();
@@ -5315,7 +5465,7 @@ let producingSemiGoodId = null;
 const semiProduceOverlay = document.getElementById('semiProduceOverlay');
 function openSemiProduceForm(s){
   producingSemiGoodId = s.id;
-  document.getElementById('semiProduceGoodName').textContent = s.name + '　目前庫存 ' + (s.stock ?? 0) + ' ' + (s.unit||'');
+  document.getElementById('semiProduceGoodName').textContent = s.name + '　目前庫存 ' + materialTotalStock(s) + ' ' + (s.unit||'');
   const recipe = semiBoms.find(b=>b.semiGoodId === s.id);
   const infoEl = document.getElementById('semiProduceRecipeInfo');
   if(!recipe || !recipe.rows || recipe.rows.length === 0){
@@ -5329,6 +5479,7 @@ function openSemiProduceForm(s){
   }
   document.getElementById('spQty').value = '';
   document.getElementById('spDate').value = todayStr();
+  document.getElementById('spBatchNo').value = '';
   semiProduceOverlay.classList.add('show');
 }
 document.getElementById('btnCancelSemiProduce').onclick = ()=> semiProduceOverlay.classList.remove('show');
@@ -5343,6 +5494,8 @@ document.getElementById('btnSaveSemiProduce').onclick = async ()=>{
     showToast('請先設定這個半成品的配方才能生產');
     return;
   }
+  const produceDate = document.getElementById('spDate').value || todayStr();
+  const batchNo = document.getElementById('spBatchNo').value.trim() || produceDate.replace(/-/g,'');
   const shortages = [];
   recipe.rows.forEach(row=>{
     const m = materials.find(x=>x.id===row.materialId);
@@ -5351,7 +5504,14 @@ document.getElementById('btnSaveSemiProduce').onclick = async ()=>{
     const { shortage } = deductMaterialStockFIFO(m, used, { origin: row.requiredOrigin, manufacturer: row.requiredManufacturer });
     if(shortage) shortages.push(m.name);
   });
-  s.stock = Math.round(((s.stock||0) + qty) * 1000) / 1000;
+  if(!s.batches) s.batches = [];
+  const existingBatch = s.batches.find(b=>b.batchNo === batchNo);
+  if(existingBatch){
+    existingBatch.stock = Math.round(((existingBatch.stock||0) + qty) * 1000) / 1000;
+  }else{
+    s.batches.push({ batchNo, mfgDate: produceDate, expDate: '', stock: qty });
+  }
+  logInventoryTransaction('semiGood', s.id, s.name, 'in', batchNo, qty, '半成品生產');
   await saveBomData();
   semiProduceOverlay.classList.remove('show');
   renderSemiGoodList();
@@ -5905,7 +6065,7 @@ document.getElementById('fgProduct').addEventListener('input', function(){
 });
 
 // ---- 生產完成時自動扣庫存（依配方混用原料與半成品）----
-async function deductStockForItem(item){
+async function deductStockForItem(item, order){
   const bom = boms.find(b=>b.product === item.product);
   if(!bom || !bom.rows || bom.rows.length === 0) return;
   const shortages = [];
@@ -5917,8 +6077,11 @@ async function deductStockForItem(item){
     if(type === 'semi'){
       const target = semiGoods.find(x=>x.id===refId);
       if(!target) return;
-      target.stock = Math.round(((target.stock||0) - used) * 1000) / 1000;
-      if(target.stock < 0) shortages.push(target.name);
+      const { shortage, consumed } = deductMaterialStockFIFO(target, used, {});
+      if(shortage) shortages.push(target.name);
+      consumed.forEach(c=>{
+        logInventoryTransaction('semiGood', target.id, target.name, 'out', c.batchNo, c.qty, '生產訂單消耗', order);
+      });
     }else{
       const sourceList = type === 'additive' ? additives : materials;
       const target = sourceList.find(x=>x.id===refId);
@@ -5952,7 +6115,7 @@ async function deductStockForItem(item){
   }
 }
 
-async function restoreStockForItem(item){
+async function restoreStockForItem(item, order){
   const bom = boms.find(b=>b.product === item.product);
   if(!bom || !bom.rows || bom.rows.length === 0) return;
   const trace = item.materialTraceability || [];
@@ -5963,7 +6126,16 @@ async function restoreStockForItem(item){
     if(type === 'semi'){
       const target = semiGoods.find(x=>x.id===refId);
       if(!target) return;
-      target.stock = Math.round(((target.stock||0) + used) * 1000) / 1000;
+      if(!target.batches) target.batches = [];
+      const sorted = materialBatchesSorted(target);
+      let batchNo = '';
+      if(sorted.length > 0){
+        sorted[0].stock = Math.round(((sorted[0].stock||0) + used) * 1000) / 1000;
+        batchNo = sorted[0].batchNo || '';
+      }else{
+        target.batches.push({ batchNo:'', mfgDate:'', expDate:'', stock: used });
+      }
+      logInventoryTransaction('semiGood', target.id, target.name, 'in', batchNo, used, '退回階段(取消訂單消耗)', order);
     }else{
       const sourceList = type === 'additive' ? additives : materials;
       const target = sourceList.find(x=>x.id===refId);
@@ -6006,17 +6178,21 @@ async function restoreStockForItem(item){
   showToast('已歸還對應原料/半成品庫存');
 }
 
-async function addFinishedGoodStock(item, silent){
+async function addFinishedGoodStock(item, silent, order){
   const f = findOrCreateFinishedGood(item.product, item.spec);
   addFinishedGoodBatchStock(f, item.qty||0, item.productBatchNo||'', item.productMfgDate||'', item.productExpDate||'');
+  logInventoryTransaction('finishedGood', f.id, f.product, 'in', item.productBatchNo||'', item.qty||0, '標籤印製完成', order);
   await saveBomData();
   renderFinishedGoodList();
   if(!silent) showToast('已增加成品庫存：' + item.product + ' +' + item.qty);
 }
 
-async function deductFinishedGoodStock(item, silent){
+async function deductFinishedGoodStock(item, silent, order){
   const f = findOrCreateFinishedGood(item.product, item.spec);
-  const { shortage } = deductFinishedGoodStockFIFO(f, item.qty||0);
+  const { shortage, consumed } = deductFinishedGoodStockFIFO(f, item.qty||0);
+  (consumed||[]).forEach(c=>{
+    logInventoryTransaction('finishedGood', f.id, f.product, 'out', c.batchNo, c.taken, '出貨確認', order);
+  });
   await saveBomData();
   renderFinishedGoodList();
   if(shortage){
