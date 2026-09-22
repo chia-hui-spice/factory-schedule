@@ -1388,7 +1388,7 @@
     <h2 id="materialFormTitle">新增原料</h2>
     <div class="field">
       <label class="i18n">原料料號</label>
-      <input type="text" id="mfCode" placeholder="例如 M001">
+      <input type="text" id="mfCode" placeholder="例如 R-001">
     </div>
     <div class="field">
       <label class="i18n">原料名稱</label>
@@ -4875,10 +4875,10 @@ function materialLabelPlain(m){
 function suggestNextMaterialCode(){
   let max = 0;
   materials.forEach(m=>{
-    const match = /^M(\d+)$/.exec(m.code || '');
+    const match = /^R-(\d+)$/.exec(m.code || '');
     if(match) max = Math.max(max, parseInt(match[1], 10));
   });
-  return 'M' + String(max + 1).padStart(3, '0');
+  return 'R-' + String(max + 1).padStart(3, '0');
 }
 
 function renderMaterialList(){
