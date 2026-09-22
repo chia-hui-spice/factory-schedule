@@ -1087,16 +1087,25 @@
 
     <div class="report-tab-panel" id="bomPanelMaterials" style="display:none;">
       <button type="button" class="i18n add-item-btn" id="btnAddMaterial" style="margin-bottom:12px;">+ 新增原料</button>
+      <div class="field" style="margin-bottom:10px;">
+        <input type="text" id="materialSearchInput" placeholder="搜尋原料名稱或料號">
+      </div>
       <div id="materialList"></div>
     </div>
 
     <div class="report-tab-panel" id="bomPanelSemiGoods" style="display:none;">
       <button type="button" class="i18n add-item-btn" id="btnAddSemiGood" style="margin-bottom:12px;">+ 新增半成品</button>
+      <div class="field" style="margin-bottom:10px;">
+        <input type="text" id="semiGoodSearchInput" placeholder="搜尋半成品名稱">
+      </div>
       <div id="semiGoodList"></div>
     </div>
 
     <div class="report-tab-panel" id="bomPanelFinishedGoods" style="display:none;">
       <button type="button" class="i18n add-item-btn" id="btnAddFinishedGood" style="margin-bottom:12px;">+ 新增成品</button>
+      <div class="field" style="margin-bottom:10px;">
+        <input type="text" id="finishedGoodSearchInput" placeholder="搜尋成品名稱或規格">
+      </div>
       <div id="finishedGoodList"></div>
     </div>
 
@@ -4769,11 +4778,19 @@ function suggestNextMaterialCode(){
 
 function renderMaterialList(){
   const listEl = document.getElementById('materialList');
+  const keyword = (document.getElementById('materialSearchInput').value || '').trim().toLowerCase();
+  const filtered = keyword
+    ? materials.filter(m => (m.name||'').toLowerCase().includes(keyword) || (m.code||'').toLowerCase().includes(keyword))
+    : materials;
   if(materials.length === 0){
     listEl.innerHTML = '<div class="ship-list-empty">還沒有任何原料，點上面「+ 新增原料」開始建立</div>';
     return;
   }
-  listEl.innerHTML = materials.map(m=>{
+  if(filtered.length === 0){
+    listEl.innerHTML = '<div class="ship-list-empty">沒有符合「'+escapeHtml(keyword)+'」的原料</div>';
+    return;
+  }
+  listEl.innerHTML = filtered.map(m=>{
     const total = materialTotalStock(m);
     const activeBatches = (m.batches||[]).filter(b=>(b.stock||0) > 0);
     const batchSummary = activeBatches.length === 0 ? '目前沒有庫存批次'
@@ -4876,6 +4893,7 @@ function openMaterialForm(m){
   document.getElementById('btnDeleteMaterial').style.display = m ? 'block' : 'none';
   materialFormOverlay.classList.add('show');
 }
+document.getElementById('materialSearchInput').addEventListener('input', renderMaterialList);
 document.getElementById('btnAddMaterial').onclick = ()=> openMaterialForm(null);
 document.getElementById('btnCancelMaterial').onclick = ()=> materialFormOverlay.classList.remove('show');
 document.getElementById('btnSaveMaterial').onclick = async ()=>{
@@ -4912,11 +4930,19 @@ document.getElementById('btnDeleteMaterial').onclick = async ()=>{
 function renderFinishedGoodList(){
   const listEl = document.getElementById('finishedGoodList');
   if(!listEl) return;
+  const keyword = (document.getElementById('finishedGoodSearchInput').value || '').trim().toLowerCase();
+  const filtered = keyword
+    ? finishedGoods.filter(f => (f.product||'').toLowerCase().includes(keyword) || (f.spec||'').toLowerCase().includes(keyword))
+    : finishedGoods;
   if(finishedGoods.length === 0){
     listEl.innerHTML = '<div class="ship-list-empty">還沒有任何成品，生產完成後系統會自動建立，也可以先手動新增</div>';
     return;
   }
-  listEl.innerHTML = finishedGoods.map(f=>{
+  if(filtered.length === 0){
+    listEl.innerHTML = '<div class="ship-list-empty">沒有符合「'+escapeHtml(keyword)+'」的成品</div>';
+    return;
+  }
+  listEl.innerHTML = filtered.map(f=>{
     const total = finishedGoodTotalStock(f);
     const activeBatches = (f.batches||[]).filter(b=>(b.stock||0) > 0);
     const metaLine = activeBatches.length === 0 ? ''
@@ -5011,6 +5037,7 @@ function openFgForm(f){
   document.getElementById('btnDeleteFg').style.display = f ? 'block' : 'none';
   fgFormOverlay.classList.add('show');
 }
+document.getElementById('finishedGoodSearchInput').addEventListener('input', renderFinishedGoodList);
 document.getElementById('btnAddFinishedGood').onclick = ()=>{ pendingNewFgId = null; openFgForm(null); };
 document.getElementById('btnCancelFg').onclick = ()=>{
   if(pendingNewFgId){
@@ -5055,11 +5082,19 @@ document.getElementById('btnDeleteFg').onclick = async ()=>{
 function renderSemiGoodList(){
   const listEl = document.getElementById('semiGoodList');
   if(!listEl) return;
+  const keyword = (document.getElementById('semiGoodSearchInput').value || '').trim().toLowerCase();
+  const filtered = keyword
+    ? semiGoods.filter(s => (s.name||'').toLowerCase().includes(keyword))
+    : semiGoods;
   if(semiGoods.length === 0){
     listEl.innerHTML = '<div class="ship-list-empty">還沒有任何半成品，點上面「+ 新增半成品」開始建立</div>';
     return;
   }
-  listEl.innerHTML = semiGoods.map(s=>{
+  if(filtered.length === 0){
+    listEl.innerHTML = '<div class="ship-list-empty">沒有符合「'+escapeHtml(keyword)+'」的半成品</div>';
+    return;
+  }
+  listEl.innerHTML = filtered.map(s=>{
     return '<div class="material-item">' +
       '<div class="material-item-top" data-sgid="'+s.id+'" style="cursor:pointer;"><div class="material-item-name">'+escapeHtml(s.name)+'</div><div class="material-item-stock">'+ (s.stock ?? 0) +' '+escapeHtml(s.unit||'')+'</div></div>' +
       '<button type="button" class="split-btn" data-produce-sgid="'+s.id+'" style="margin-top:8px;">🏭 生產半成品</button>' +
@@ -5091,6 +5126,7 @@ function openSgForm(s){
   document.getElementById('btnDeleteSg').style.display = s ? 'block' : 'none';
   semiGoodFormOverlay.classList.add('show');
 }
+document.getElementById('semiGoodSearchInput').addEventListener('input', renderSemiGoodList);
 document.getElementById('btnAddSemiGood').onclick = ()=> openSgForm(null);
 document.getElementById('btnCancelSg').onclick = ()=> semiGoodFormOverlay.classList.remove('show');
 semiGoodFormOverlay.onclick = (e)=>{ if(e.target === semiGoodFormOverlay) semiGoodFormOverlay.classList.remove('show'); };
