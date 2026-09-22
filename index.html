@@ -134,6 +134,11 @@
     padding:5px 10px; margin-bottom:4px;
   }
   .stock-batch-item b{ color:var(--ink); font-family:var(--mono); }
+  .trace-item{
+    font-size:13.9px; color:var(--ink-dim); background:var(--panel-raised); border:1px solid var(--purple); border-radius:6px;
+    padding:6px 10px; margin-bottom:5px;
+  }
+  .trace-item b{ color:var(--ink); font-family:var(--mono); }
   .coa-notice-row{
     font-size:15.1px; color:var(--ink); background:rgba(242,183,5,0.12); border:1.5px solid var(--amber);
     border-radius:7px; padding:8px 10px; margin-bottom:8px; line-height:1.5;
@@ -569,6 +574,10 @@
           </div>
         </div>
       </div>
+      <div id="sectionMaterialTrace" style="display:none;">
+        <div class="section-label i18n">原料追溯（系統自動記錄，唯讀）</div>
+        <div id="materialTraceDisplay"></div>
+      </div>
 
       <div id="sectionPriorityNote">
         <div class="section-label i18n">優先度 / 備註</div>
@@ -776,6 +785,7 @@
       <button type="button" class="i18n report-tab" data-report-tab="progress">📈 生產進度</button>
       <button type="button" class="i18n report-tab" data-report-tab="shipping">🚚 出貨清單</button>
       <button type="button" class="i18n report-tab" data-report-tab="search">🔍 訂單查詢</button>
+      <button type="button" class="i18n report-tab" data-report-tab="materialTrace">🔎 原料追溯</button>
       <button type="button" class="i18n report-tab" data-report-tab="backup">💾 備份</button>
     </div>
 
@@ -890,6 +900,18 @@
         <button type="button" class="i18n split-btn" id="searchClearBtn" style="margin-top:10px;">清除搜尋</button>
       </div>
       <div id="orderSearchList"></div>
+    </div>
+
+    <div class="report-tab-panel" id="reportPanelMaterialTrace" style="display:none;">
+      <div class="report-section-title i18n" style="margin-top:0;">🔎 原料追溯查詢</div>
+      <div class="i18n" style="font-size:13.3px; color:var(--ink-dim); margin-bottom:10px;">輸入原料批號或原料名稱，查詢這批原料被用在哪些訂單／產品上（正向追溯）</div>
+      <div class="ship-filter-bar">
+        <div class="field" style="margin-bottom:8px;">
+          <input type="text" id="traceSearchInput" placeholder="輸入原料批號或原料名稱關鍵字">
+        </div>
+        <button type="button" class="i18n split-btn" id="traceSearchClearBtn" style="margin-top:2px;">清除搜尋</button>
+      </div>
+      <div id="materialTraceSearchList"></div>
     </div>
 
     <div class="report-tab-panel" id="reportPanelBackup" style="display:none;">
@@ -1582,6 +1604,10 @@ const ID_DICT = {
   '📥 原料進貨':'📥 Penerimaan Bahan Baku', '📦 原料庫存':'📦 Stok Bahan Baku', '🔄 更換照片':'🔄 Ganti Foto',
   '🔍 訂單查詢':'🔍 Pencarian Pesanan', '🚚 出貨清單':'🚚 Daftar Pengiriman', '🧪 半成品':'🧪 Produk Setengah Jadi',
   '🧫 半成品配方':'🧫 Resep Produk Setengah Jadi', '🧾 成品配方':'🧾 Resep Produk Jadi',
+  '🔎 原料追溯':'🔎 Pelacakan Bahan Baku', '🔎 原料追溯查詢':'🔎 Pencarian Pelacakan Bahan Baku',
+  '輸入原料批號或原料名稱，查詢這批原料被用在哪些訂單／產品上（正向追溯）':'Masukkan nomor batch atau nama bahan baku untuk mencari pesanan/produk mana yang menggunakannya',
+  '原料追溯（系統自動記錄，唯讀）':'Pelacakan Bahan Baku (dicatat otomatis, hanya baca)',
+  '請輸入原料批號或原料名稱開始查詢':'Masukkan nomor batch atau nama bahan baku untuk mulai mencari',
   // 常用提示/驗證訊息
   '請填寫原料名稱':'Mohon isi nama bahan baku', '請填寫產品名稱':'Mohon isi nama produk', '已更新原料':'Bahan baku diperbarui',
   '已新增原料':'Bahan baku ditambahkan', '已更新成品':'Produk jadi diperbarui', '已新增成品':'Produk jadi ditambahkan',
@@ -1670,6 +1696,10 @@ const EN_DICT = {
   '📥 原料進貨':'📥 Material Receiving', '📦 原料庫存':'📦 Material Stock', '🔄 更換照片':'🔄 Change Photo',
   '🔍 訂單查詢':'🔍 Order Search', '🚚 出貨清單':'🚚 Shipping List', '🧪 半成品':'🧪 Semi-Finished Goods',
   '🧫 半成品配方':'🧫 Semi-Finished Recipes', '🧾 成品配方':'🧾 Product Recipes',
+  '🔎 原料追溯':'🔎 Material Traceability', '🔎 原料追溯查詢':'🔎 Material Traceability Search',
+  '輸入原料批號或原料名稱，查詢這批原料被用在哪些訂單／產品上（正向追溯）':'Enter a material batch number or name to find which orders/products used it',
+  '原料追溯（系統自動記錄，唯讀）':'Material Traceability (auto-recorded, read-only)',
+  '請輸入原料批號或原料名稱開始查詢':'Enter a material batch number or name to start searching',
   // 常用提示/驗證訊息
   '請填寫原料名稱':'Please enter material name', '請填寫產品名稱':'Please enter product name', '已更新原料':'Material updated',
   '已新增原料':'Material added', '已更新成品':'Finished good updated', '已新增成品':'Finished good added',
@@ -1806,21 +1836,28 @@ function deductMaterialStockFIFO(m, qty, filters){
     (!requiredOrigin || (b.origin||'') === requiredOrigin) &&
     (!requiredManufacturer || (b.manufacturer||'') === requiredManufacturer)
   );
+  const consumed = [];
   pool.forEach(b=>{
     if(remaining <= 0) return;
     const take = Math.min(b.stock||0, remaining);
-    b.stock = Math.round(((b.stock||0) - take) * 1000) / 1000;
+    if(take > 0){
+      b.stock = Math.round(((b.stock||0) - take) * 1000) / 1000;
+      consumed.push({ batchNo: b.batchNo||'', mfgDate: b.mfgDate||'', expDate: b.expDate||'', origin: b.origin||'', manufacturer: b.manufacturer||'', supplier: b.supplier||'', qty: take });
+    }
     remaining = Math.round((remaining - take) * 1000) / 1000;
   });
   if(remaining > 0){
     // 所有可用批次都扣完了還不夠(限定產地/製造商時只看符合條件的批次)，從最早那筆(或新增一筆)扣成負數，讓庫存總量能反映短缺
     if(pool.length > 0){
       pool[0].stock = Math.round(((pool[0].stock||0) - remaining) * 1000) / 1000;
+      consumed.push({ batchNo: pool[0].batchNo||'', mfgDate: pool[0].mfgDate||'', expDate: pool[0].expDate||'', origin: pool[0].origin||'', manufacturer: pool[0].manufacturer||'', supplier: pool[0].supplier||'', qty: remaining });
     }else{
-      m.batches.push({ batchNo:'', mfgDate:'', expDate:'', stock: -remaining, origin: requiredOrigin || '', manufacturer: requiredManufacturer || '' });
+      const newBatch = { batchNo:'', mfgDate:'', expDate:'', stock: -remaining, origin: requiredOrigin || '', manufacturer: requiredManufacturer || '' };
+      m.batches.push(newBatch);
+      consumed.push({ batchNo:'', mfgDate:'', expDate:'', origin: requiredOrigin||'', manufacturer: requiredManufacturer||'', supplier:'', qty: remaining });
     }
   }
-  return remaining > 0; // true = 庫存不足(若有限定條件，代表符合條件的庫存不足，不會誤扣不符合的批次)
+  return { shortage: remaining > 0, consumed }; // shortage=true 代表庫存不足(若有限定條件，代表符合條件的庫存不足，不會誤扣不符合的批次)
 }
 let boms = []; // [{id, product, rows:[{materialId, qtyPerUnit}]}]
 let receipts = []; // [{id, materialId, materialName, qty, unit, supplier, batchNo, mfgDate, expDate, receivedDate, createdAt}]
@@ -2930,6 +2967,24 @@ function openSheet(order, item){
     setFlexDateValue('fMaterialMfgDate', mfgDate);
     setFlexDateValue('fMaterialExpDate', expDate);
   }
+  {
+    const trace = item ? (item.materialTraceability || []) : [];
+    const traceSection = document.getElementById('sectionMaterialTrace');
+    if(trace.length > 0){
+      traceSection.style.display = '';
+      document.getElementById('materialTraceDisplay').innerHTML = trace.map(t=>
+        '<div class="trace-item">' + escapeHtml(t.materialName) + (t.materialCode ? ' (' + escapeHtml(t.materialCode) + ')' : '') +
+        '　批號 <b>' + escapeHtml(t.batchNo||'未命名') + '</b>　用量 <b>' + t.qty + '</b>' +
+        (t.origin ? '　產地 ' + escapeHtml(t.origin) : '') +
+        (t.manufacturer ? '　製造商 ' + escapeHtml(t.manufacturer) : '') +
+        (t.mfgDate ? '　製造日期 ' + t.mfgDate : '') +
+        '</div>'
+      ).join('');
+    }else{
+      traceSection.style.display = 'none';
+      document.getElementById('materialTraceDisplay').innerHTML = '';
+    }
+  }
   document.getElementById('fShipMethod').value = item ? (item.shipMethod || '') : '';
   {
     const actualShipDateVisible = item && (STATUS.indexOf(item.status) >= STATUS.indexOf('shipped'));
@@ -3444,6 +3499,55 @@ document.getElementById('searchClearBtn').onclick = ()=>{
   renderOrderSearchList();
 };
 
+function renderMaterialTraceSearch(){
+  const listEl = document.getElementById('materialTraceSearchList');
+  const keyword = (document.getElementById('traceSearchInput').value || '').trim().toLowerCase();
+  if(!keyword){
+    listEl.innerHTML = '<div class="ship-list-empty">' + t('請輸入原料批號或原料名稱開始查詢') + '</div>';
+    return;
+  }
+  const results = [];
+  allActiveItems().forEach(x=>{
+    (x.item.materialTraceability || []).forEach(t=>{
+      const hit = (t.batchNo||'').toLowerCase().includes(keyword) || (t.materialName||'').toLowerCase().includes(keyword) || (t.materialCode||'').toLowerCase().includes(keyword);
+      if(hit) results.push({ order: x.order, item: x.item, trace: t });
+    });
+  });
+  if(results.length === 0){
+    listEl.innerHTML = '<div class="ship-list-empty">沒有找到符合「'+escapeHtml(keyword)+'」的原料使用紀錄</div>';
+    return;
+  }
+  results.sort((a,b)=> (a.item.fillFormDate||'').localeCompare(b.item.fillFormDate||''));
+  listEl.innerHTML = '<div class="report-updated" style="margin-bottom:10px;">共找到 ' + results.length + ' 筆使用紀錄</div>' +
+    results.map(r=>{
+      const stageTag = '<span class="badge stage st-' + r.item.status + '">' + STATUS_LABEL[r.item.status] + '</span>';
+      const traceInfo = '<span class="ship-list-tag">原料批號 ' + escapeHtml(r.trace.batchNo||'未命名') + '</span>' +
+        '<span class="ship-list-tag">用量 ' + r.trace.qty + '</span>' +
+        (r.trace.origin ? '<span class="ship-list-tag">產地 ' + escapeHtml(r.trace.origin) + '</span>' : '') +
+        (r.trace.manufacturer ? '<span class="ship-list-tag">製造商 ' + escapeHtml(r.trace.manufacturer) + '</span>' : '');
+      return '<div class="ship-list-row" data-jump-oid="'+r.order.id+'" data-jump-iid="'+r.item.id+'" style="cursor:pointer;">' +
+        '<div><div class="ship-list-name">' + escapeHtml(r.order.customer) + ' ・ ' + escapeHtml(r.item.product) + '</div>' +
+        '<div class="ship-list-meta">' + escapeHtml(r.order.orderNo || '') + ' ・ 原料：' + escapeHtml(r.trace.materialName) + '</div>' +
+        stageTag + traceInfo +
+        '</div><div class="ship-list-qty">x' + r.item.qty + '</div></div>';
+    }).join('');
+  listEl.querySelectorAll('[data-jump-oid]').forEach(row=>{
+    row.onclick = ()=>{
+      const order = orders.find(o=>o.id===row.dataset.jumpOid);
+      const item = order && order.items.find(i=>i.id===row.dataset.jumpIid);
+      if(order && item){
+        reportOverlay.classList.remove('show');
+        openSheet(order, item);
+      }
+    };
+  });
+}
+document.getElementById('traceSearchInput').addEventListener('input', renderMaterialTraceSearch);
+document.getElementById('traceSearchClearBtn').onclick = ()=>{
+  document.getElementById('traceSearchInput').value = '';
+  renderMaterialTraceSearch();
+};
+
 function isShippedToday(item){
   if(!item.shippedAt) return false;
   return new Date(item.shippedAt).toISOString().slice(0,10) === todayStr();
@@ -3528,6 +3632,7 @@ const REPORT_PANELS = {
   progress: 'reportPanelProgress',
   shipping: 'reportPanelShipping',
   search: 'reportPanelSearch',
+  materialTrace: 'reportPanelMaterialTrace',
   backup: 'reportPanelBackup'
 };
 function switchReportTab(key){
@@ -5196,8 +5301,8 @@ document.getElementById('btnSaveSemiProduce').onclick = async ()=>{
     const m = materials.find(x=>x.id===row.materialId);
     if(!m) return;
     const used = row.qtyPerUnit * qty;
-    const short = deductMaterialStockFIFO(m, used, { origin: row.requiredOrigin, manufacturer: row.requiredManufacturer });
-    if(short) shortages.push(m.name);
+    const { shortage } = deductMaterialStockFIFO(m, used, { origin: row.requiredOrigin, manufacturer: row.requiredManufacturer });
+    if(shortage) shortages.push(m.name);
   });
   s.stock = Math.round(((s.stock||0) + qty) * 1000) / 1000;
   await saveBomData();
@@ -5753,6 +5858,7 @@ async function deductStockForItem(item){
   const bom = boms.find(b=>b.product === item.product);
   if(!bom || !bom.rows || bom.rows.length === 0) return;
   const shortages = [];
+  const traceRecords = [];
   bom.rows.forEach(row=>{
     const type = row.type || 'material';
     const refId = row.refId || row.materialId;
@@ -5765,15 +5871,26 @@ async function deductStockForItem(item){
     }else{
       const target = materials.find(x=>x.id===refId);
       if(!target) return;
-      const short = deductMaterialStockFIFO(target, used, { origin: row.requiredOrigin, manufacturer: row.requiredManufacturer });
-      if(short){
+      const { shortage, consumed } = deductMaterialStockFIFO(target, used, { origin: row.requiredOrigin, manufacturer: row.requiredManufacturer });
+      if(shortage){
         const restrictBits = [];
         if(row.requiredOrigin) restrictBits.push('限' + row.requiredOrigin + '產地');
         if(row.requiredManufacturer) restrictBits.push('限' + row.requiredManufacturer + '製造');
         shortages.push(target.name + (restrictBits.length ? '（' + restrictBits.join('、') + '）' : ''));
       }
+      consumed.forEach(c=>{
+        traceRecords.push({
+          materialId: target.id, materialCode: target.code||'', materialName: target.name,
+          batchNo: c.batchNo, mfgDate: c.mfgDate, expDate: c.expDate,
+          origin: c.origin, manufacturer: c.manufacturer, supplier: c.supplier, qty: c.qty
+        });
+      });
     }
   });
+  if(traceRecords.length > 0){
+    item.materialTraceability = (item.materialTraceability || []).concat(traceRecords);
+    await saveOrders(); // 追溯資料寫在訂單品項上，前面呼叫saveOrders()時這筆資料還沒寫入，這裡要再存一次才會生效
+  }
   await saveBomData();
   renderMaterialList();
   renderSemiGoodList();
@@ -5785,6 +5902,7 @@ async function deductStockForItem(item){
 async function restoreStockForItem(item){
   const bom = boms.find(b=>b.product === item.product);
   if(!bom || !bom.rows || bom.rows.length === 0) return;
+  const trace = item.materialTraceability || [];
   bom.rows.forEach(row=>{
     const type = row.type || 'material';
     const refId = row.refId || row.materialId;
@@ -5797,19 +5915,36 @@ async function restoreStockForItem(item){
       const target = materials.find(x=>x.id===refId);
       if(!target) return;
       if(!target.batches) target.batches = [];
-      const pool = target.batches.filter(b=>
-        (!row.requiredOrigin || (b.origin||'')===row.requiredOrigin) &&
-        (!row.requiredManufacturer || (b.manufacturer||'')===row.requiredManufacturer)
-      );
-      if(pool.length > 0){
-        // 歸還加回最早的那筆批次(無法精確得知原本是從哪幾筆扣的，用最簡單的方式歸還；有限定條件時只歸還到符合條件的批次)
-        const first = materialBatchesSorted({ batches: pool })[0];
-        first.stock = Math.round(((first.stock||0) + used) * 1000) / 1000;
+      const materialTrace = trace.filter(t=>t.materialId===target.id);
+      if(materialTrace.length > 0){
+        // 有精確的追溯記錄，就精準歸還到原本各自被扣的那幾筆批次(依批號比對)
+        materialTrace.forEach(t=>{
+          let batch = t.batchNo ? target.batches.find(b=>b.batchNo===t.batchNo) : null;
+          if(!batch){
+            batch = { batchNo: t.batchNo||'', mfgDate: t.mfgDate||'', expDate: t.expDate||'', stock: 0, origin: t.origin||'', manufacturer: t.manufacturer||'', supplier: t.supplier||'' };
+            target.batches.push(batch);
+          }
+          batch.stock = Math.round(((batch.stock||0) + t.qty) * 1000) / 1000;
+        });
       }else{
-        target.batches.push({ batchNo:'', mfgDate:'', expDate:'', stock: used, origin: row.requiredOrigin || '', manufacturer: row.requiredManufacturer || '' });
+        // 沒有追溯記錄(較舊的資料)，退回最簡單的方式：歸還加回最早符合條件的那筆批次
+        const pool = target.batches.filter(b=>
+          (!row.requiredOrigin || (b.origin||'')===row.requiredOrigin) &&
+          (!row.requiredManufacturer || (b.manufacturer||'')===row.requiredManufacturer)
+        );
+        if(pool.length > 0){
+          const first = materialBatchesSorted({ batches: pool })[0];
+          first.stock = Math.round(((first.stock||0) + used) * 1000) / 1000;
+        }else{
+          target.batches.push({ batchNo:'', mfgDate:'', expDate:'', stock: used, origin: row.requiredOrigin || '', manufacturer: row.requiredManufacturer || '' });
+        }
       }
     }
   });
+  if(item.materialTraceability && item.materialTraceability.length > 0){
+    delete item.materialTraceability;
+    await saveOrders(); // 追溯資料寫在訂單品項上，前面呼叫saveOrders()時還沒清除，這裡要再存一次才會生效
+  }
   await saveBomData();
   renderMaterialList();
   renderSemiGoodList();
