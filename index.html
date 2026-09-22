@@ -1404,11 +1404,11 @@
         <input type="text" id="mfStockTotal" disabled style="opacity:0.75;">
       </div>
     </div>
+    <div class="section-label" style="margin-top:8px;">批次庫存（可有多筆不同批號，生產時會自動先扣最早的批次）</div>
     <div class="field">
-      <label class="i18n">預設規格（每件重量/數量，進貨時會自動帶入）</label>
+      <label class="i18n">預設規格（每件重量/數量，新增批次時可用「件數」自動算總量）</label>
       <input type="number" id="mfDefaultSpec" placeholder="例如 25" step="any">
     </div>
-    <div class="section-label" style="margin-top:8px;">批次庫存（可有多筆不同批號，生產時會自動先扣最早的批次）</div>
     <div id="materialBatchList"></div>
     <datalist id="originSuggestions">
       <option value="台灣">
@@ -4938,7 +4938,8 @@ function renderMaterialBatchLotList(batches){
         '<div class="field"><label>製造日期</label><input type="date" class="mbMfgDate" value="'+escapeHtml(b.mfgDate||'')+'"></div>' +
         '<div class="field"><label>有效日期</label><input type="date" class="mbExpDate" value="'+escapeHtml(b.expDate||'')+'"></div>' +
       '</div>' +
-      '<div class="row2">' +
+      '<div class="row3">' +
+        '<div class="field"><label>件數（選填，用「件數 × 預設規格」自動算總量）</label><input type="number" class="mbPieces" placeholder="例如 200" step="any"></div>' +
         '<div class="field"><label>這批剩餘庫存</label><input type="number" class="mbStock" step="any" value="'+(b.stock ?? 0)+'"></div>' +
         '<div class="field"><label>產地</label><input type="text" class="mbOrigin" placeholder="例如 印度" list="originSuggestions" value="'+escapeHtml(b.origin||'')+'"></div>' +
       '</div>' +
@@ -4960,6 +4961,18 @@ function renderMaterialBatchLotList(batches){
   });
   container.querySelectorAll('.mbStock').forEach(el=>{
     el.addEventListener('input', updateMaterialStockTotalDisplay);
+  });
+  container.querySelectorAll('.mbPieces').forEach(el=>{
+    el.addEventListener('input', function(){
+      const pieces = parseFloat(this.value);
+      const defaultSpec = parseFloat(document.getElementById('mfDefaultSpec').value);
+      if(!isNaN(pieces) && !isNaN(defaultSpec)){
+        const row = this.closest('.material-batch-row');
+        const stockInput = row.querySelector('.mbStock');
+        stockInput.value = Math.round(pieces * defaultSpec * 1000) / 1000;
+        updateMaterialStockTotalDisplay();
+      }
+    });
   });
 }
 function getMaterialBatchLotsFromForm(){
