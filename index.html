@@ -1297,7 +1297,7 @@
     </div>
     <div class="field">
       <label class="i18n">供應商</label>
-      <input type="text" id="mrSupplier" placeholder="供應商名稱">
+      <input type="text" id="mrSupplier" placeholder="供應商名稱" list="supplierSuggestions">
     </div>
     <div class="section-label" style="margin-top:8px;">本次進貨批號資訊（會新增為獨立一筆批次，不影響其他批次）</div>
     <div class="field">
@@ -1312,6 +1312,16 @@
       <div class="field">
         <label class="i18n">有效日期</label>
         <input type="date" id="mrExpDate">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label class="i18n">產地</label>
+        <input type="text" id="mrOrigin" placeholder="例如 印度" list="originSuggestions">
+      </div>
+      <div class="field">
+        <label class="i18n">製造商</label>
+        <input type="text" id="mrManufacturer" placeholder="製造商名稱" list="manufacturerSuggestions">
       </div>
     </div>
     <div class="field">
@@ -1369,6 +1379,16 @@
     </div>
     <div class="section-label" style="margin-top:8px;">批次庫存（可有多筆不同批號，生產時會自動先扣最早的批次）</div>
     <div id="materialBatchList"></div>
+    <datalist id="originSuggestions">
+      <option value="台灣">
+      <option value="中國">
+      <option value="印度">
+      <option value="印尼">
+      <option value="巴基斯坦">
+      <option value="摩洛哥">
+    </datalist>
+    <datalist id="supplierSuggestions"></datalist>
+    <datalist id="manufacturerSuggestions"></datalist>
     <button type="button" id="btnAddMaterialBatchLot" class="i18n split-btn" style="margin-top:6px;">+ 新增批次</button>
     <div class="sheet-actions">
       <button type="button" class="i18n btn-secondary" id="btnCancelMaterial">取消</button>
@@ -1745,9 +1765,14 @@ let materials = []; // [{id, code, name, unit, defaultSpec, batches:[{batchNo, m
 function ensureMaterialBatches(m){
   if(!m.batches){
     m.batches = (m.stock || m.batchNo || m.mfgDate || m.expDate)
-      ? [{ batchNo: m.batchNo||'', mfgDate: m.mfgDate||'', expDate: m.expDate||'', stock: m.stock||0 }]
+      ? [{ batchNo: m.batchNo||'', mfgDate: m.mfgDate||'', expDate: m.expDate||'', stock: m.stock||0, origin: '', supplier: '', manufacturer: '' }]
       : [];
   }
+  m.batches.forEach(b=>{
+    if(b.origin === undefined) b.origin = '';
+    if(b.supplier === undefined) b.supplier = '';
+    if(b.manufacturer === undefined) b.manufacturer = '';
+  });
   delete m.stock; delete m.batchNo; delete m.mfgDate; delete m.expDate;
   return m;
 }
@@ -1762,24 +1787,31 @@ function materialPrimaryBatch(m){
   // 目前庫存還有剩、且最早的一筆批次，用於自動帶入訂單批號
   return materialBatchesSorted(m).find(b => (b.stock||0) > 0) || null;
 }
-function deductMaterialStockFIFO(m, qty){
+function deductMaterialStockFIFO(m, qty, filters){
+  filters = filters || {};
+  const requiredOrigin = filters.origin || (typeof filters === 'string' ? filters : '');
+  const requiredManufacturer = filters.manufacturer || '';
   let remaining = qty;
   const sorted = materialBatchesSorted(m);
-  sorted.forEach(b=>{
+  const pool = sorted.filter(b=>
+    (!requiredOrigin || (b.origin||'') === requiredOrigin) &&
+    (!requiredManufacturer || (b.manufacturer||'') === requiredManufacturer)
+  );
+  pool.forEach(b=>{
     if(remaining <= 0) return;
     const take = Math.min(b.stock||0, remaining);
     b.stock = Math.round(((b.stock||0) - take) * 1000) / 1000;
     remaining = Math.round((remaining - take) * 1000) / 1000;
   });
   if(remaining > 0){
-    // 所有批次都扣完了還不夠，從最早那筆(或新增一筆)扣成負數，讓庫存總量能反映短缺
-    if(sorted.length > 0){
-      sorted[0].stock = Math.round(((sorted[0].stock||0) - remaining) * 1000) / 1000;
+    // 所有可用批次都扣完了還不夠(限定產地/製造商時只看符合條件的批次)，從最早那筆(或新增一筆)扣成負數，讓庫存總量能反映短缺
+    if(pool.length > 0){
+      pool[0].stock = Math.round(((pool[0].stock||0) - remaining) * 1000) / 1000;
     }else{
-      m.batches.push({ batchNo:'', mfgDate:'', expDate:'', stock: -remaining });
+      m.batches.push({ batchNo:'', mfgDate:'', expDate:'', stock: -remaining, origin: requiredOrigin || '', manufacturer: requiredManufacturer || '' });
     }
   }
-  return remaining > 0; // true = 庫存不足
+  return remaining > 0; // true = 庫存不足(若有限定條件，代表符合條件的庫存不足，不會誤扣不符合的批次)
 }
 let boms = []; // [{id, product, rows:[{materialId, qtyPerUnit}]}]
 let receipts = []; // [{id, materialId, materialName, qty, unit, supplier, batchNo, mfgDate, expDate, receivedDate, createdAt}]
@@ -2746,6 +2778,19 @@ function populateProductSuggestions(customerName){
     ? customerProducts.concat(allProducts.filter(n=>!customerProducts.includes(n)))
     : allProducts;
   listEl.innerHTML = orderedProducts.map(n=>'<option value="'+escapeHtml(n)+'">').join('');
+}
+function populateSupplierManufacturerSuggestions(){
+  const suppliers = new Set();
+  const manufacturers = new Set();
+  materials.forEach(m=> (m.batches||[]).forEach(b=>{
+    if(b.supplier) suppliers.add(b.supplier);
+    if(b.manufacturer) manufacturers.add(b.manufacturer);
+  }));
+  receipts.forEach(r=>{ if(r.supplier) suppliers.add(r.supplier); });
+  const supplierEl = document.getElementById('supplierSuggestions');
+  if(supplierEl) supplierEl.innerHTML = Array.from(suppliers).sort().map(n=>'<option value="'+escapeHtml(n)+'">').join('');
+  const manufacturerEl = document.getElementById('manufacturerSuggestions');
+  if(manufacturerEl) manufacturerEl.innerHTML = Array.from(manufacturers).sort().map(n=>'<option value="'+escapeHtml(n)+'">').join('');
 }
 function populateSpecSelect(selectId, customId, productName, currentValue){
   const select = document.getElementById(selectId);
@@ -4732,8 +4777,8 @@ function renderMaterialList(){
     const total = materialTotalStock(m);
     const activeBatches = (m.batches||[]).filter(b=>(b.stock||0) > 0);
     const batchSummary = activeBatches.length === 0 ? '目前沒有庫存批次'
-      : activeBatches.length === 1 ? ('批號 ' + escapeHtml(activeBatches[0].batchNo||'－') + '　有效期限 ' + (activeBatches[0].expDate||'－'))
-      : (activeBatches.length + ' 個批次：' + activeBatches.map(b=>escapeHtml(b.batchNo||'未命名')+'('+b.stock+')').join('、'));
+      : activeBatches.length === 1 ? ('批號 ' + escapeHtml(activeBatches[0].batchNo||'－') + (activeBatches[0].origin ? '　產地 ' + escapeHtml(activeBatches[0].origin) : '') + (activeBatches[0].manufacturer ? '　製造商 ' + escapeHtml(activeBatches[0].manufacturer) : '') + '　有效期限 ' + (activeBatches[0].expDate||'－'))
+      : (activeBatches.length + ' 個批次：' + activeBatches.map(b=>escapeHtml(b.batchNo||'未命名')+(b.origin?'('+escapeHtml(b.origin)+')':'')+' x'+b.stock).join('、'));
     return '<div class="material-item">' +
       '<div class="material-item-top" data-mid="'+m.id+'" style="cursor:pointer;"><div class="material-item-name">'+materialLabel(m)+'</div><div class="material-item-stock">'+ total +' '+escapeHtml(m.unit||'')+'</div></div>' +
       '<div class="material-item-meta" data-mid="'+m.id+'" style="cursor:pointer;">'+batchSummary+'</div>' +
@@ -4771,7 +4816,14 @@ function renderMaterialBatchLotList(batches){
         '<div class="field"><label>製造日期</label><input type="date" class="mbMfgDate" value="'+escapeHtml(b.mfgDate||'')+'"></div>' +
         '<div class="field"><label>有效日期</label><input type="date" class="mbExpDate" value="'+escapeHtml(b.expDate||'')+'"></div>' +
       '</div>' +
-      '<div class="field"><label>這批剩餘庫存</label><input type="number" class="mbStock" step="any" value="'+(b.stock ?? 0)+'"></div>' +
+      '<div class="row2">' +
+        '<div class="field"><label>這批剩餘庫存</label><input type="number" class="mbStock" step="any" value="'+(b.stock ?? 0)+'"></div>' +
+        '<div class="field"><label>產地</label><input type="text" class="mbOrigin" placeholder="例如 印度" list="originSuggestions" value="'+escapeHtml(b.origin||'')+'"></div>' +
+      '</div>' +
+      '<div class="row2">' +
+        '<div class="field"><label>供應商</label><input type="text" class="mbSupplier" placeholder="供應商名稱" list="supplierSuggestions" value="'+escapeHtml(b.supplier||'')+'"></div>' +
+        '<div class="field"><label>製造商</label><input type="text" class="mbManufacturer" placeholder="製造商名稱" list="manufacturerSuggestions" value="'+escapeHtml(b.manufacturer||'')+'"></div>' +
+      '</div>' +
       '<button type="button" class="material-batch-remove-btn">✕ 移除這個批次</button>' +
     '</div>';
   }).join('');
@@ -4793,7 +4845,10 @@ function getMaterialBatchLotsFromForm(){
     batchNo: row.querySelector('.mbBatchNo').value.trim(),
     mfgDate: row.querySelector('.mbMfgDate').value,
     expDate: row.querySelector('.mbExpDate').value,
-    stock: parseFloat(row.querySelector('.mbStock').value) || 0
+    stock: parseFloat(row.querySelector('.mbStock').value) || 0,
+    origin: row.querySelector('.mbOrigin').value.trim(),
+    supplier: row.querySelector('.mbSupplier').value.trim(),
+    manufacturer: row.querySelector('.mbManufacturer').value.trim()
   }));
 }
 function updateMaterialStockTotalDisplay(){
@@ -4810,6 +4865,7 @@ document.getElementById('mfUnit').addEventListener('input', updateMaterialStockT
 
 function openMaterialForm(m){
   editingMaterialId = m ? m.id : null;
+  populateSupplierManufacturerSuggestions();
   document.getElementById('materialFormTitle').textContent = m ? '編輯原料' : '新增原料';
   document.getElementById('mfCode').value = m ? (m.code || '') : suggestNextMaterialCode();
   document.getElementById('mfName').value = m ? m.name : '';
@@ -5104,7 +5160,7 @@ document.getElementById('btnSaveSemiProduce').onclick = async ()=>{
     const m = materials.find(x=>x.id===row.materialId);
     if(!m) return;
     const used = row.qtyPerUnit * qty;
-    const short = deductMaterialStockFIFO(m, used);
+    const short = deductMaterialStockFIFO(m, used, { origin: row.requiredOrigin, manufacturer: row.requiredManufacturer });
     if(short) shortages.push(m.name);
   });
   s.stock = Math.round(((s.stock||0) + qty) * 1000) / 1000;
@@ -5246,6 +5302,7 @@ function updateReceiptTotal(){
 }
 function openReceiptForm(m){
   receivingMaterialId = m.id;
+  populateSupplierManufacturerSuggestions();
   document.getElementById('receiptMaterialName').textContent = materialLabelPlain(m) + '　目前庫存 ' + materialTotalStock(m) + ' ' + (m.unit||'');
   document.getElementById('mrPieces').value = '';
   document.getElementById('mrSpec').value = (m.defaultSpec ?? '') === null ? '' : (m.defaultSpec ?? '');
@@ -5254,6 +5311,8 @@ function openReceiptForm(m){
   document.getElementById('mrBatchNo').value = '';
   document.getElementById('mrMfgDate').value = '';
   document.getElementById('mrExpDate').value = '';
+  document.getElementById('mrOrigin').value = '';
+  document.getElementById('mrManufacturer').value = '';
   document.getElementById('mrPhoto').value = '';
   document.getElementById('mrPhotoPreview').style.display = 'none';
   updateReceiptTotal();
@@ -5367,6 +5426,8 @@ document.getElementById('btnSaveReceipt').onclick = async ()=>{
   const batchNo = document.getElementById('mrBatchNo').value.trim();
   const mfgDate = document.getElementById('mrMfgDate').value;
   const expDate = document.getElementById('mrExpDate').value;
+  const origin = document.getElementById('mrOrigin').value.trim();
+  const manufacturer = document.getElementById('mrManufacturer').value.trim();
   const photoFile = document.getElementById('mrPhoto').files[0];
 
   if(!pieces || pieces <= 0){ showToast('請填寫正確的進貨件數'); return; }
@@ -5394,18 +5455,21 @@ document.getElementById('btnSaveReceipt').onclick = async ()=>{
   if(!m.batches) m.batches = [];
   const existingBatch = batchNo ? m.batches.find(b => b.batchNo === batchNo) : null;
   if(existingBatch){
-    // 同批號再次進貨，直接加量到同一筆批次，並以本次填寫的日期為準
+    // 同批號再次進貨，直接加量到同一筆批次，並以本次填寫的日期與產地為準
     existingBatch.stock = Math.round(((existingBatch.stock||0) + qty) * 1000) / 1000;
     existingBatch.mfgDate = mfgDate;
     existingBatch.expDate = expDate;
+    existingBatch.origin = origin;
+    existingBatch.supplier = supplier;
+    existingBatch.manufacturer = manufacturer;
   }else{
-    m.batches.push({ batchNo, mfgDate, expDate, stock: qty });
+    m.batches.push({ batchNo, mfgDate, expDate, stock: qty, origin, supplier, manufacturer });
   }
 
   receipts.push({
     id: receiptId,
     materialId: m.id, materialName: m.name, materialCode: m.code || '', unit: m.unit || '',
-    pieces, spec, qty, supplier, batchNo, mfgDate, expDate, receivedDate,
+    pieces, spec, qty, supplier, manufacturer, batchNo, mfgDate, expDate, origin, receivedDate,
     photoData,
     createdAt: Date.now()
   });
@@ -5503,7 +5567,14 @@ function renderBomRows(){
     const refId = row.refId || row.materialId;
     const list = type === 'semi' ? semiGoods : materials;
     const options = list.map(x=>'<option value="'+x.id+'"'+(x.id===refId?' selected':'')+'>'+(type==='material'?materialLabel(x):escapeHtml(x.name))+'</option>').join('');
+    const originRow = type === 'material'
+      ? '<div class="row2" style="margin-top:6px;">' +
+          '<div class="field"><label style="font-size:12.4px; color:var(--ink-dim);">限定產地（選填）</label><input type="text" class="bomRowOrigin" placeholder="例如 印度" list="originSuggestions" value="'+escapeHtml(row.requiredOrigin||'')+'"></div>' +
+          '<div class="field"><label style="font-size:12.4px; color:var(--ink-dim);">限定製造商（選填）</label><input type="text" class="bomRowManufacturer" placeholder="例如 XX食品廠" list="manufacturerSuggestions" value="'+escapeHtml(row.requiredManufacturer||'')+'"></div>' +
+        '</div>'
+      : '';
     return '<div class="bom-material-row" data-idx="'+idx+'">' +
+      '<div style="display:flex; gap:8px; align-items:flex-end;">' +
       '<div class="field" style="flex:0 0 92px;"><select class="bomRowType">' +
         '<option value="material"'+(type==='material'?' selected':'')+'>📦原料</option>' +
         '<option value="semi"'+(type==='semi'?' selected':'')+'>🧪半成品</option>' +
@@ -5511,6 +5582,7 @@ function renderBomRows(){
       '<div class="field"><select class="bomRowMaterial">'+(options || '<option value="">（尚無項目）</option>')+'</select></div>' +
       '<div class="field qty-field"><input type="number" step="any" class="bomRowQty" placeholder="用量" value="'+(row.qtyPerUnit ?? '')+'"></div>' +
       '<button type="button" class="bom-row-remove" data-remove="'+idx+'">✕</button>' +
+      '</div>' + originRow +
     '</div>';
   }).join('');
 
@@ -5521,6 +5593,7 @@ function renderBomRows(){
       bomRowsState[i].type = newType;
       bomRowsState[i].refId = list[0] ? list[0].id : '';
       delete bomRowsState[i].materialId;
+      if(newType === 'semi'){ delete bomRowsState[i].requiredOrigin; delete bomRowsState[i].requiredManufacturer; }
       renderBomRows();
     };
   });
@@ -5529,6 +5602,12 @@ function renderBomRows(){
   });
   wrap.querySelectorAll('.bomRowQty').forEach((inp, i)=>{
     inp.oninput = ()=>{ bomRowsState[i].qtyPerUnit = parseFloat(inp.value) || 0; };
+  });
+  wrap.querySelectorAll('.bomRowManufacturer').forEach((inp, i)=>{
+    inp.oninput = ()=>{ bomRowsState[i].requiredManufacturer = inp.value.trim(); };
+  });
+  wrap.querySelectorAll('.bomRowOrigin').forEach((inp, i)=>{
+    inp.oninput = ()=>{ bomRowsState[i].requiredOrigin = inp.value.trim(); };
   });
   wrap.querySelectorAll('[data-remove]').forEach(btn=>{
     btn.onclick = ()=>{
@@ -5552,7 +5631,9 @@ function openBomForm(b){
     bomRowsState = JSON.parse(JSON.stringify(b.rows||[])).map(r=>({
       type: r.type || 'material',
       refId: r.refId || r.materialId,
-      qtyPerUnit: r.qtyPerUnit
+      qtyPerUnit: r.qtyPerUnit,
+      requiredOrigin: r.requiredOrigin || '',
+      requiredManufacturer: r.requiredManufacturer || ''
     }));
   }else{
     const list = materials.length ? materials : semiGoods;
@@ -5567,7 +5648,11 @@ document.getElementById('btnCancelBom').onclick = ()=> bomFormOverlay.classList.
 document.getElementById('btnSaveBom').onclick = async ()=>{
   const product = document.getElementById('bfProduct').value.trim();
   if(!product){ showToast('請填寫產品名稱'); return; }
-  const rows = bomRowsState.filter(r=>r.refId && r.qtyPerUnit > 0).map(r=>({ type: r.type || 'material', refId: r.refId, qtyPerUnit: r.qtyPerUnit }));
+  const rows = bomRowsState.filter(r=>r.refId && r.qtyPerUnit > 0).map(r=>({
+    type: r.type || 'material', refId: r.refId, qtyPerUnit: r.qtyPerUnit,
+    requiredOrigin: (r.type !== 'semi' && r.requiredOrigin) ? r.requiredOrigin : '',
+    requiredManufacturer: (r.type !== 'semi' && r.requiredManufacturer) ? r.requiredManufacturer : ''
+  }));
   if(rows.length === 0){ showToast('請至少設定一項原料或半成品用量'); return; }
 
   if(editingBomId){
@@ -5644,8 +5729,13 @@ async function deductStockForItem(item){
     }else{
       const target = materials.find(x=>x.id===refId);
       if(!target) return;
-      const short = deductMaterialStockFIFO(target, used);
-      if(short) shortages.push(target.name);
+      const short = deductMaterialStockFIFO(target, used, { origin: row.requiredOrigin, manufacturer: row.requiredManufacturer });
+      if(short){
+        const restrictBits = [];
+        if(row.requiredOrigin) restrictBits.push('限' + row.requiredOrigin + '產地');
+        if(row.requiredManufacturer) restrictBits.push('限' + row.requiredManufacturer + '製造');
+        shortages.push(target.name + (restrictBits.length ? '（' + restrictBits.join('、') + '）' : ''));
+      }
     }
   });
   await saveBomData();
@@ -5671,12 +5761,16 @@ async function restoreStockForItem(item){
       const target = materials.find(x=>x.id===refId);
       if(!target) return;
       if(!target.batches) target.batches = [];
-      if(target.batches.length > 0){
-        // 歸還加回最早的那筆批次(無法精確得知原本是從哪幾筆扣的，用最簡單的方式歸還)
-        const first = materialBatchesSorted(target)[0];
+      const pool = target.batches.filter(b=>
+        (!row.requiredOrigin || (b.origin||'')===row.requiredOrigin) &&
+        (!row.requiredManufacturer || (b.manufacturer||'')===row.requiredManufacturer)
+      );
+      if(pool.length > 0){
+        // 歸還加回最早的那筆批次(無法精確得知原本是從哪幾筆扣的，用最簡單的方式歸還；有限定條件時只歸還到符合條件的批次)
+        const first = materialBatchesSorted({ batches: pool })[0];
         first.stock = Math.round(((first.stock||0) + used) * 1000) / 1000;
       }else{
-        target.batches.push({ batchNo:'', mfgDate:'', expDate:'', stock: used });
+        target.batches.push({ batchNo:'', mfgDate:'', expDate:'', stock: used, origin: row.requiredOrigin || '', manufacturer: row.requiredManufacturer || '' });
       }
     }
   });
