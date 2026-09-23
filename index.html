@@ -642,37 +642,38 @@
               <input type="text" id="fCoaWaterActivity" placeholder="例如 0.45">
             </div>
           </div>
-          <div class="row2">
-            <div class="field">
-              <label class="i18n">總生菌數</label>
-              <input type="text" id="fCoaTotalPlateCount" placeholder="例如 <10 CFU/g">
-              <div style="display:flex; align-items:center; gap:6px; margin-top:6px;">
-                <input type="text" inputmode="decimal" id="fCoaPlateCountBase" placeholder="係數，例如 5" style="flex:1;">
-                <span style="color:var(--ink-dim); font-size:14.9px;">× 10</span>
-                <input type="text" inputmode="numeric" id="fCoaPlateCountExp" placeholder="次方，例如 3" style="flex:1;">
-                <button type="button" class="split-btn" id="btnFillPlateCount" style="flex:0 0 auto; padding:8px 12px; font-size:13.3px;">帶入</button>
-              </div>
+          <div class="field">
+            <label class="i18n">總生菌數</label>
+            <input type="text" id="fCoaTotalPlateCount" placeholder="例如 <10 CFU/g">
+            <div style="display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap;">
+              <input type="text" inputmode="decimal" id="fCoaPlateCountBase" placeholder="係數，例如 5" style="flex:1; min-width:90px; font-size:19.6px; padding:10px;">
+              <span style="color:var(--ink-dim); font-size:17.4px; flex:0 0 auto;">× 10</span>
+              <input type="text" inputmode="numeric" id="fCoaPlateCountExp" placeholder="次方，例如 3" style="flex:1; min-width:90px; font-size:19.6px; padding:10px;">
+              <button type="button" class="split-btn" id="btnFillPlateCount" style="flex:0 0 auto; padding:10px 16px; font-size:14.9px;">帶入</button>
             </div>
-            <div class="field">
-              <label class="i18n">大腸桿菌群</label>
-              <input type="text" id="fCoaColiform" placeholder="例如 陰性">
-              <div style="display:flex; align-items:center; gap:6px; margin-top:6px;">
-                <input type="text" inputmode="decimal" id="fCoaColiformBase" placeholder="係數，例如 5" style="flex:1;">
-                <span style="color:var(--ink-dim); font-size:14.9px;">× 10</span>
-                <input type="text" inputmode="numeric" id="fCoaColiformExp" placeholder="次方，例如 3" style="flex:1;">
-                <button type="button" class="split-btn" id="btnFillColiform" style="flex:0 0 auto; padding:8px 12px; font-size:13.3px;">帶入</button>
-              </div>
+            <div id="coaPlateCountPreview" style="font-size:15.1px; color:var(--teal); margin-top:6px; min-height:20px;"></div>
+          </div>
+          <div class="field">
+            <label class="i18n">大腸桿菌群</label>
+            <input type="text" id="fCoaColiform" placeholder="例如 陰性">
+            <div style="display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap;">
+              <input type="text" inputmode="decimal" id="fCoaColiformBase" placeholder="係數，例如 5" style="flex:1; min-width:90px; font-size:19.6px; padding:10px;">
+              <span style="color:var(--ink-dim); font-size:17.4px; flex:0 0 auto;">× 10</span>
+              <input type="text" inputmode="numeric" id="fCoaColiformExp" placeholder="次方，例如 3" style="flex:1; min-width:90px; font-size:19.6px; padding:10px;">
+              <button type="button" class="split-btn" id="btnFillColiform" style="flex:0 0 auto; padding:10px 16px; font-size:14.9px;">帶入</button>
             </div>
+            <div id="coaColiformPreview" style="font-size:15.1px; color:var(--teal); margin-top:6px; min-height:20px;"></div>
           </div>
           <div class="field">
             <label class="i18n">大腸桿菌</label>
             <input type="text" id="fCoaEcoli" placeholder="例如 陰性">
-            <div style="display:flex; align-items:center; gap:6px; margin-top:6px;">
-              <input type="text" inputmode="decimal" id="fCoaEcoliBase" placeholder="係數，例如 5" style="flex:1;">
-              <span style="color:var(--ink-dim); font-size:14.9px;">× 10</span>
-              <input type="text" inputmode="numeric" id="fCoaEcoliExp" placeholder="次方，例如 3" style="flex:1;">
-              <button type="button" class="split-btn" id="btnFillEcoli" style="flex:0 0 auto; padding:8px 12px; font-size:13.3px;">帶入</button>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap;">
+              <input type="text" inputmode="decimal" id="fCoaEcoliBase" placeholder="係數，例如 5" style="flex:1; min-width:90px; font-size:19.6px; padding:10px;">
+              <span style="color:var(--ink-dim); font-size:17.4px; flex:0 0 auto;">× 10</span>
+              <input type="text" inputmode="numeric" id="fCoaEcoliExp" placeholder="次方，例如 3" style="flex:1; min-width:90px; font-size:19.6px; padding:10px;">
+              <button type="button" class="split-btn" id="btnFillEcoli" style="flex:0 0 auto; padding:10px 16px; font-size:14.9px;">帶入</button>
             </div>
+            <div id="coaEcoliPreview" style="font-size:15.1px; color:var(--teal); margin-top:6px; min-height:20px;"></div>
           </div>
         </div>
         <div id="noCoaNeededHint" style="display:none; font-size:15.1px; color:var(--ink-dim); padding:4px 0 8px 0;">此訂單不需要COA，無需品管確認</div>
@@ -1094,7 +1095,7 @@
   </div>
 </div>
 
-<div class="overlay" id="inventoryLogOverlay">
+<div class="overlay" id="inventoryLogOverlay" style="z-index:45;">
   <div class="sheet">
     <div class="sheet-handle"></div>
     <h2 id="inventoryLogTitle">出入庫紀錄</h2>
@@ -1106,7 +1107,7 @@
   </div>
 </div>
 
-<div class="overlay" id="recallOverlay">
+<div class="overlay" id="recallOverlay" style="z-index:45;">
   <div class="sheet">
     <div class="sheet-handle"></div>
     <h2 style="color:var(--red);">🚨 食安緊急召回查詢</h2>
@@ -2879,24 +2880,35 @@ const SUPERSCRIPT_DIGITS = { '0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':
 function toSuperscript(numStr){
   return String(numStr).split('').map(ch=> SUPERSCRIPT_DIGITS[ch] !== undefined ? SUPERSCRIPT_DIGITS[ch] : ch).join('');
 }
-function setupScientificNotationHelper(targetId, baseId, expId, btnId){
-  function fillFromParts(){
+function setupScientificNotationHelper(targetId, baseId, expId, btnId, previewId){
+  function compose(){
     const base = document.getElementById(baseId).value.trim();
     const exp = document.getElementById(expId).value.trim();
-    if(!base && !exp) return;
-    const composed = (base || '1') + '×10' + toSuperscript(exp || '0') + ' CFU/g';
+    if(!base && !exp) return '';
+    return (base || '1') + '×10' + toSuperscript(exp || '0') + ' CFU/g';
+  }
+  function updatePreview(){
+    const composed = compose();
+    const previewEl = document.getElementById(previewId);
+    previewEl.textContent = composed ? ('→ ' + composed) : '';
+  }
+  function fillFromParts(){
+    const composed = compose();
+    if(!composed) return;
     document.getElementById(targetId).value = composed;
   }
   document.getElementById(btnId).onclick = fillFromParts;
   [baseId, expId].forEach(id=>{
-    document.getElementById(id).addEventListener('keydown', (e)=>{
+    const el = document.getElementById(id);
+    el.addEventListener('input', updatePreview);
+    el.addEventListener('keydown', (e)=>{
       if(e.key === 'Enter') fillFromParts();
     });
   });
 }
-setupScientificNotationHelper('fCoaTotalPlateCount', 'fCoaPlateCountBase', 'fCoaPlateCountExp', 'btnFillPlateCount');
-setupScientificNotationHelper('fCoaColiform', 'fCoaColiformBase', 'fCoaColiformExp', 'btnFillColiform');
-setupScientificNotationHelper('fCoaEcoli', 'fCoaEcoliBase', 'fCoaEcoliExp', 'btnFillEcoli');
+setupScientificNotationHelper('fCoaTotalPlateCount', 'fCoaPlateCountBase', 'fCoaPlateCountExp', 'btnFillPlateCount', 'coaPlateCountPreview');
+setupScientificNotationHelper('fCoaColiform', 'fCoaColiformBase', 'fCoaColiformExp', 'btnFillColiform', 'coaColiformPreview');
+setupScientificNotationHelper('fCoaEcoli', 'fCoaEcoliBase', 'fCoaEcoliExp', 'btnFillEcoli', 'coaEcoliPreview');
 
 function renderManualMaterialBatchList(batches){
   const list = (batches && batches.length > 0) ? batches : [];
@@ -3170,12 +3182,15 @@ function openSheet(order, item){
   document.getElementById('fCoaTotalPlateCount').value = item ? (item.coaTotalPlateCount || '') : '';
   document.getElementById('fCoaPlateCountBase').value = '';
   document.getElementById('fCoaPlateCountExp').value = '';
+  document.getElementById('coaPlateCountPreview').textContent = '';
   document.getElementById('fCoaColiform').value = item ? (item.coaColiform || '') : '';
   document.getElementById('fCoaColiformBase').value = '';
   document.getElementById('fCoaColiformExp').value = '';
+  document.getElementById('coaColiformPreview').textContent = '';
   document.getElementById('fCoaEcoli').value = item ? (item.coaEcoli || '') : '';
   document.getElementById('fCoaEcoliBase').value = '';
   document.getElementById('fCoaEcoliExp').value = '';
+  document.getElementById('coaEcoliPreview').textContent = '';
   updateCoaValuesVisibility();
   document.getElementById('fNeedsIrradiation').checked = item ? !!item.needsIrradiation : false;
   document.getElementById('fIrradiationLabelConfirm').checked = item ? !!item.irradiationLabelConfirm : false;
