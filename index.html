@@ -6361,7 +6361,8 @@ document.getElementById('btnSaveReceipt').onclick = async ()=>{
     photoData,
     createdAt: Date.now()
   });
-  logInventoryTransaction(receivingKind, m.id, m.name, 'in', batchNo, qty, '原料進貨');
+  // 注意：這裡不再另外呼叫 logInventoryTransaction，因為 receipts[] 本身在出入庫紀錄畫面裡就會被讀取顯示，
+  // 之前同時呼叫兩邊會導致同一筆進貨在「出入庫紀錄」重複出現兩次
 
   await saveBomData();
   saveBtn.disabled = false;
