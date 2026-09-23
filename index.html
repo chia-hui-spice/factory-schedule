@@ -1152,7 +1152,7 @@
     <div class="report-updated">庫存確認→排程生產自動扣原料；排程生產→標籤印製自動加成品(並依配方扣半成品)；標籤印製→出貨自動扣成品</div>
 
     <div class="report-tabs" id="bomTabs">
-      <button type="button" class="i18n report-tab active" data-bom-tab="receipts">📥 原料進貨</button>
+      <button type="button" class="i18n report-tab active" data-bom-tab="receipts">📥 調整庫存紀錄</button>
       <button type="button" class="i18n report-tab" data-bom-tab="materials">📦 原料庫存</button>
       <button type="button" class="i18n report-tab" data-bom-tab="additives">🧂 食品添加物</button>
       <button type="button" class="i18n report-tab" data-bom-tab="semiGoods">🧪 半成品</button>
@@ -1383,11 +1383,11 @@
 <div class="overlay" id="materialReceiptOverlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
-    <h2 class="i18n">原料進貨</h2>
+    <h2 class="i18n">調整庫存</h2>
     <div class="report-updated" id="receiptMaterialName"></div>
     <div class="row2">
       <div class="field">
-        <label class="i18n">進貨件數</label>
+        <label class="i18n">件數</label>
         <input type="number" id="mrPieces" placeholder="例如 10" step="any">
       </div>
       <div class="field">
@@ -1397,17 +1397,17 @@
     </div>
     <div class="backup-info" id="mrTotalDisplay" style="margin-bottom:14px;">總重量：0</div>
     <div class="field">
-      <label class="i18n">進貨日期</label>
+      <label class="i18n">日期</label>
       <input type="date" id="mrDate">
     </div>
     <div class="field">
       <label class="i18n">供應商</label>
       <input type="text" id="mrSupplier" placeholder="供應商名稱" list="supplierSuggestions">
     </div>
-    <div class="section-label" style="margin-top:8px;">本次進貨批號資訊（會新增為獨立一筆批次，不影響其他批次）</div>
+    <div class="section-label" style="margin-top:8px;">本次批號資訊（會新增為獨立一筆批次，不影響其他批次）</div>
     <div class="field">
       <label class="i18n">批號</label>
-      <input type="text" id="mrBatchNo" placeholder="原料進貨批號">
+      <input type="text" id="mrBatchNo" placeholder="批號">
     </div>
     <div class="row2">
       <div class="field">
@@ -1439,7 +1439,7 @@
     </div>
     <div class="sheet-actions">
       <button type="button" class="i18n btn-secondary" id="btnCancelReceipt">取消</button>
-      <button type="button" class="i18n btn-primary" id="btnSaveReceipt">確認進貨</button>
+      <button type="button" class="i18n btn-primary" id="btnSaveReceipt">確認調整</button>
     </div>
   </div>
 </div>
@@ -1673,7 +1673,8 @@ const ID_DICT = {
   '產品名稱（需與訂單品項的產品名稱完全一致）':'Nama Produk (harus sama persis dengan nama di pesanan)',
   '產品有效日期':'Tanggal Kedaluwarsa Produk', '產品製造日期(調配、研磨日期)':'Tanggal Produksi Produk (Pencampuran/Penggilingan)',
   '產地':'Asal Produk', '目前庫存總量（自動加總所有批次）':'Total Stok Saat Ini (Semua Batch)', '目前庫存量':'Jumlah Stok Saat Ini',
-  '確定':'Konfirmasi', '確定拆分':'Konfirmasi Pisahkan', '確認生產':'Konfirmasi Produksi', '確認進貨':'Konfirmasi Penerimaan',
+  '確定':'Konfirmasi', '確定拆分':'Konfirmasi Pisahkan', '確認生產':'Konfirmasi Produksi', '確認進貨':'Konfirmasi Penerimaan', '確認調整':'Konfirmasi Penyesuaian',
+  '調整庫存':'Sesuaikan Stok', '📥 調整庫存':'📥 Sesuaikan Stok', '📥 調整庫存紀錄':'📥 Riwayat Penyesuaian Stok',
   '移除限制（恢復預設看全部）':'Hapus Batasan (Lihat Semua)', '統計報表':'Laporan Statistik', '總生菌數':'Jumlah Bakteri Total',
   '裝箱確認及放行人員':'Petugas Konfirmasi & Pelepasan Kotak', '製造批號':'Nomor Batch Produksi', '製造日期':'Tanggal Produksi',
   '要拆出多少數量？':'Berapa jumlah yang ingin dipisahkan?',
@@ -1769,7 +1770,8 @@ const EN_DICT = {
   '產品名稱（需與訂單品項的產品名稱完全一致）':'Product Name (must exactly match order item name)',
   '產品有效日期':'Product Expiry Date', '產品製造日期(調配、研磨日期)':'Product Production Date (Mixing/Grinding)',
   '產地':'Origin', '目前庫存總量（自動加總所有批次）':'Current Total Stock (All Batches)', '目前庫存量':'Current Stock',
-  '確定':'Confirm', '確定拆分':'Confirm Split', '確認生產':'Confirm Production', '確認進貨':'Confirm Receiving',
+  '確定':'Confirm', '確定拆分':'Confirm Split', '確認生產':'Confirm Production', '確認進貨':'Confirm Receiving', '確認調整':'Confirm Adjustment',
+  '調整庫存':'Adjust Stock', '📥 調整庫存':'📥 Adjust Stock', '📥 調整庫存紀錄':'📥 Stock Adjustment History',
   '移除限制（恢復預設看全部）':'Remove Restriction (View All)', '統計報表':'Reports', '總生菌數':'Total Plate Count',
   '裝箱確認及放行人員':'Boxing Confirmed & Released By', '製造批號':'Production Batch No.', '製造日期':'Production Date',
   '要拆出多少數量？':'How much quantity to split out?',
@@ -5385,7 +5387,7 @@ function renderInventoryList(kind){
       '<div class="material-item-top" data-mid="'+m.id+'" style="cursor:pointer;"><div class="material-item-name">'+materialLabel(m)+'</div><div class="material-item-stock">'+ total +' '+escapeHtml(m.unit||'')+'</div></div>' +
       '<div class="material-item-meta" data-mid="'+m.id+'" style="cursor:pointer;">'+batchSummary+'</div>' +
       '<div style="display:flex; gap:8px; margin-top:8px;">' +
-      '<button type="button" class="split-btn" data-receipt-mid="'+m.id+'" style="flex:1;">📥 進貨</button>' +
+      '<button type="button" class="split-btn" data-receipt-mid="'+m.id+'" style="flex:1;">📥 調整庫存</button>' +
       '<button type="button" class="split-btn" data-log-kind="'+kind+'" data-log-id="'+m.id+'" style="flex:1;">📋 出入庫紀錄</button>' +
       '</div>' +
     '</div>';
@@ -5416,14 +5418,20 @@ function renderAdditiveList(){ renderInventoryList('additive'); }
 let editingMaterialId = null;
 let editingInventoryKind = 'material';
 const materialFormOverlay = document.getElementById('materialFormOverlay');
+let currentBatchPhotoData = {}; // idx -> base64，暫存目前正在編輯的批次清單各自的標籤照片
 function renderMaterialBatchLotList(batches){
   const list = (batches && batches.length > 0) ? batches : [];
+  currentBatchPhotoData = {};
+  list.forEach((b, idx)=>{ if(b.photoData) currentBatchPhotoData[idx] = b.photoData; });
   const container = document.getElementById('materialBatchList');
   if(list.length === 0){
     container.innerHTML = '<div class="ship-list-empty" style="margin-bottom:8px;">還沒有任何批次，點下面「+ 新增批次」加入第一筆</div>';
     return;
   }
   container.innerHTML = list.map((b, idx)=>{
+    const photoPreview = currentBatchPhotoData[idx]
+      ? '<img src="'+currentBatchPhotoData[idx]+'" style="max-width:120px; max-height:120px; border-radius:8px; border:1px solid var(--line); display:block; margin-bottom:6px;">'
+      : '';
     return '<div class="material-batch-row" data-idx="'+idx+'">' +
       '<div class="row3">' +
         '<div class="field"><label>批號</label><input type="text" class="mbBatchNo" placeholder="批號" value="'+escapeHtml(b.batchNo||'')+'"></div>' +
@@ -5438,6 +5446,11 @@ function renderMaterialBatchLotList(batches){
       '<div class="row2">' +
         '<div class="field"><label>供應商</label><input type="text" class="mbSupplier" placeholder="供應商名稱" list="supplierSuggestions" value="'+escapeHtml(b.supplier||'')+'"></div>' +
         '<div class="field"><label>製造商</label><input type="text" class="mbManufacturer" placeholder="製造商名稱" list="manufacturerSuggestions" value="'+escapeHtml(b.manufacturer||'')+'"></div>' +
+      '</div>' +
+      '<div class="field">' +
+        '<label>標籤照片（選填）</label>' +
+        '<div class="mbPhotoPreviewWrap">' + photoPreview + '</div>' +
+        '<input type="file" class="mbPhoto" accept="image/*" style="font-size:13.3px;">' +
       '</div>' +
       '<button type="button" class="material-batch-remove-btn">✕ 移除這個批次</button>' +
     '</div>';
@@ -5466,17 +5479,38 @@ function renderMaterialBatchLotList(batches){
       }
     });
   });
+  container.querySelectorAll('.mbPhoto').forEach(el=>{
+    el.addEventListener('change', async function(){
+      const file = this.files[0];
+      if(!file) return;
+      if(!checkPhotoFileSize(file)){ this.value = ''; return; }
+      const idx = Number(this.closest('.material-batch-row').dataset.idx);
+      try{
+        const compressed = await compressImageToBase64(file, 480, 0.5);
+        currentBatchPhotoData[idx] = compressed;
+        const wrap = this.closest('.material-batch-row').querySelector('.mbPhotoPreviewWrap');
+        wrap.innerHTML = '<img src="'+compressed+'" style="max-width:120px; max-height:120px; border-radius:8px; border:1px solid var(--line); display:block; margin-bottom:6px;">';
+      }catch(e){
+        showToast('照片處理失敗，請換一張再試');
+      }
+      this.value = '';
+    });
+  });
 }
 function getMaterialBatchLotsFromForm(){
-  return Array.from(document.querySelectorAll('#materialBatchList .material-batch-row')).map(row=>({
-    batchNo: row.querySelector('.mbBatchNo').value.trim(),
-    mfgDate: row.querySelector('.mbMfgDate').value,
-    expDate: row.querySelector('.mbExpDate').value,
-    stock: parseFloat(row.querySelector('.mbStock').value) || 0,
-    origin: row.querySelector('.mbOrigin').value.trim(),
-    supplier: row.querySelector('.mbSupplier').value.trim(),
-    manufacturer: row.querySelector('.mbManufacturer').value.trim()
-  }));
+  return Array.from(document.querySelectorAll('#materialBatchList .material-batch-row')).map(row=>{
+    const idx = Number(row.dataset.idx);
+    return {
+      batchNo: row.querySelector('.mbBatchNo').value.trim(),
+      mfgDate: row.querySelector('.mbMfgDate').value,
+      expDate: row.querySelector('.mbExpDate').value,
+      stock: parseFloat(row.querySelector('.mbStock').value) || 0,
+      origin: row.querySelector('.mbOrigin').value.trim(),
+      supplier: row.querySelector('.mbSupplier').value.trim(),
+      manufacturer: row.querySelector('.mbManufacturer').value.trim(),
+      photoData: currentBatchPhotoData[idx] || ''
+    };
+  });
 }
 function updateMaterialStockTotalDisplay(){
   const total = getMaterialBatchLotsFromForm().reduce((sum,b)=>sum+(b.stock||0), 0);
@@ -5492,11 +5526,13 @@ document.getElementById('btnAddMaterialBatchLot').onclick = ()=>{
 };
 document.getElementById('mfUnit').addEventListener('input', updateMaterialStockTotalDisplay);
 
+let editingMaterialOriginalBatches = [];
 function openMaterialForm(m, kind){
   kind = kind || 'material';
   editingInventoryKind = kind;
   const cfg = INVENTORY_KIND_CONFIG[kind];
   editingMaterialId = m ? m.id : null;
+  editingMaterialOriginalBatches = m ? JSON.parse(JSON.stringify(m.batches||[])) : [];
   populateSupplierManufacturerSuggestions();
   document.getElementById('materialFormTitle').textContent = m ? ('編輯' + cfg.label) : ('新增' + cfg.label);
   document.getElementById('mfCode').value = m ? (m.code || '') : suggestNextCode(kind);
@@ -5516,6 +5552,34 @@ document.getElementById('additiveSearchInput').addEventListener('input', renderA
 document.getElementById('btnAddMaterial').onclick = ()=> openMaterialForm(null, 'material');
 document.getElementById('btnAddAdditive').onclick = ()=> openMaterialForm(null, 'additive');
 document.getElementById('btnCancelMaterial').onclick = ()=> materialFormOverlay.classList.remove('show');
+function logManualBatchChanges(kind, itemId, itemName, oldBatches, newBatches){
+  const oldMap = new Map();
+  (oldBatches||[]).forEach(b=>{ if(b.batchNo) oldMap.set(b.batchNo, b); });
+  const newMap = new Map();
+  (newBatches||[]).forEach(b=>{ if(b.batchNo) newMap.set(b.batchNo, b); });
+
+  (newBatches||[]).forEach(nb=>{
+    if(!nb.batchNo){
+      // 沒填批號的批次無法比對是否為既有批次，如果有庫存就當作新增記錄
+      if((nb.stock||0) > 0) logInventoryTransaction(kind, itemId, itemName, 'in', '', nb.stock, '手動編輯新增批次');
+      return;
+    }
+    const old = oldMap.get(nb.batchNo);
+    if(!old){
+      if((nb.stock||0) > 0) logInventoryTransaction(kind, itemId, itemName, 'in', nb.batchNo, nb.stock, '手動編輯新增批次');
+    }else{
+      const delta = Math.round(((nb.stock||0) - (old.stock||0)) * 1000) / 1000;
+      if(delta > 0) logInventoryTransaction(kind, itemId, itemName, 'in', nb.batchNo, delta, '手動調整批次庫存（增加）');
+      else if(delta < 0) logInventoryTransaction(kind, itemId, itemName, 'out', nb.batchNo, -delta, '手動調整批次庫存（減少）');
+    }
+  });
+  (oldBatches||[]).forEach(ob=>{
+    if(!ob.batchNo) return; // 沒批號的舊批次無法比對是否被移除
+    if(!newMap.has(ob.batchNo) && (ob.stock||0) > 0){
+      logInventoryTransaction(kind, itemId, itemName, 'out', ob.batchNo, ob.stock, '手動編輯移除批次');
+    }
+  });
+}
 document.getElementById('btnSaveMaterial').onclick = async ()=>{
   const cfg = INVENTORY_KIND_CONFIG[editingInventoryKind];
   const code = document.getElementById('mfCode').value.trim();
@@ -5524,15 +5588,21 @@ document.getElementById('btnSaveMaterial').onclick = async ()=>{
   const defaultSpec = parseFloat(document.getElementById('mfDefaultSpec').value);
   const defaultSupplier = document.getElementById('mfDefaultSupplier').value.trim();
   const defaultManufacturer = document.getElementById('mfDefaultManufacturer').value.trim();
-  const batches = getMaterialBatchLotsFromForm().filter(b=> b.batchNo || b.mfgDate || b.expDate || b.stock);
+  const batches = getMaterialBatchLotsFromForm().filter(b=> b.batchNo || b.mfgDate || b.expDate || b.stock || b.photoData);
   if(!name){ showToast('請填寫' + cfg.label + '名稱'); return; }
   const list = cfg.getList();
+  let targetId;
   if(editingMaterialId){
     const m = list.find(x=>x.id===editingMaterialId);
     if(m) Object.assign(m, { code, name, unit, defaultSpec: isNaN(defaultSpec)?null:defaultSpec, defaultSupplier, defaultManufacturer, batches });
+    targetId = editingMaterialId;
+    logManualBatchChanges(editingInventoryKind, editingMaterialId, name, editingMaterialOriginalBatches, batches);
     showToast('已更新' + cfg.label);
   }else{
-    list.push({ id:'m_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), code, name, unit, defaultSpec: isNaN(defaultSpec)?null:defaultSpec, defaultSupplier, defaultManufacturer, batches });
+    const newId = 'm_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+    list.push({ id:newId, code, name, unit, defaultSpec: isNaN(defaultSpec)?null:defaultSpec, defaultSupplier, defaultManufacturer, batches });
+    targetId = newId;
+    logManualBatchChanges(editingInventoryKind, newId, name, [], batches);
     showToast('已新增' + cfg.label);
   }
   cfg.setList(list);
@@ -5570,7 +5640,7 @@ function openInventoryLog(kind, itemId){
   let rows;
   if(kind === 'material' || kind === 'additive'){
     const inRows = receipts.filter(r=> r.materialId===itemId).map(r=>({
-      type: 'in', batchNo: r.batchNo||'', qty: r.qty, reason: '原料進貨' + (r.supplier ? '（供應商：'+r.supplier+'）' : ''),
+      type: 'in', batchNo: r.batchNo||'', qty: r.qty, reason: '調整庫存' + (r.supplier ? '（供應商：'+r.supplier+'）' : ''),
       relatedOrderNo: '', relatedCustomer: '', createdAt: r.createdAt || 0
     }));
     const outRows = [];
@@ -5584,7 +5654,11 @@ function openInventoryLog(kind, itemId){
         }
       });
     });
-    rows = inRows.concat(outRows).sort((a,b)=> b.createdAt - a.createdAt);
+    const manualRows = inventoryTransactions.filter(tx=> tx.kind===kind && tx.itemId===itemId).map(tx=>({
+      type: tx.type, batchNo: tx.batchNo||'', qty: tx.qty, reason: tx.reason||'',
+      relatedOrderNo: tx.relatedOrderNo||'', relatedCustomer: tx.relatedCustomer||'', createdAt: tx.createdAt || 0
+    }));
+    rows = inRows.concat(outRows).concat(manualRows).sort((a,b)=> b.createdAt - a.createdAt);
   }else{
     rows = inventoryTransactions.filter(tx=> tx.kind===kind && tx.itemId===itemId).sort((a,b)=> b.createdAt - a.createdAt);
   }
@@ -6289,7 +6363,7 @@ document.getElementById('btnSaveReceipt').onclick = async ()=>{
     photoData,
     createdAt: Date.now()
   });
-  logInventoryTransaction(receivingKind, m.id, m.name, 'in', batchNo, qty, '原料進貨');
+  logInventoryTransaction(receivingKind, m.id, m.name, 'in', batchNo, qty, '調整庫存');
 
   await saveBomData();
   saveBtn.disabled = false;
@@ -6297,14 +6371,14 @@ document.getElementById('btnSaveReceipt').onclick = async ()=>{
   materialReceiptOverlay.classList.remove('show');
   renderInventoryList(receivingKind);
   renderReceiptList();
-  showToast('已記錄進貨，庫存已更新');
+  showToast('已記錄調整，庫存已更新');
 };
 
 function renderReceiptList(){
   const listEl = document.getElementById('receiptList');
   if(!listEl) return;
   if(receipts.length === 0){
-    listEl.innerHTML = '<div class="ship-list-empty">還沒有任何進貨紀錄</div>';
+    listEl.innerHTML = '<div class="ship-list-empty">還沒有任何調整紀錄</div>';
     return;
   }
   const sorted = [...receipts].sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
@@ -6318,7 +6392,7 @@ function renderReceiptList(){
       thumb +
       '<div style="flex:1;">' +
       '<div class="ship-list-name">'+namePrefix+escapeHtml(r.materialName)+' ・ +'+r.qty+' '+escapeHtml(r.unit||'')+pieceInfo+'</div>' +
-      '<div class="ship-list-meta">供應商 '+escapeHtml(r.supplier||'－')+' ・ 批號 '+escapeHtml(r.batchNo||'－')+' ・ 進貨日 '+(r.receivedDate||'－')+'</div>' +
+      '<div class="ship-list-meta">供應商 '+escapeHtml(r.supplier||'－')+' ・ 批號 '+escapeHtml(r.batchNo||'－')+' ・ 調整日 '+(r.receivedDate||'－')+'</div>' +
     '</div></div>';
   }).join('');
   listEl.querySelectorAll('[data-photo-rid]').forEach(el=>{
