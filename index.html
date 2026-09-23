@@ -815,6 +815,7 @@
       <button type="button" class="i18n report-tab" data-report-tab="shipping">🚚 出貨清單</button>
       <button type="button" class="i18n report-tab" data-report-tab="search">🔍 訂單查詢</button>
       <button type="button" class="i18n report-tab" data-report-tab="materialTrace">🔎 原料追溯</button>
+      <button type="button" class="i18n report-tab" data-report-tab="additiveLogbook">📒 添加物紀錄簿</button>
       <button type="button" class="i18n report-tab" data-report-tab="backup">💾 備份</button>
     </div>
 
@@ -941,6 +942,19 @@
         <button type="button" class="i18n split-btn" id="traceSearchClearBtn" style="margin-top:2px;">清除搜尋</button>
       </div>
       <div id="materialTraceSearchList"></div>
+    </div>
+
+    <div class="report-tab-panel" id="reportPanelAdditiveLogbook" style="display:none;">
+      <div class="report-section-title i18n" style="margin-top:0;">📒 食品添加物使用與領用紀錄簿</div>
+      <div class="i18n" style="font-size:13.3px; color:var(--ink-dim); margin-bottom:10px;">符合「專人、專櫃、專冊」管理原則的逐批入庫／領用紀錄，可列印或匯出存查</div>
+      <div class="ship-filter-bar">
+        <div class="field" style="margin-bottom:8px;">
+          <label class="i18n">選擇食品添加物</label>
+          <select id="logbookAdditiveSelect"></select>
+        </div>
+      </div>
+      <button type="button" class="i18n btn-primary" id="logbookExportBtn" style="width:100%; margin-bottom:14px;">📥 匯出全部添加物紀錄簿 Excel</button>
+      <div id="additiveLogbookWrap"></div>
     </div>
 
     <div class="report-tab-panel" id="reportPanelBackup" style="display:none;">
@@ -2022,6 +2036,7 @@ function logInventoryTransaction(kind, itemId, itemName, type, batchNo, qty, rea
     id: 'tx_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
     kind, itemId, itemName, type, batchNo: batchNo||'', qty,
     reason: reason||'', relatedOrderId: relatedOrder ? relatedOrder.id : '', relatedOrderNo: relatedOrder ? (relatedOrder.orderNo||'') : '', relatedCustomer: relatedOrder ? (relatedOrder.customer||'') : '',
+    operator: currentUserEmail || '',
     createdAt: Date.now()
   });
 }
@@ -3777,6 +3792,102 @@ document.getElementById('traceSearchClearBtn').onclick = ()=>{
   renderMaterialTraceSearch();
 };
 
+// ---- 📒 食品添加物使用與領用紀錄簿（三專管理：專人、專櫃、專冊）----
+function buildAdditiveLogbookRows(additiveId){
+  const events = [];
+  receipts.filter(r=> r.kind==='additive' && r.materialId===additiveId).forEach(r=>{
+    events.push({
+      date: r.receivedDate || todayStr(), type: 'in', batchNo: r.batchNo||'', qty: r.qty||0,
+      detail: '供應商：' + (r.supplier||'未填') + (r.manufacturer ? '　製造商：'+r.manufacturer : ''),
+      operator: r.operator || '', createdAt: r.createdAt || 0
+    });
+  });
+  inventoryTransactions.filter(t=> t.kind==='additive' && t.itemId===additiveId).forEach(t=>{
+    events.push({
+      date: new Date(t.createdAt||Date.now()).toISOString().slice(0,10), type: t.type, batchNo: t.batchNo||'', qty: t.qty||0,
+      detail: t.reason||'', operator: t.operator||'', createdAt: t.createdAt||0
+    });
+  });
+  allActiveItems().forEach(x=>{
+    (x.item.materialTraceability || []).forEach(tr=>{
+      if(tr.materialId === additiveId){
+        events.push({
+          date: x.item.fillFormDate || todayStr(), type: 'out', batchNo: tr.batchNo||'', qty: tr.qty||0,
+          detail: '領用製造：' + escapeHtml(x.order.customer) + ' ・ ' + escapeHtml(x.item.product) + (x.order.orderNo ? '（'+x.order.orderNo+'）' : ''),
+          operator: '', createdAt: x.item.fillFormDate ? new Date(x.item.fillFormDate).getTime() : 0
+        });
+      }
+    });
+  });
+  events.sort((a,b)=> (a.createdAt||0) - (b.createdAt||0));
+  let balance = 0;
+  events.forEach(e=>{
+    balance = Math.round(((e.type==='in' ? balance + e.qty : balance - e.qty)) * 1000) / 1000;
+    e.balance = balance;
+  });
+  return events;
+}
+function populateLogbookAdditiveSelect(){
+  const sel = document.getElementById('logbookAdditiveSelect');
+  const prevValue = sel.value;
+  sel.innerHTML = additives.length === 0
+    ? '<option value="">（尚未建立任何食品添加物）</option>'
+    : additives.map(a=>'<option value="'+a.id+'">'+escapeHtml(materialLabelPlain(a))+'</option>').join('');
+  if(additives.some(a=>a.id===prevValue)) sel.value = prevValue;
+}
+function renderAdditiveLogbook(){
+  populateLogbookAdditiveSelect();
+  const sel = document.getElementById('logbookAdditiveSelect');
+  const wrap = document.getElementById('additiveLogbookWrap');
+  const additiveId = sel.value;
+  const additive = additives.find(a=>a.id===additiveId);
+  if(!additive){
+    wrap.innerHTML = '<div class="ship-list-empty">請先到「🧂 食品添加物」建立至少一筆添加物</div>';
+    return;
+  }
+  const rows = buildAdditiveLogbookRows(additiveId);
+  let html = '<div class="report-updated" style="margin-bottom:10px;">'+escapeHtml(materialLabelPlain(additive))+'　目前庫存 '+materialTotalStock(additive)+' '+escapeHtml(additive.unit||'')+'　共 '+rows.length+' 筆紀錄</div>';
+  if(rows.length === 0){
+    html += '<div class="ship-list-empty">這個添加物目前還沒有任何入庫或領用紀錄</div>';
+  }else{
+    html += '<table class="hygiene-detail-table"><thead><tr><th>日期</th><th>類型</th><th>批號</th><th>數量</th><th>結存</th><th>說明</th><th>經手人</th></tr></thead><tbody>';
+    rows.forEach(e=>{
+      const typeLabel = e.type==='in' ? '▲ 入庫' : '▼ 領用';
+      const typeCls = e.type==='in' ? 'pass' : 'fail';
+      html += '<tr><td>'+e.date+'</td><td class="'+typeCls+'">'+typeLabel+'</td><td>'+escapeHtml(e.batchNo||'－')+'</td><td>'+e.qty+'</td><td>'+e.balance+'</td><td>'+e.detail+'</td><td>'+escapeHtml(e.operator||'－')+'</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+  wrap.innerHTML = html;
+}
+document.getElementById('logbookAdditiveSelect').addEventListener('change', renderAdditiveLogbook);
+document.getElementById('logbookExportBtn').onclick = ()=>{
+  if(typeof XLSX === 'undefined'){
+    showToast('Excel 匯出元件載入失敗，請檢查網路後重新整理再試');
+    return;
+  }
+  if(additives.length === 0){ showToast('目前還沒有任何食品添加物'); return; }
+  const wb = XLSX.utils.book_new();
+  additives.forEach(a=>{
+    const rows = buildAdditiveLogbookRows(a.id);
+    const sheetRows = rows.map(e=>({
+      '日期': e.date, '類型': e.type==='in'?'入庫':'領用', '批號': e.batchNo, '數量': e.qty, '結存': e.balance,
+      '說明': e.detail.replace(/<[^>]+>/g,''), '經手人': e.operator
+    }));
+    const ws = XLSX.utils.json_to_sheet(sheetRows.length ? sheetRows : [{'日期':'(無資料)'}]);
+    const sheetName = (a.code ? a.code+'_' : '') + a.name;
+    XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0,31).replace(/[\\/?*[\]:]/g,''));
+  });
+  const wbout = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+  const blob = new Blob([wbout], { type:'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = '食品添加物使用與領用紀錄簿_' + todayStr() + '.xlsx';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('已匯出食品添加物使用與領用紀錄簿');
+};
+
 // ---- 🚨 食安緊急召回查詢 ----
 function findMaterialBatchInfo(batchNo){
   let found = null;
@@ -4095,6 +4206,7 @@ const REPORT_PANELS = {
   shipping: 'reportPanelShipping',
   search: 'reportPanelSearch',
   materialTrace: 'reportPanelMaterialTrace',
+  additiveLogbook: 'reportPanelAdditiveLogbook',
   backup: 'reportPanelBackup'
 };
 function switchReportTab(key){
@@ -4104,6 +4216,7 @@ function switchReportTab(key){
   Object.entries(REPORT_PANELS).forEach(([k, id])=>{
     document.getElementById(id).style.display = (k === key) ? '' : 'none';
   });
+  if(key === 'additiveLogbook') renderAdditiveLogbook();
 }
 document.querySelectorAll('.report-tab').forEach(btn=>{
   btn.onclick = ()=> switchReportTab(btn.dataset.reportTab);
@@ -6358,7 +6471,7 @@ document.getElementById('btnSaveReceipt').onclick = async ()=>{
     id: receiptId, kind: receivingKind,
     materialId: m.id, materialName: m.name, materialCode: m.code || '', unit: m.unit || '',
     pieces, spec, qty, supplier, manufacturer, batchNo, mfgDate, expDate, origin, receivedDate,
-    photoData,
+    photoData, operator: currentUserEmail || '',
     createdAt: Date.now()
   });
   // 注意：這裡不再另外呼叫 logInventoryTransaction，因為 receipts[] 本身在出入庫紀錄畫面裡就會被讀取顯示，
