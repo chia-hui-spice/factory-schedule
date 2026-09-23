@@ -466,6 +466,15 @@
 
 <main>
   <div id="zoneFilterBar" style="display:none;"></div>
+  <div id="sortBar" style="display:flex; align-items:center; gap:8px; padding:8px 14px 0 14px; flex-wrap:wrap;">
+    <span style="font-size:13.3px; color:var(--ink-dim); flex:0 0 auto;">排序：</span>
+    <select id="sortModeSelect" style="flex:1; min-width:160px; padding:6px 10px; font-size:13.9px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel);">
+      <option value="dueAsc">出貨日期（由近到遠）</option>
+      <option value="dueDesc">出貨日期（由遠到近）</option>
+      <option value="createdDesc">訂單建立日期（新到舊）</option>
+      <option value="createdAsc">訂單建立日期（舊到新）</option>
+    </select>
+  </div>
   <div id="listArea"></div>
 </main>
 
@@ -2011,6 +2020,7 @@ let currentTab = 'pending';
 let currentEditingStage = 'pending';
 const PRODUCTION_ZONES = ['自動包裝區產線','大包裝區產線','小包裝區產線','滷包包裝區產線','醬料包裝區產線','清真包裝區產線','調味粉產線','半成品樣品產線','原料產線'];
 let currentZoneFilter = null; // null = 全部
+let currentSortMode = 'dueAsc'; // dueAsc | dueDesc | createdDesc | createdAsc
 let editingOrderId = null; // 目前編輯表單所屬的訂單 id（null = 新訂單）
 let editingItemId = null;  // 目前編輯的品項 id（null = 新品項）
 let checklistState = { c1:false, c2:false, c3:false, c4:false };
@@ -2237,9 +2247,16 @@ function renderList(){
   }
 
   matchingOrders.sort((a,b)=>{
-    const aMin = Math.min(...a.items.filter(it=>itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it)).map(it=>it.due||'9999'));
-    const bMin = Math.min(...b.items.filter(it=>itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it)).map(it=>it.due||'9999'));
-    return String(aMin).localeCompare(String(bMin));
+    if(currentSortMode === 'createdDesc' || currentSortMode === 'createdAsc'){
+      const diff = (a.createdAt||0) - (b.createdAt||0);
+      return currentSortMode === 'createdDesc' ? -diff : diff;
+    }
+    const aItems = a.items.filter(it=>itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it)).map(it=>it.due||'9999');
+    const bItems = b.items.filter(it=>itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it)).map(it=>it.due||'9999');
+    const aMin = aItems.reduce((min,v)=> (min===null || v<min) ? v : min, null) || '9999';
+    const bMin = bItems.reduce((min,v)=> (min===null || v<min) ? v : min, null) || '9999';
+    const cmp = String(aMin).localeCompare(String(bMin));
+    return currentSortMode === 'dueDesc' ? -cmp : cmp;
   });
 
   listEl.innerHTML = '<div class="order-list" id="orderList"></div>';
@@ -2696,6 +2713,10 @@ function renderZoneFilterBar(){
     };
   });
 }
+document.getElementById('sortModeSelect').addEventListener('change', function(){
+  currentSortMode = this.value;
+  renderList();
+});
 
 function updateQuickStatBadges(){
   const all = allActiveItems();
