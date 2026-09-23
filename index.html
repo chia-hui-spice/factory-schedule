@@ -646,15 +646,33 @@
             <div class="field">
               <label class="i18n">總生菌數</label>
               <input type="text" id="fCoaTotalPlateCount" placeholder="例如 <10 CFU/g">
+              <div style="display:flex; align-items:center; gap:6px; margin-top:6px;">
+                <input type="text" inputmode="decimal" id="fCoaPlateCountBase" placeholder="係數，例如 5" style="flex:1;">
+                <span style="color:var(--ink-dim); font-size:14.9px;">× 10</span>
+                <input type="text" inputmode="numeric" id="fCoaPlateCountExp" placeholder="次方，例如 3" style="flex:1;">
+                <button type="button" class="split-btn" id="btnFillPlateCount" style="flex:0 0 auto; padding:8px 12px; font-size:13.3px;">帶入</button>
+              </div>
             </div>
             <div class="field">
               <label class="i18n">大腸桿菌群</label>
               <input type="text" id="fCoaColiform" placeholder="例如 陰性">
+              <div style="display:flex; align-items:center; gap:6px; margin-top:6px;">
+                <input type="text" inputmode="decimal" id="fCoaColiformBase" placeholder="係數，例如 5" style="flex:1;">
+                <span style="color:var(--ink-dim); font-size:14.9px;">× 10</span>
+                <input type="text" inputmode="numeric" id="fCoaColiformExp" placeholder="次方，例如 3" style="flex:1;">
+                <button type="button" class="split-btn" id="btnFillColiform" style="flex:0 0 auto; padding:8px 12px; font-size:13.3px;">帶入</button>
+              </div>
             </div>
           </div>
           <div class="field">
             <label class="i18n">大腸桿菌</label>
             <input type="text" id="fCoaEcoli" placeholder="例如 陰性">
+            <div style="display:flex; align-items:center; gap:6px; margin-top:6px;">
+              <input type="text" inputmode="decimal" id="fCoaEcoliBase" placeholder="係數，例如 5" style="flex:1;">
+              <span style="color:var(--ink-dim); font-size:14.9px;">× 10</span>
+              <input type="text" inputmode="numeric" id="fCoaEcoliExp" placeholder="次方，例如 3" style="flex:1;">
+              <button type="button" class="split-btn" id="btnFillEcoli" style="flex:0 0 auto; padding:8px 12px; font-size:13.3px;">帶入</button>
+            </div>
           </div>
         </div>
         <div id="noCoaNeededHint" style="display:none; font-size:15.1px; color:var(--ink-dim); padding:4px 0 8px 0;">此訂單不需要COA，無需品管確認</div>
@@ -2856,6 +2874,30 @@ function setFlexDateValue(textId, value){
 }
 ['fFillFormDate','fDue','fProductMfgDate','fProductExpDate','fActualShipDate'].forEach(setupFlexDate);
 
+// ---- COA數值科學記號輔助輸入(係數 × 10的次方，避免自己找上標符號打) ----
+const SUPERSCRIPT_DIGITS = { '0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻' };
+function toSuperscript(numStr){
+  return String(numStr).split('').map(ch=> SUPERSCRIPT_DIGITS[ch] !== undefined ? SUPERSCRIPT_DIGITS[ch] : ch).join('');
+}
+function setupScientificNotationHelper(targetId, baseId, expId, btnId){
+  function fillFromParts(){
+    const base = document.getElementById(baseId).value.trim();
+    const exp = document.getElementById(expId).value.trim();
+    if(!base && !exp) return;
+    const composed = (base || '1') + '×10' + toSuperscript(exp || '0') + ' CFU/g';
+    document.getElementById(targetId).value = composed;
+  }
+  document.getElementById(btnId).onclick = fillFromParts;
+  [baseId, expId].forEach(id=>{
+    document.getElementById(id).addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter') fillFromParts();
+    });
+  });
+}
+setupScientificNotationHelper('fCoaTotalPlateCount', 'fCoaPlateCountBase', 'fCoaPlateCountExp', 'btnFillPlateCount');
+setupScientificNotationHelper('fCoaColiform', 'fCoaColiformBase', 'fCoaColiformExp', 'btnFillColiform');
+setupScientificNotationHelper('fCoaEcoli', 'fCoaEcoliBase', 'fCoaEcoliExp', 'btnFillEcoli');
+
 function renderManualMaterialBatchList(batches){
   const list = (batches && batches.length > 0) ? batches : [];
   const container = document.getElementById('fManualMaterialBatchList');
@@ -3126,8 +3168,14 @@ function openSheet(order, item){
   document.getElementById('fCoaMoisture').value = item ? (item.coaMoisture || '') : '';
   document.getElementById('fCoaWaterActivity').value = item ? (item.coaWaterActivity || '') : '';
   document.getElementById('fCoaTotalPlateCount').value = item ? (item.coaTotalPlateCount || '') : '';
+  document.getElementById('fCoaPlateCountBase').value = '';
+  document.getElementById('fCoaPlateCountExp').value = '';
   document.getElementById('fCoaColiform').value = item ? (item.coaColiform || '') : '';
+  document.getElementById('fCoaColiformBase').value = '';
+  document.getElementById('fCoaColiformExp').value = '';
   document.getElementById('fCoaEcoli').value = item ? (item.coaEcoli || '') : '';
+  document.getElementById('fCoaEcoliBase').value = '';
+  document.getElementById('fCoaEcoliExp').value = '';
   updateCoaValuesVisibility();
   document.getElementById('fNeedsIrradiation').checked = item ? !!item.needsIrradiation : false;
   document.getElementById('fIrradiationLabelConfirm').checked = item ? !!item.irradiationLabelConfirm : false;
