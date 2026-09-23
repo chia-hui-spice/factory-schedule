@@ -1152,7 +1152,7 @@
     <div class="report-updated">庫存確認→排程生產自動扣原料；排程生產→標籤印製自動加成品(並依配方扣半成品)；標籤印製→出貨自動扣成品</div>
 
     <div class="report-tabs" id="bomTabs">
-      <button type="button" class="i18n report-tab active" data-bom-tab="receipts">📥 調整庫存紀錄</button>
+      <button type="button" class="i18n report-tab active" data-bom-tab="receipts">📥 原料進貨</button>
       <button type="button" class="i18n report-tab" data-bom-tab="materials">📦 原料庫存</button>
       <button type="button" class="i18n report-tab" data-bom-tab="additives">🧂 食品添加物</button>
       <button type="button" class="i18n report-tab" data-bom-tab="semiGoods">🧪 半成品</button>
@@ -1383,11 +1383,11 @@
 <div class="overlay" id="materialReceiptOverlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
-    <h2 class="i18n">調整庫存</h2>
+    <h2 class="i18n">原料進貨</h2>
     <div class="report-updated" id="receiptMaterialName"></div>
     <div class="row2">
       <div class="field">
-        <label class="i18n">件數</label>
+        <label class="i18n">進貨件數</label>
         <input type="number" id="mrPieces" placeholder="例如 10" step="any">
       </div>
       <div class="field">
@@ -1397,17 +1397,17 @@
     </div>
     <div class="backup-info" id="mrTotalDisplay" style="margin-bottom:14px;">總重量：0</div>
     <div class="field">
-      <label class="i18n">日期</label>
+      <label class="i18n">進貨日期</label>
       <input type="date" id="mrDate">
     </div>
     <div class="field">
       <label class="i18n">供應商</label>
       <input type="text" id="mrSupplier" placeholder="供應商名稱" list="supplierSuggestions">
     </div>
-    <div class="section-label" style="margin-top:8px;">本次批號資訊（會新增為獨立一筆批次，不影響其他批次）</div>
+    <div class="section-label" style="margin-top:8px;">本次進貨批號資訊（會新增為獨立一筆批次，不影響其他批次）</div>
     <div class="field">
       <label class="i18n">批號</label>
-      <input type="text" id="mrBatchNo" placeholder="批號">
+      <input type="text" id="mrBatchNo" placeholder="原料進貨批號">
     </div>
     <div class="row2">
       <div class="field">
@@ -1439,7 +1439,7 @@
     </div>
     <div class="sheet-actions">
       <button type="button" class="i18n btn-secondary" id="btnCancelReceipt">取消</button>
-      <button type="button" class="i18n btn-primary" id="btnSaveReceipt">確認調整</button>
+      <button type="button" class="i18n btn-primary" id="btnSaveReceipt">確認進貨</button>
     </div>
   </div>
 </div>
@@ -1673,8 +1673,7 @@ const ID_DICT = {
   '產品名稱（需與訂單品項的產品名稱完全一致）':'Nama Produk (harus sama persis dengan nama di pesanan)',
   '產品有效日期':'Tanggal Kedaluwarsa Produk', '產品製造日期(調配、研磨日期)':'Tanggal Produksi Produk (Pencampuran/Penggilingan)',
   '產地':'Asal Produk', '目前庫存總量（自動加總所有批次）':'Total Stok Saat Ini (Semua Batch)', '目前庫存量':'Jumlah Stok Saat Ini',
-  '確定':'Konfirmasi', '確定拆分':'Konfirmasi Pisahkan', '確認生產':'Konfirmasi Produksi', '確認進貨':'Konfirmasi Penerimaan', '確認調整':'Konfirmasi Penyesuaian',
-  '調整庫存':'Sesuaikan Stok', '📥 調整庫存':'📥 Sesuaikan Stok', '📥 調整庫存紀錄':'📥 Riwayat Penyesuaian Stok',
+  '確定':'Konfirmasi', '確定拆分':'Konfirmasi Pisahkan', '確認生產':'Konfirmasi Produksi', '確認進貨':'Konfirmasi Penerimaan',
   '移除限制（恢復預設看全部）':'Hapus Batasan (Lihat Semua)', '統計報表':'Laporan Statistik', '總生菌數':'Jumlah Bakteri Total',
   '裝箱確認及放行人員':'Petugas Konfirmasi & Pelepasan Kotak', '製造批號':'Nomor Batch Produksi', '製造日期':'Tanggal Produksi',
   '要拆出多少數量？':'Berapa jumlah yang ingin dipisahkan?',
@@ -1770,8 +1769,7 @@ const EN_DICT = {
   '產品名稱（需與訂單品項的產品名稱完全一致）':'Product Name (must exactly match order item name)',
   '產品有效日期':'Product Expiry Date', '產品製造日期(調配、研磨日期)':'Product Production Date (Mixing/Grinding)',
   '產地':'Origin', '目前庫存總量（自動加總所有批次）':'Current Total Stock (All Batches)', '目前庫存量':'Current Stock',
-  '確定':'Confirm', '確定拆分':'Confirm Split', '確認生產':'Confirm Production', '確認進貨':'Confirm Receiving', '確認調整':'Confirm Adjustment',
-  '調整庫存':'Adjust Stock', '📥 調整庫存':'📥 Adjust Stock', '📥 調整庫存紀錄':'📥 Stock Adjustment History',
+  '確定':'Confirm', '確定拆分':'Confirm Split', '確認生產':'Confirm Production', '確認進貨':'Confirm Receiving',
   '移除限制（恢復預設看全部）':'Remove Restriction (View All)', '統計報表':'Reports', '總生菌數':'Total Plate Count',
   '裝箱確認及放行人員':'Boxing Confirmed & Released By', '製造批號':'Production Batch No.', '製造日期':'Production Date',
   '要拆出多少數量？':'How much quantity to split out?',
@@ -5387,7 +5385,7 @@ function renderInventoryList(kind){
       '<div class="material-item-top" data-mid="'+m.id+'" style="cursor:pointer;"><div class="material-item-name">'+materialLabel(m)+'</div><div class="material-item-stock">'+ total +' '+escapeHtml(m.unit||'')+'</div></div>' +
       '<div class="material-item-meta" data-mid="'+m.id+'" style="cursor:pointer;">'+batchSummary+'</div>' +
       '<div style="display:flex; gap:8px; margin-top:8px;">' +
-      '<button type="button" class="split-btn" data-receipt-mid="'+m.id+'" style="flex:1;">📥 調整庫存</button>' +
+      '<button type="button" class="split-btn" data-receipt-mid="'+m.id+'" style="flex:1;">📥 進貨</button>' +
       '<button type="button" class="split-btn" data-log-kind="'+kind+'" data-log-id="'+m.id+'" style="flex:1;">📋 出入庫紀錄</button>' +
       '</div>' +
     '</div>';
@@ -5640,7 +5638,7 @@ function openInventoryLog(kind, itemId){
   let rows;
   if(kind === 'material' || kind === 'additive'){
     const inRows = receipts.filter(r=> r.materialId===itemId).map(r=>({
-      type: 'in', batchNo: r.batchNo||'', qty: r.qty, reason: '調整庫存' + (r.supplier ? '（供應商：'+r.supplier+'）' : ''),
+      type: 'in', batchNo: r.batchNo||'', qty: r.qty, reason: '原料進貨' + (r.supplier ? '（供應商：'+r.supplier+'）' : ''),
       relatedOrderNo: '', relatedCustomer: '', createdAt: r.createdAt || 0
     }));
     const outRows = [];
@@ -6363,7 +6361,7 @@ document.getElementById('btnSaveReceipt').onclick = async ()=>{
     photoData,
     createdAt: Date.now()
   });
-  logInventoryTransaction(receivingKind, m.id, m.name, 'in', batchNo, qty, '調整庫存');
+  logInventoryTransaction(receivingKind, m.id, m.name, 'in', batchNo, qty, '原料進貨');
 
   await saveBomData();
   saveBtn.disabled = false;
@@ -6371,14 +6369,14 @@ document.getElementById('btnSaveReceipt').onclick = async ()=>{
   materialReceiptOverlay.classList.remove('show');
   renderInventoryList(receivingKind);
   renderReceiptList();
-  showToast('已記錄調整，庫存已更新');
+  showToast('已記錄進貨，庫存已更新');
 };
 
 function renderReceiptList(){
   const listEl = document.getElementById('receiptList');
   if(!listEl) return;
   if(receipts.length === 0){
-    listEl.innerHTML = '<div class="ship-list-empty">還沒有任何調整紀錄</div>';
+    listEl.innerHTML = '<div class="ship-list-empty">還沒有任何進貨紀錄</div>';
     return;
   }
   const sorted = [...receipts].sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
@@ -6392,7 +6390,7 @@ function renderReceiptList(){
       thumb +
       '<div style="flex:1;">' +
       '<div class="ship-list-name">'+namePrefix+escapeHtml(r.materialName)+' ・ +'+r.qty+' '+escapeHtml(r.unit||'')+pieceInfo+'</div>' +
-      '<div class="ship-list-meta">供應商 '+escapeHtml(r.supplier||'－')+' ・ 批號 '+escapeHtml(r.batchNo||'－')+' ・ 調整日 '+(r.receivedDate||'－')+'</div>' +
+      '<div class="ship-list-meta">供應商 '+escapeHtml(r.supplier||'－')+' ・ 批號 '+escapeHtml(r.batchNo||'－')+' ・ 進貨日 '+(r.receivedDate||'－')+'</div>' +
     '</div></div>';
   }).join('');
   listEl.querySelectorAll('[data-photo-rid]').forEach(el=>{
