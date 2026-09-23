@@ -1483,6 +1483,16 @@
       <label class="i18n">預設規格（每件重量/數量，新增批次時可用「件數」自動算總量）</label>
       <input type="text" inputmode="decimal" id="mfDefaultSpec" placeholder="例如 25">
     </div>
+    <div class="row2">
+      <div class="field">
+        <label class="i18n">預設供應商（新增批次/進貨時自動帶入，可個別修改）</label>
+        <input type="text" id="mfDefaultSupplier" placeholder="供應商名稱" list="supplierSuggestions">
+      </div>
+      <div class="field">
+        <label class="i18n">預設製造商（新增批次/進貨時自動帶入，可個別修改）</label>
+        <input type="text" id="mfDefaultManufacturer" placeholder="製造商名稱" list="manufacturerSuggestions">
+      </div>
+    </div>
     <div id="materialBatchList"></div>
     <datalist id="originSuggestions">
       <option value="台灣">
@@ -5474,7 +5484,9 @@ function updateMaterialStockTotalDisplay(){
 }
 document.getElementById('btnAddMaterialBatchLot').onclick = ()=>{
   const current = getMaterialBatchLotsFromForm();
-  current.push({ batchNo:'', mfgDate:'', expDate:'', stock: 0 });
+  const defaultSupplier = document.getElementById('mfDefaultSupplier').value.trim();
+  const defaultManufacturer = document.getElementById('mfDefaultManufacturer').value.trim();
+  current.push({ batchNo:'', mfgDate:'', expDate:'', stock: 0, supplier: defaultSupplier, manufacturer: defaultManufacturer });
   renderMaterialBatchLotList(current);
   updateMaterialStockTotalDisplay();
 };
@@ -5491,6 +5503,8 @@ function openMaterialForm(m, kind){
   document.getElementById('mfName').value = m ? m.name : '';
   document.getElementById('mfUnit').value = m ? (m.unit||'') : '';
   document.getElementById('mfDefaultSpec').value = m ? (m.defaultSpec ?? '') : '';
+  document.getElementById('mfDefaultSupplier').value = m ? (m.defaultSupplier || '') : '';
+  document.getElementById('mfDefaultManufacturer').value = m ? (m.defaultManufacturer || '') : '';
   renderMaterialBatchLotList(m ? (m.batches||[]) : []);
   updateMaterialStockTotalDisplay();
   document.getElementById('btnDeleteMaterial').style.display = m ? 'block' : 'none';
@@ -5508,15 +5522,17 @@ document.getElementById('btnSaveMaterial').onclick = async ()=>{
   const name = document.getElementById('mfName').value.trim();
   const unit = document.getElementById('mfUnit').value.trim();
   const defaultSpec = parseFloat(document.getElementById('mfDefaultSpec').value);
+  const defaultSupplier = document.getElementById('mfDefaultSupplier').value.trim();
+  const defaultManufacturer = document.getElementById('mfDefaultManufacturer').value.trim();
   const batches = getMaterialBatchLotsFromForm().filter(b=> b.batchNo || b.mfgDate || b.expDate || b.stock);
   if(!name){ showToast('請填寫' + cfg.label + '名稱'); return; }
   const list = cfg.getList();
   if(editingMaterialId){
     const m = list.find(x=>x.id===editingMaterialId);
-    if(m) Object.assign(m, { code, name, unit, defaultSpec: isNaN(defaultSpec)?null:defaultSpec, batches });
+    if(m) Object.assign(m, { code, name, unit, defaultSpec: isNaN(defaultSpec)?null:defaultSpec, defaultSupplier, defaultManufacturer, batches });
     showToast('已更新' + cfg.label);
   }else{
-    list.push({ id:'m_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), code, name, unit, defaultSpec: isNaN(defaultSpec)?null:defaultSpec, batches });
+    list.push({ id:'m_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), code, name, unit, defaultSpec: isNaN(defaultSpec)?null:defaultSpec, defaultSupplier, defaultManufacturer, batches });
     showToast('已新增' + cfg.label);
   }
   cfg.setList(list);
@@ -6107,12 +6123,12 @@ function openReceiptForm(m, kind){
   document.getElementById('mrPieces').value = '';
   document.getElementById('mrSpec').value = (m.defaultSpec ?? '') === null ? '' : (m.defaultSpec ?? '');
   document.getElementById('mrDate').value = todayStr();
-  document.getElementById('mrSupplier').value = '';
+  document.getElementById('mrSupplier').value = m.defaultSupplier || '';
   document.getElementById('mrBatchNo').value = '';
   document.getElementById('mrMfgDate').value = '';
   document.getElementById('mrExpDate').value = '';
   document.getElementById('mrOrigin').value = '';
-  document.getElementById('mrManufacturer').value = '';
+  document.getElementById('mrManufacturer').value = m.defaultManufacturer || '';
   document.getElementById('mrPhoto').value = '';
   document.getElementById('mrPhotoPreview').style.display = 'none';
   updateReceiptTotal();
