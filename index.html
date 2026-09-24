@@ -1147,6 +1147,20 @@
   </div>
 </div>
 
+<div class="overlay" id="receiptPickerOverlay" style="z-index:45;">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 class="i18n">選擇要進貨的項目</h2>
+    <div class="field" style="margin-bottom:10px;">
+      <input type="text" id="receiptPickerSearchInput" placeholder="輸入原料或食品添加物名稱、料號">
+    </div>
+    <div id="receiptPickerList"></div>
+    <div class="sheet-actions" style="margin-top:18px;">
+      <button type="button" class="i18n btn-secondary" style="flex:1;" id="btnCloseReceiptPicker">關閉</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="trashOverlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
@@ -1176,7 +1190,7 @@
     </div>
 
     <div class="report-tab-panel" id="bomPanelReceipts">
-      <button type="button" class="i18n split-btn" id="btnGoToMaterialsForReceipt" style="margin-bottom:12px; text-align:left;">要記錄新進貨？點這裡前往「📦 原料庫存」選擇原料 →</button>
+      <button type="button" class="i18n btn-primary" id="btnStartReceipt" style="margin-bottom:12px; width:100%;">📥 開始進貨（搜尋原料或食品添加物）</button>
       <div id="receiptList"></div>
     </div>
 
@@ -5450,7 +5464,51 @@ function switchBomTab(key){
 document.querySelectorAll('#bomTabs .report-tab').forEach(btn=>{
   btn.onclick = ()=> switchBomTab(btn.dataset.bomTab);
 });
-document.getElementById('btnGoToMaterialsForReceipt').onclick = ()=> switchBomTab('materials');
+const receiptPickerOverlay = document.getElementById('receiptPickerOverlay');
+function openReceiptPicker(){
+  document.getElementById('receiptPickerSearchInput').value = '';
+  renderReceiptPickerList();
+  receiptPickerOverlay.classList.add('show');
+}
+function renderReceiptPickerList(){
+  const keyword = document.getElementById('receiptPickerSearchInput').value.trim().toLowerCase();
+  const combined = materials.map(m=>({ item:m, kind:'material' })).concat(additives.map(a=>({ item:a, kind:'additive' })));
+  const filtered = keyword
+    ? combined.filter(x=> (x.item.name||'').toLowerCase().includes(keyword) || (x.item.code||'').toLowerCase().includes(keyword))
+    : combined;
+  const listEl = document.getElementById('receiptPickerList');
+  if(combined.length === 0){
+    listEl.innerHTML = '<div class="ship-list-empty">還沒有任何原料或食品添加物，請先到「📦 原料庫存」或「🧂 食品添加物」新增</div>';
+    return;
+  }
+  if(filtered.length === 0){
+    listEl.innerHTML = '<div class="ship-list-empty">沒有符合「'+escapeHtml(keyword)+'」的項目</div>';
+    return;
+  }
+  listEl.innerHTML = filtered.map(x=>{
+    const kindTag = x.kind==='material'
+      ? '<span class="badge stage" style="background:var(--panel-raised); color:var(--teal); border:1px solid var(--teal);">📦 原料</span>'
+      : '<span class="badge stage" style="background:var(--panel-raised); color:var(--orange); border:1px solid var(--orange);">🧂 食品添加物</span>';
+    return '<div class="material-item" data-pick-id="'+x.item.id+'" data-pick-kind="'+x.kind+'" style="cursor:pointer;">' +
+      '<div class="material-item-top"><div class="material-item-name">'+materialLabel(x.item)+'</div>'+kindTag+'</div>' +
+      '<div class="material-item-meta">目前庫存 '+materialTotalStock(x.item)+' '+escapeHtml(x.item.unit||'')+'</div>' +
+    '</div>';
+  }).join('');
+  listEl.querySelectorAll('[data-pick-id]').forEach(el=>{
+    el.onclick = ()=>{
+      const kind = el.dataset.pickKind;
+      const list = kind==='material' ? materials : additives;
+      const item = list.find(x=>x.id===el.dataset.pickId);
+      if(!item) return;
+      receiptPickerOverlay.classList.remove('show');
+      openReceiptForm(item, kind);
+    };
+  });
+}
+document.getElementById('btnStartReceipt').onclick = openReceiptPicker;
+document.getElementById('receiptPickerSearchInput').addEventListener('input', renderReceiptPickerList);
+document.getElementById('btnCloseReceiptPicker').onclick = ()=> receiptPickerOverlay.classList.remove('show');
+receiptPickerOverlay.onclick = (e)=>{ if(e.target === receiptPickerOverlay) receiptPickerOverlay.classList.remove('show'); };
 
 // ---- 原料庫存 ----
 function materialLabel(m){
