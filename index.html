@@ -1165,6 +1165,32 @@
   </div>
 </div>
 
+<div class="overlay" id="produceResultOverlay" style="z-index:45;">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 class="i18n" style="color:var(--teal);">✅ 生產完成</h2>
+    <div id="produceResultSummary" class="report-updated" style="margin-bottom:12px;"></div>
+    <div class="section-label i18n">本次領用的原料批次</div>
+    <div id="produceResultTableWrap" style="overflow-x:auto;"></div>
+    <div class="sheet-actions" style="margin-top:18px;">
+      <button type="button" class="i18n btn-primary" style="flex:1;" id="btnCloseProduceResult">好，我知道了</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="materialPreviewOverlay" style="z-index:45;">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>📋 預計用料</h2>
+    <div id="materialPreviewSub" class="report-updated" style="margin-bottom:12px;"></div>
+    <div id="materialPreviewWrap" style="overflow-x:auto;"></div>
+    <div style="font-size:13.3px; color:var(--ink-dim); margin-top:12px; line-height:1.5;">這是依「現在」的庫存試算，不會扣庫存。真正扣料是在進入「排程生產」那一刻，若中間有其他生產先用掉某批，實際結果可能不同。</div>
+    <div class="sheet-actions" style="margin-top:16px;">
+      <button type="button" class="btn-primary" style="flex:1;" id="btnCloseMaterialPreview">關閉</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="trashOverlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
@@ -1303,6 +1329,7 @@
     <h2 class="i18n">生產半成品</h2>
     <div class="report-updated" id="semiProduceGoodName"></div>
     <div id="semiProduceRecipeInfo" class="stage-hint"></div>
+    <div id="spMaterialBatchPicks" style="margin-top:12px;"></div>
     <div class="field">
       <label class="i18n">本次生產數量</label>
       <input type="number" id="spQty" placeholder="0" step="any">
@@ -2000,7 +2027,13 @@ function deductMaterialStockFIFO(m, qty, filters){
     return { shortage: true, consumed: [] };
   }
   let remaining = qty;
-  const sorted = materialBatchesSorted(m);
+  let sorted = materialBatchesSorted(m);
+  // 有指定原料批次時，先從指定的那一批扣；那一批不夠的部分再照FIFO從其他批次補
+  const preferredBatchNo = (filters && typeof filters === 'object') ? (filters.preferredBatchNo || '') : '';
+  if(preferredBatchNo){
+    const preferred = sorted.find(b=>(b.batchNo||'') === preferredBatchNo);
+    if(preferred) sorted = [preferred].concat(sorted.filter(b=>b !== preferred));
+  }
   const consumed = [];
   sorted.forEach(b=>{
     if(remaining <= 0) return;
@@ -2023,6 +2056,49 @@ function deductMaterialStockFIFO(m, qty, filters){
   }
   return { shortage: remaining > 0, consumed }; // shortage=true 代表庫存不足(若有限定條件，代表這個料號不符合條件或庫存不夠)
 }
+// ---- 預計用料試算（只模擬，不動到真正的庫存）----
+function makeStockSimClone(m){
+  return { origin: m.origin||'', manufacturer: m.manufacturer||'', unit: m.unit||'', batches: (m.batches||[]).map(b=>Object.assign({}, b)) };
+}
+function simulateMaterialUsage(clone, qty, filters){
+  filters = filters || {};
+  const itemMatches = (!filters.origin || clone.origin === filters.origin) && (!filters.manufacturer || clone.manufacturer === filters.manufacturer);
+  if(!itemMatches) return { plan: [], shortfall: Math.round(qty*1000)/1000, blocked: true };
+  let sorted = materialBatchesSorted(clone);
+  if(filters.preferredBatchNo){
+    const preferred = sorted.find(b=>(b.batchNo||'') === filters.preferredBatchNo);
+    if(preferred) sorted = [preferred].concat(sorted.filter(b=>b !== preferred));
+  }
+  let remaining = qty;
+  const plan = [];
+  sorted.forEach(b=>{
+    if(remaining <= 0) return;
+    const take = Math.min(Math.max(b.stock||0, 0), remaining);
+    if(take > 0){
+      b.stock = Math.round(((b.stock||0) - take) * 1000) / 1000;
+      plan.push({ batchNo: b.batchNo||'', expDate: b.expDate||'', qty: Math.round(take*1000)/1000 });
+    }
+    remaining = Math.round((remaining - take) * 1000) / 1000;
+  });
+  return { plan, shortfall: remaining > 0 ? remaining : 0, blocked: false };
+}
+function formatUsagePlanHtml(result, unit, filters){
+  const u = unit ? ' ' + escapeHtml(unit) : '';
+  let parts = result.plan.map(p=>'<b>' + escapeHtml(p.batchNo||'未命名') + '</b> ' + p.qty + u + (p.expDate ? '<span style="color:var(--ink-dim);">（效期 ' + p.expDate + '）</span>' : ''));
+  let html = parts.length ? parts.join(' ＋ ') : '';
+  if(result.shortfall > 0){
+    let why = '';
+    if(result.blocked){
+      const bits = [];
+      if(filters && filters.origin) bits.push('限' + filters.origin + '產地');
+      if(filters && filters.manufacturer) bits.push('限' + filters.manufacturer + '製造');
+      why = '（這個料號不符合配方限定：' + escapeHtml(bits.join('、')) + '）';
+    }
+    html += (html ? '　' : '') + '<span style="color:var(--red); font-weight:700;">⚠ 不足 ' + result.shortfall + u + why + '</span>';
+  }
+  return html || '<span style="color:var(--ink-dim);">－</span>';
+}
+
 let boms = []; // [{id, product, rows:[{materialId, qtyPerUnit}]}]
 let receipts = []; // [{id, materialId, materialName, qty, unit, supplier, batchNo, mfgDate, expDate, receivedDate, createdAt}]
 let finishedGoods = []; // [{id, product, unit, batches:[{batchNo, mfgDate, expDate, stock}]}]
@@ -2428,7 +2504,8 @@ function renderList(){
           : '';
         stockInfoHtml = '<div class="stock-info-row" data-stock-product="'+escapeHtml(item.product)+'" data-stock-spec="'+escapeHtml(item.spec||'')+'">📦 目前成品庫存 <b>' + currentStock + '</b>' + (unit?' '+escapeHtml(unit):'') +
           '　還需要生產 <b class="' + (stillNeed > 0 ? 'need' : 'enough') + '">' + stillNeed + '</b>' + (unit?' '+escapeHtml(unit):'') +
-          '<span class="stock-info-edit">✎ 點擊修改庫存</span></div>' + batchListHtml + fastTrackBtn;
+          '<span class="stock-info-edit">✎ 點擊修改庫存</span></div>' + batchListHtml + fastTrackBtn +
+          '<button type="button" class="split-btn" data-act="matpreview" data-oid="'+order.id+'" data-iid="'+item.id+'" style="margin-top:8px;">📋 預計用料（生產前試算會用到哪些批號）</button>';
       }
 
       let coaNoticeHtml = '';
@@ -2713,6 +2790,14 @@ function renderList(){
       saveOrders();
       renderFinishedGoodList();
       render();
+    };
+  });
+  wrap.querySelectorAll('[data-act="matpreview"]').forEach(btn=>{
+    btn.onclick = (e)=>{
+      e.stopPropagation();
+      const order = orders.find(o=>o.id === btn.dataset.oid);
+      const item = order && order.items.find(i=>i.id === btn.dataset.iid);
+      if(order && item) openMaterialPreview(order, item);
     };
   });
   wrap.querySelectorAll('[data-act="additem"]').forEach(btn=>{
@@ -6193,7 +6278,7 @@ document.getElementById('sgCategory').addEventListener('change', function(){
 document.getElementById('semiGoodSearchInput').addEventListener('input', renderSemiGoodList);
 document.getElementById('btnAddSemiGood').onclick = ()=> openSgForm(null);
 document.getElementById('btnCancelSg').onclick = ()=> semiGoodFormOverlay.classList.remove('show');
-semiGoodFormOverlay.onclick = (e)=>{ if(e.target === semiGoodFormOverlay) semiGoodFormOverlay.classList.remove('show'); };
+// 半成品編輯表單內容較多，不設定點擊背景關閉，避免填寫到一半誤觸背景導致資料遺失（只能點「取消」或「儲存」關閉）
 document.getElementById('btnSaveSg').onclick = async ()=>{
   const category = document.getElementById('sgCategory').value;
   const code = document.getElementById('sgCode').value.trim();
@@ -6229,6 +6314,52 @@ document.getElementById('btnDeleteSg').onclick = async ()=>{
 // ---- 生產半成品（依配方消耗原料）----
 let producingSemiGoodId = null;
 const semiProduceOverlay = document.getElementById('semiProduceOverlay');
+// 產生「指定原料批次」下拉選單的選項：預設自動(先進先出)，其餘列出有庫存的批次
+function materialBatchPickOptions(m, selected){
+  let html = '<option value="">自動（先進先出，先用最早的批次）</option>';
+  materialBatchesSorted(m).filter(b=>(b.stock||0) > 0).forEach(b=>{
+    const bn = b.batchNo || '';
+    const label = (bn || '（未命名批次）') + '　剩 ' + b.stock + (m.unit ? ' ' + m.unit : '') + (b.expDate ? '　效期 ' + b.expDate : '');
+    html += '<option value="'+escapeHtml(bn)+'"'+(bn && bn===selected?' selected':'')+'>'+escapeHtml(label)+'</option>';
+  });
+  return html;
+}
+function renderSemiProduceBatchPicks(recipe){
+  const wrap = document.getElementById('spMaterialBatchPicks');
+  if(!recipe || !recipe.rows || recipe.rows.length === 0){ wrap.innerHTML = ''; return; }
+  wrap.innerHTML = '<div class="section-label" style="margin-top:0; padding-top:0; border-top:none;">指定原料批次（選填）</div>' +
+    '<div style="font-size:13.3px; color:var(--ink-dim); margin-bottom:10px;">不指定就照先進先出自動扣；指定的批次如果不夠，不足的部分會自動從其他批次補</div>' +
+    recipe.rows.map((r, idx)=>{
+      const m = materials.find(x=>x.id===r.materialId);
+      if(!m) return '';
+      return '<div class="field"><label>'+escapeHtml(materialLabelPlain(m))+'</label>' +
+        '<select class="spBatchPick" data-row-idx="'+idx+'">'+materialBatchPickOptions(m, '')+'</select>' +
+        '<div class="spBatchPreview" data-row-idx="'+idx+'" style="font-size:14.5px; margin-top:6px; line-height:1.5;"></div></div>';
+    }).join('');
+  wrap.querySelectorAll('.spBatchPick').forEach(sel=> sel.addEventListener('change', updateSemiProducePreview));
+  updateSemiProducePreview();
+}
+function updateSemiProducePreview(){
+  const s = semiGoods.find(x=>x.id===producingSemiGoodId);
+  const recipe = s ? semiBoms.find(b=>b.semiGoodId === s.id) : null;
+  if(!recipe || !recipe.rows) return;
+  const qty = parseFloat(document.getElementById('spQty').value);
+  const clones = {};
+  recipe.rows.forEach((r, idx)=>{
+    const el = document.querySelector('#spMaterialBatchPicks .spBatchPreview[data-row-idx="'+idx+'"]');
+    if(!el) return;
+    const m = materials.find(x=>x.id===r.materialId);
+    if(!m){ el.innerHTML = ''; return; }
+    if(!qty || qty <= 0){ el.innerHTML = '<span style="color:var(--ink-dim);">輸入生產數量後，這裡會顯示預計扣哪幾批</span>'; return; }
+    if(!clones[m.id]) clones[m.id] = makeStockSimClone(m);
+    const sel = document.querySelector('#spMaterialBatchPicks .spBatchPick[data-row-idx="'+idx+'"]');
+    const filters = { origin: r.requiredOrigin, manufacturer: r.requiredManufacturer, preferredBatchNo: sel ? sel.value : '' };
+    const need = Math.round(r.qtyPerUnit * qty * 1000) / 1000;
+    const result = simulateMaterialUsage(clones[m.id], need, filters);
+    el.innerHTML = '預計扣（共 ' + need + (m.unit ? ' ' + escapeHtml(m.unit) : '') + '）：' + formatUsagePlanHtml(result, m.unit, filters);
+  });
+}
+document.getElementById('spQty').addEventListener('input', updateSemiProducePreview);
 function openSemiProduceForm(s){
   producingSemiGoodId = s.id;
   document.getElementById('semiProduceGoodName').textContent = s.name + '　目前庫存 ' + materialTotalStock(s) + ' ' + (s.unit||'');
@@ -6243,14 +6374,20 @@ function openSemiProduceForm(s){
     }).join('、');
     infoEl.textContent = '配方（每 1 單位）：' + desc;
   }
+  renderSemiProduceBatchPicks(recipe);
   document.getElementById('spQty').value = '';
   document.getElementById('spDate').value = todayStr();
   document.getElementById('spBatchNo').value = '';
+  const saveBtn = document.getElementById('btnSaveSemiProduce');
+  saveBtn.disabled = false;
+  saveBtn.textContent = '確認生產';
   semiProduceOverlay.classList.add('show');
 }
 document.getElementById('btnCancelSemiProduce').onclick = ()=> semiProduceOverlay.classList.remove('show');
 semiProduceOverlay.onclick = (e)=>{ if(e.target === semiProduceOverlay) semiProduceOverlay.classList.remove('show'); };
 document.getElementById('btnSaveSemiProduce').onclick = async ()=>{
+  const saveBtn = document.getElementById('btnSaveSemiProduce');
+  if(saveBtn.disabled) return; // 防止連續點擊造成重複生產
   const s = semiGoods.find(x=>x.id===producingSemiGoodId);
   if(!s) return;
   const qty = parseFloat(document.getElementById('spQty').value);
@@ -6260,15 +6397,20 @@ document.getElementById('btnSaveSemiProduce').onclick = async ()=>{
     showToast('請先設定這個半成品的配方才能生產');
     return;
   }
+  saveBtn.disabled = true;
+  const originalLabel = saveBtn.textContent;
+  saveBtn.textContent = '處理中...';
   const produceDate = document.getElementById('spDate').value || todayStr();
   const batchNo = document.getElementById('spBatchNo').value.trim() || produceDate.replace(/-/g,'');
   const shortages = [];
   const materialsUsedThisRun = [];
-  recipe.rows.forEach(row=>{
+  const batchPicks = {};
+  document.querySelectorAll('#spMaterialBatchPicks .spBatchPick').forEach(sel=>{ batchPicks[sel.dataset.rowIdx] = sel.value; });
+  recipe.rows.forEach((row, rowIdx)=>{
     const m = materials.find(x=>x.id===row.materialId);
     if(!m) return;
     const used = row.qtyPerUnit * qty;
-    const { shortage, consumed } = deductMaterialStockFIFO(m, used, { origin: row.requiredOrigin, manufacturer: row.requiredManufacturer });
+    const { shortage, consumed } = deductMaterialStockFIFO(m, used, { origin: row.requiredOrigin, manufacturer: row.requiredManufacturer, preferredBatchNo: batchPicks[rowIdx] || '' });
     if(shortage) shortages.push(m.name);
     (consumed||[]).forEach(c=>{
       materialsUsedThisRun.push({
@@ -6289,15 +6431,43 @@ document.getElementById('btnSaveSemiProduce').onclick = async ()=>{
   }
   logInventoryTransaction('semiGood', s.id, s.name, 'in', batchNo, qty, '半成品生產');
   await saveBomData();
+  saveBtn.disabled = false;
+  saveBtn.textContent = originalLabel;
   semiProduceOverlay.classList.remove('show');
   renderSemiGoodList();
   renderMaterialList();
   if(shortages.length > 0){
     showToast('⚠ 原料庫存不足：' + shortages.join('、'));
-  }else{
-    showToast('已生產 ' + qty + ' ' + (s.unit||'') + ' ' + s.name);
   }
+  showProduceResult('已生產 ' + qty + ' ' + (s.unit||'') + ' ' + s.name + '（批號 ' + batchNo + '）', materialsUsedThisRun);
 };
+
+// ---- 生產完成後顯示本次實際領用的原料批次，不用事後再去查 ----
+function showProduceResult(summaryText, materialsUsedList){
+  document.getElementById('produceResultSummary').textContent = summaryText;
+  const wrap = document.getElementById('produceResultTableWrap');
+  if(!materialsUsedList || materialsUsedList.length === 0){
+    wrap.innerHTML = '<div class="ship-list-empty">這次生產沒有領用任何原料</div>';
+  }else{
+    // 相同原料同一批號可能因為FIFO跨批次扣款而出現多筆，先合併加總方便閱讀
+    const merged = new Map();
+    materialsUsedList.forEach(m=>{
+      const key = m.materialId + '_' + m.batchNo;
+      if(!merged.has(key)){
+        merged.set(key, { materialName: m.materialName, batchNo: m.batchNo, origin: m.origin, manufacturer: m.manufacturer, supplier: m.supplier, qty: 0 });
+      }
+      merged.get(key).qty = Math.round((merged.get(key).qty + m.qty) * 1000) / 1000;
+    });
+    let tableHtml = '<table class="hygiene-detail-table"><thead><tr><th>原料</th><th>批號</th><th>用量</th><th>產地</th><th>製造商</th></tr></thead><tbody>';
+    Array.from(merged.values()).forEach(m=>{
+      tableHtml += '<tr><td>' + escapeHtml(m.materialName) + '</td><td><b>' + escapeHtml(m.batchNo||'未命名') + '</b></td><td>' + m.qty + '</td><td>' + escapeHtml(m.origin||'－') + '</td><td>' + escapeHtml(m.manufacturer||'－') + '</td></tr>';
+    });
+    tableHtml += '</tbody></table>';
+    wrap.innerHTML = tableHtml;
+  }
+  document.getElementById('produceResultOverlay').classList.add('show');
+}
+document.getElementById('btnCloseProduceResult').onclick = ()=> document.getElementById('produceResultOverlay').classList.remove('show');
 
 // ---- ⚗️ 一次投料、多重產出生產(例如磨粉同時產出多種篩目的半成品)----
 let mopInputRows = [];
@@ -6322,6 +6492,11 @@ function renderMopInputList(){
       '<div class="field qty-field"><input type="number" step="any" class="mopInputQty" placeholder="用量" value="'+(row.qty ?? '')+'"></div>' +
       '<button type="button" class="bom-row-remove" data-remove-input="'+idx+'">✕</button>' +
       '</div>' +
+      (function(){
+        const cur = list.find(x=>x.id===row.refId);
+        if(!cur) return '';
+        return '<div class="field" style="margin-top:6px;"><select class="mopInputBatch">'+materialBatchPickOptions(cur, row.batchNo||'')+'</select></div>';
+      })() +
     '</div>';
   }).join('');
   wrap.querySelectorAll('.mopInputKind').forEach((sel, i)=>{
@@ -6329,11 +6504,16 @@ function renderMopInputList(){
       const list = sel.value === 'additive' ? additives : materials;
       mopInputRows[i].kind = sel.value;
       mopInputRows[i].refId = list[0] ? list[0].id : '';
+      mopInputRows[i].batchNo = '';
       renderMopInputList();
     };
   });
   wrap.querySelectorAll('.mopInputRef').forEach((sel, i)=>{
-    sel.onchange = ()=>{ mopInputRows[i].refId = sel.value; };
+    sel.onchange = ()=>{ mopInputRows[i].refId = sel.value; mopInputRows[i].batchNo = ''; renderMopInputList(); };
+  });
+  wrap.querySelectorAll('.mopInputBatch').forEach((sel)=>{
+    const i = parseInt(sel.closest('.bom-material-row').dataset.idx, 10);
+    sel.onchange = ()=>{ mopInputRows[i].batchNo = sel.value; };
   });
   wrap.querySelectorAll('.mopInputQty').forEach((inp, i)=>{
     inp.oninput = ()=>{ mopInputRows[i].qty = parseFloat(inp.value) || 0; updateMopSummary(); };
@@ -6386,6 +6566,9 @@ function openMultiOutputProduceForm(){
   renderMopInputList();
   renderMopOutputList();
   updateMopSummary();
+  const saveBtn = document.getElementById('btnSaveMultiOutputProduce');
+  saveBtn.disabled = false;
+  saveBtn.textContent = '確認生產';
   multiOutputProduceOverlay.classList.add('show');
 }
 document.getElementById('btnMultiOutputProduce').onclick = openMultiOutputProduceForm;
@@ -6401,10 +6584,15 @@ document.getElementById('btnAddMopOutput').onclick = ()=>{
 document.getElementById('btnCancelMultiOutputProduce').onclick = ()=> multiOutputProduceOverlay.classList.remove('show');
 multiOutputProduceOverlay.onclick = (e)=>{ if(e.target === multiOutputProduceOverlay) multiOutputProduceOverlay.classList.remove('show'); };
 document.getElementById('btnSaveMultiOutputProduce').onclick = async ()=>{
+  const saveBtn = document.getElementById('btnSaveMultiOutputProduce');
+  if(saveBtn.disabled) return; // 防止連續點擊造成重複生產
   const validInputs = mopInputRows.filter(r=>r.refId && r.qty > 0);
   const validOutputs = mopOutputRows.filter(r=>r.semiGoodId && r.qty > 0);
   if(validInputs.length === 0){ showToast('請至少填寫一筆投入原料及用量'); return; }
   if(validOutputs.length === 0){ showToast('請至少填寫一筆產出項目及產出量'); return; }
+  saveBtn.disabled = true;
+  const originalLabel = saveBtn.textContent;
+  saveBtn.textContent = '處理中...';
   const produceDate = document.getElementById('mopDate').value || todayStr();
   const totalOutputQty = validOutputs.reduce((s,r)=>s+r.qty, 0);
 
@@ -6415,7 +6603,7 @@ document.getElementById('btnSaveMultiOutputProduce').onclick = async ()=>{
     const list = row.kind === 'additive' ? additives : materials;
     const m = list.find(x=>x.id===row.refId);
     if(!m) return;
-    const { shortage, consumed } = deductMaterialStockFIFO(m, row.qty, {});
+    const { shortage, consumed } = deductMaterialStockFIFO(m, row.qty, { preferredBatchNo: row.batchNo || '' });
     if(shortage) shortages.push(m.name);
     (consumed||[]).forEach(c=>{
       allConsumed.push({
@@ -6454,15 +6642,16 @@ document.getElementById('btnSaveMultiOutputProduce').onclick = async ()=>{
   });
 
   await saveBomData();
+  saveBtn.disabled = false;
+  saveBtn.textContent = originalLabel;
   multiOutputProduceOverlay.classList.remove('show');
   renderSemiGoodList();
   renderMaterialList();
   renderAdditiveList();
   if(shortages.length > 0){
     showToast('⚠ 原料庫存不足：' + shortages.join('、'));
-  }else{
-    showToast('已完成多重產出生產：' + producedNames.join('、'));
   }
+  showProduceResult('已完成多重產出生產：' + producedNames.join('、'), allConsumed);
 };
 
 // ---- 半成品配方 ----
@@ -6999,6 +7188,43 @@ document.getElementById('fgProduct').addEventListener('input', function(){
 });
 
 // ---- 生產完成時自動扣庫存（依配方混用原料與半成品）----
+function openMaterialPreview(order, item){
+  const bom = boms.find(b=>b.product === item.product);
+  document.getElementById('materialPreviewSub').textContent = order.customer + ' ・ ' + item.product + (item.spec ? ' ・ ' + item.spec : '') + '　數量 ' + (item.qty||0);
+  const wrap = document.getElementById('materialPreviewWrap');
+  if(!bom || !bom.rows || bom.rows.length === 0){
+    wrap.innerHTML = '<div class="ship-list-empty">「' + escapeHtml(item.product) + '」還沒有設定成品配方，所以無法試算。請先到「📦 進銷存管理 → 🧾 成品配方」設定（產品名稱要跟訂單完全一致）。</div>';
+  }else{
+    const clones = {};
+    const typeLabel = { material:'📦 原料', additive:'🧂 添加物', semi:'🧪 半成品' };
+    let hasShortage = false;
+    let rowsHtml = '';
+    bom.rows.forEach(row=>{
+      const type = row.type || 'material';
+      const refId = row.refId || row.materialId;
+      const list = type === 'semi' ? semiGoods : (type === 'additive' ? additives : materials);
+      const target = list.find(x=>x.id===refId);
+      const need = Math.round(row.qtyPerUnit * (item.qty||0) * 1000) / 1000;
+      if(!target){
+        rowsHtml += '<tr><td>' + typeLabel[type] + '</td><td>（已刪除）</td><td>' + need + '</td><td>－</td></tr>';
+        return;
+      }
+      const key = type + '_' + target.id;
+      if(!clones[key]) clones[key] = makeStockSimClone(target);
+      const filters = type === 'semi' ? {} : { origin: row.requiredOrigin, manufacturer: row.requiredManufacturer };
+      const result = simulateMaterialUsage(clones[key], need, filters);
+      if(result.shortfall > 0) hasShortage = true;
+      const name = type === 'semi' ? escapeHtml(target.name) : materialLabel(target);
+      rowsHtml += '<tr><td>' + typeLabel[type] + '</td><td>' + name + '</td><td>' + need + (target.unit ? ' ' + escapeHtml(target.unit) : '') + '</td><td style="white-space:normal;">' + formatUsagePlanHtml(result, target.unit, filters) + '</td></tr>';
+    });
+    wrap.innerHTML = (hasShortage ? '<div class="coa-notice-row" style="border-color:var(--red); background:rgba(229,84,77,0.12);">⚠ 有項目庫存不足，照現在的庫存無法全部備齊</div>' : '') +
+      '<table class="hygiene-detail-table"><thead><tr><th>類型</th><th>項目</th><th>需要量</th><th>預計使用批號（用量）</th></tr></thead><tbody>' + rowsHtml + '</tbody></table>';
+  }
+  document.getElementById('materialPreviewOverlay').classList.add('show');
+}
+document.getElementById('btnCloseMaterialPreview').onclick = ()=> document.getElementById('materialPreviewOverlay').classList.remove('show');
+document.getElementById('materialPreviewOverlay').onclick = (e)=>{ if(e.target.id === 'materialPreviewOverlay') e.target.classList.remove('show'); };
+
 async function deductStockForItem(item, order){
   const bom = boms.find(b=>b.product === item.product);
   if(!bom || !bom.rows || bom.rows.length === 0) return;
