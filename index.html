@@ -423,6 +423,8 @@
   .receipt-thumb-empty{ display:flex; align-items:center; justify-content:center; font-size:11.6px; line-height:1.3; color:var(--ink-dim); background:var(--panel); text-align:center; }
   .ship-list-empty{ font-size:18px; color:var(--ink-dim); padding:8px 2px 4px 2px; }
   .ship-filter-bar{ background:var(--panel-raised); border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:12px; }
+  #sortModeSelect option{ background:var(--panel); color:var(--ink); font-weight:700; font-size:17px; }
+  #sortModeSelect:focus{ outline:2px solid var(--amber); outline-offset:2px; }
 </style>
 </head>
 <body>
@@ -467,8 +469,8 @@
 <main>
   <div id="zoneFilterBar" style="display:none;"></div>
   <div id="sortBar" style="display:flex; align-items:center; gap:8px; padding:8px 14px 0 14px; flex-wrap:wrap;">
-    <span style="font-size:13.3px; color:var(--ink-dim); flex:0 0 auto;">排序：</span>
-    <select id="sortModeSelect" style="flex:1; min-width:160px; padding:6px 10px; font-size:13.9px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel);">
+    <span style="font-size:18px; font-weight:800; color:var(--amber); flex:0 0 auto;">⇅ 排序：</span>
+    <select id="sortModeSelect" style="flex:1; min-width:180px; padding:10px 12px; font-size:18px; font-weight:800; border-radius:10px; border:2px solid var(--amber); background:rgba(242,183,5,0.12); color:var(--amber); cursor:pointer;">
       <option value="dueAsc">出貨日期（由近到遠）</option>
       <option value="dueDesc">出貨日期（由遠到近）</option>
       <option value="createdDesc">訂單建立日期（新到舊）</option>
