@@ -1725,7 +1725,11 @@ const SHIP_METHOD_LABEL_ZH = { today:'寄貨', tomorrow:'送貨', pickup:'自取
 const SHIP_METHOD_LABEL_WITH_ICON_ZH = { today:'🚚 寄貨', tomorrow:'📦 送貨', pickup:'🙋 自取' };
 
 // ---- 語言切換系統(中文/印尼文 Bahasa Indonesia) ----
-let currentLang = localStorage.getItem('factoryScheduleLang') || 'zh';
+const LANG_FEATURE_ENABLED = false; // 語言切換功能開關：改成 true 即可恢復🌐按鈕與印尼文/英文翻譯，翻譯字典都還保留在下面
+let currentLang = 'zh';
+if(LANG_FEATURE_ENABLED){
+  try{ currentLang = localStorage.getItem('factoryScheduleLang') || 'zh'; }catch(e){}
+}
 const ID_DICT = {
   // 生產階段
   '訂單確認':'Konfirmasi Pesanan', '庫存確認':'Konfirmasi Stok', '排程生產':'Jadwal Produksi', '標籤印製':'Cetak Label',
@@ -1958,6 +1962,7 @@ function updateLangBtnLabel(){
   document.getElementById('langToggleBtn').textContent = labels[currentLang] || '🌐';
 }
 updateLangBtnLabel();
+if(!LANG_FEATURE_ENABLED) document.getElementById('langToggleBtn').style.display = 'none';
 const _origApplyTranslation = applyTranslation;
 applyTranslation = function(){ _origApplyTranslation(); updateLangBtnLabel(); };
 applyTranslation();
