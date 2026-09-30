@@ -2462,7 +2462,7 @@ function renderList(){
       if(item.status !== 'qc'){
         actionsHtml =
           (canBack ? '<button class="btn btn-back" data-act="back" data-oid="'+order.id+'" data-iid="'+item.id+'">‹</button>' : '') +
-          '<button class="btn btn-forward st-' + STATUS[idx+1] + '" data-act="forward" data-oid="'+order.id+'" data-iid="'+item.id+'">' + STATUS_FORWARD_LABEL[item.status] + '</button>' +
+          '<button class="btn btn-forward st-' + STATUS[idx+1] + '" data-act="forward" data-oid="'+order.id+'" data-iid="'+item.id+'">' + ((currentTab === 'coa' && item.status === 'shipped') ? '品管COA確認完成' : STATUS_FORWARD_LABEL[item.status]) + '</button>' +
           '<button class="btn btn-edit" data-act="edit" data-oid="'+order.id+'" data-iid="'+item.id+'">✎</button>';
       }else{
         actionsHtml =
