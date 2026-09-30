@@ -665,6 +665,7 @@
               <span style="color:var(--ink-dim); font-size:17.4px; flex:0 0 auto;">× 10</span>
               <input type="text" inputmode="numeric" id="fCoaPlateCountExp" placeholder="次方，例如 3" style="flex:1; min-width:90px; font-size:19.6px; padding:10px;">
               <button type="button" class="split-btn" id="btnFillPlateCount" style="flex:0 0 auto; padding:10px 16px; font-size:14.9px;">帶入</button>
+              <button type="button" class="split-btn coa-nd-btn" data-nd-target="fCoaTotalPlateCount" style="flex:0 0 auto; padding:10px 16px; font-size:14.9px; font-weight:800; border-color:var(--teal); color:var(--teal);">ND</button>
             </div>
             <div id="coaPlateCountPreview" style="font-size:15.1px; color:var(--teal); margin-top:6px; min-height:20px;"></div>
           </div>
@@ -676,6 +677,7 @@
               <span style="color:var(--ink-dim); font-size:17.4px; flex:0 0 auto;">× 10</span>
               <input type="text" inputmode="numeric" id="fCoaColiformExp" placeholder="次方，例如 3" style="flex:1; min-width:90px; font-size:19.6px; padding:10px;">
               <button type="button" class="split-btn" id="btnFillColiform" style="flex:0 0 auto; padding:10px 16px; font-size:14.9px;">帶入</button>
+              <button type="button" class="split-btn coa-nd-btn" data-nd-target="fCoaColiform" style="flex:0 0 auto; padding:10px 16px; font-size:14.9px; font-weight:800; border-color:var(--teal); color:var(--teal);">ND</button>
             </div>
             <div id="coaColiformPreview" style="font-size:15.1px; color:var(--teal); margin-top:6px; min-height:20px;"></div>
           </div>
@@ -687,6 +689,7 @@
               <span style="color:var(--ink-dim); font-size:17.4px; flex:0 0 auto;">× 10</span>
               <input type="text" inputmode="numeric" id="fCoaEcoliExp" placeholder="次方，例如 3" style="flex:1; min-width:90px; font-size:19.6px; padding:10px;">
               <button type="button" class="split-btn" id="btnFillEcoli" style="flex:0 0 auto; padding:10px 16px; font-size:14.9px;">帶入</button>
+              <button type="button" class="split-btn coa-nd-btn" data-nd-target="fCoaEcoli" style="flex:0 0 auto; padding:10px 16px; font-size:14.9px; font-weight:800; border-color:var(--teal); color:var(--teal);">ND</button>
             </div>
             <div id="coaEcoliPreview" style="font-size:15.1px; color:var(--teal); margin-top:6px; min-height:20px;"></div>
           </div>
@@ -3102,6 +3105,15 @@ function setupScientificNotationHelper(targetId, baseId, expId, btnId, previewId
     });
   });
 }
+// ND（未檢出）快速帶入按鈕
+document.querySelectorAll('.coa-nd-btn').forEach(btn=>{
+  btn.onclick = ()=>{
+    const input = document.getElementById(btn.dataset.ndTarget);
+    input.value = 'ND';
+    input.dispatchEvent(new Event('input', { bubbles:true }));
+    showToast('已帶入 ND（未檢出）');
+  };
+});
 setupScientificNotationHelper('fCoaTotalPlateCount', 'fCoaPlateCountBase', 'fCoaPlateCountExp', 'btnFillPlateCount', 'coaPlateCountPreview');
 setupScientificNotationHelper('fCoaColiform', 'fCoaColiformBase', 'fCoaColiformExp', 'btnFillColiform', 'coaColiformPreview');
 setupScientificNotationHelper('fCoaEcoli', 'fCoaEcoliBase', 'fCoaEcoliExp', 'btnFillEcoli', 'coaEcoliPreview');
