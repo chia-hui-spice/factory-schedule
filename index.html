@@ -1577,7 +1577,8 @@
     <div class="section-label" style="margin-top:8px;">本次進貨批號資訊（會新增為獨立一筆批次，不影響其他批次）</div>
     <div class="field">
       <label class="i18n">批號</label>
-      <input type="text" id="mrBatchNo" placeholder="原料進貨批號">
+      <input type="text" id="mrBatchNo" placeholder="預設為進貨日期，例如 20261001">
+      <div id="mrBatchHint" style="font-size:14px; margin-top:6px; min-height:18px;"></div>
     </div>
     <div class="row2">
       <div class="field">
@@ -1604,7 +1605,7 @@
   </div>
 </div>
 
-<div class="overlay" id="photoViewOverlay">
+<div class="overlay" id="photoViewOverlay" style="z-index:55;">
   <div class="sheet" style="text-align:center;">
     <div class="sheet-handle"></div>
     <img id="photoViewImg" style="max-width:100%; border-radius:10px;">
@@ -6191,9 +6192,22 @@ function renderMaterialBatchLotList(batches){
     const photoPreview = currentBatchPhotoData[idx]
       ? '<img src="'+currentBatchPhotoData[idx]+'" style="max-width:120px; max-height:120px; border-radius:8px; border:1px solid var(--line); display:block; margin-bottom:6px;">'
       : '';
+    // 這一批的進貨照片（同料號、同批號的進貨紀錄，不含已作廢）
+    const batchReceipts = editingMaterialId
+      ? receipts.filter(r=> r.materialId===editingMaterialId && (r.batchNo||'')===(b.batchNo||'') && !r.voided && r.photoData)
+          .sort((a,c)=>(a.createdAt||0)-(c.createdAt||0))
+      : [];
+    const receiptPhotosHtml = batchReceipts.length
+      ? '<div class="field"><label style="color:var(--teal); font-weight:800;">📷 這批的進貨照片（' + batchReceipts.length + ' 張，點照片放大）</label>' +
+          '<div style="display:flex; gap:8px; flex-wrap:wrap;">' +
+          batchReceipts.map(r=>'<div data-batch-photo-rid="'+r.id+'" style="cursor:pointer; text-align:center; width:96px;">' +
+            '<img src="'+r.photoData+'" style="width:96px; height:96px; object-fit:cover; border-radius:8px; border:2px solid var(--teal); display:block;">' +
+            '<div style="font-size:12.5px; color:var(--ink-dim); margin-top:3px; line-height:1.3;">' + escapeHtml(r.receivedDate||'') + '<br>+' + r.qty + ' ' + escapeHtml(r.unit||'') + '</div></div>').join('') +
+          '</div></div>'
+      : '';
     return '<div class="material-batch-row" data-idx="'+idx+'">' +
-      '<div class="row3">' +
-        '<div class="field"><label>批號</label><input type="text" class="mbBatchNo" placeholder="批號" value="'+escapeHtml(b.batchNo||'')+'"></div>' +
+      '<div class="field"><label>批號</label><input type="text" class="mbBatchNo" placeholder="批號" value="'+escapeHtml(b.batchNo||'')+'" style="font-weight:700;"></div>' +
+      '<div class="row2">' +
         '<div class="field"><label>製造日期</label><input type="date" class="mbMfgDate" value="'+escapeHtml(b.mfgDate||'')+'"></div>' +
         '<div class="field"><label>有效日期</label><input type="date" class="mbExpDate" value="'+escapeHtml(b.expDate||'')+'"></div>' +
       '</div>' +
@@ -6201,14 +6215,18 @@ function renderMaterialBatchLotList(batches){
         '<div class="field"><label>件數（選填，用「件數 × 預設規格」自動算總量）</label><input type="number" class="mbPieces" placeholder="例如 200" step="any"></div>' +
         '<div class="field"><label>這批剩餘庫存</label><input type="number" class="mbStock" step="any" value="'+(b.stock ?? 0)+'"></div>' +
       '</div>' +
+      receiptPhotosHtml +
       '<div class="field">' +
-        '<label>標籤照片（選填）</label>' +
+        '<label>' + (batchReceipts.length ? '其他標籤照片（選填）' : '標籤照片（選填）') + '</label>' +
         '<div class="mbPhotoPreviewWrap">' + photoPreview + '</div>' +
         '<input type="file" class="mbPhoto" accept="image/*" style="font-size:13.3px;">' +
       '</div>' +
       '<button type="button" class="material-batch-remove-btn">✕ 移除這個批次</button>' +
     '</div>';
   }).join('');
+  container.querySelectorAll('[data-batch-photo-rid]').forEach(el=>{
+    el.onclick = ()=> openPhotoView(el.dataset.batchPhotoRid);
+  });
   container.querySelectorAll('.material-batch-remove-btn').forEach(btn=>{
     btn.onclick = ()=>{
       const current = getMaterialBatchLotsFromForm();
@@ -7250,6 +7268,8 @@ function openReceiptForm(m, kind){
   document.getElementById('mrSpec').value = (m.defaultSpec ?? '') === null ? '' : (m.defaultSpec ?? '');
   document.getElementById('mrDate').value = todayStr();
   document.getElementById('mrBatchNo').value = '';
+  document.getElementById('mrBatchNo').dataset.autoValue = '';
+  syncReceiptBatchNoFromDate();
   document.getElementById('mrMfgDate').value = '';
   document.getElementById('mrExpDate').value = '';
   document.getElementById('mrPhoto').value = '';
@@ -7258,6 +7278,31 @@ function openReceiptForm(m, kind){
   materialReceiptOverlay.classList.add('show');
 }
 document.getElementById('mrPieces').addEventListener('input', updateReceiptTotal);
+// 進貨批號預設 = 進貨日期（YYYYMMDD）；手動改過的批號不會被日期蓋掉
+function syncReceiptBatchNoFromDate(){
+  const input = document.getElementById('mrBatchNo');
+  const current = input.value.trim();
+  if(!current || current === input.dataset.autoValue){
+    const d = document.getElementById('mrDate').value;
+    const auto = d ? d.replace(/-/g, '') : '';
+    input.value = auto;
+    input.dataset.autoValue = auto;
+  }
+  updateReceiptBatchHint();
+}
+// 批號跟這個品項現有的批次相同時提醒：會加到同一批，而不是另開新批次
+function updateReceiptBatchHint(){
+  const hint = document.getElementById('mrBatchHint');
+  const m = INVENTORY_KIND_CONFIG[receivingKind] ? INVENTORY_KIND_CONFIG[receivingKind].getList().find(x=>x.id===receivingMaterialId) : null;
+  const bn = document.getElementById('mrBatchNo').value.trim();
+  const existing = (m && bn) ? (m.batches||[]).find(b=>b.batchNo===bn) : null;
+  hint.innerHTML = existing
+    ? '<span style="color:var(--amber); font-weight:700;">⚠ 批號「' + escapeHtml(bn) + '」已經存在（目前剩 ' + (existing.stock||0) + (m.unit ? ' ' + escapeHtml(m.unit) : '') + '），這次進貨會加到同一批。如果是不同批貨，請改成別的批號，例如 ' + escapeHtml(bn) + '-2</span>'
+    : '';
+}
+document.getElementById('mrDate').addEventListener('change', syncReceiptBatchNoFromDate);
+document.getElementById('mrDate').addEventListener('input', syncReceiptBatchNoFromDate);
+document.getElementById('mrBatchNo').addEventListener('input', updateReceiptBatchHint);
 document.getElementById('mrSpec').addEventListener('input', updateReceiptTotal);
 document.getElementById('btnCancelReceipt').onclick = ()=> materialReceiptOverlay.classList.remove('show');
 materialReceiptOverlay.onclick = (e)=>{ if(e.target === materialReceiptOverlay) materialReceiptOverlay.classList.remove('show'); };
