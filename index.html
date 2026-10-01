@@ -1317,7 +1317,7 @@
     <div class="row2">
       <div class="field">
         <label class="i18n">產地（此料號固定，所有批次共用）</label>
-        <input type="text" id="sgOrigin" placeholder="例如 台灣" list="originSuggestions">
+        <input type="text" id="sgOrigin" placeholder="例如 台灣-TW（只打台灣也會自動補上）" list="originSuggestions">
       </div>
       <div class="field">
         <label class="i18n">製造商（此料號固定，所有批次共用）</label>
@@ -1583,7 +1583,7 @@
     <div class="row2">
       <div class="field">
         <label class="i18n">產地（此料號固定，所有批次共用）</label>
-        <input type="text" id="mfOrigin" placeholder="例如 印度" list="originSuggestions">
+        <input type="text" id="mfOrigin" placeholder="例如 印度-IN（只打印度也會自動補上）" list="originSuggestions">
       </div>
       <div class="field">
         <label class="i18n">製造商（此料號固定，所有批次共用）</label>
@@ -1601,12 +1601,16 @@
     </div>
     <div id="materialBatchList"></div>
     <datalist id="originSuggestions">
-      <option value="台灣">
-      <option value="中國">
-      <option value="印度">
-      <option value="印尼">
-      <option value="巴基斯坦">
-      <option value="摩洛哥">
+      <option value="台灣-TW">
+      <option value="中國-CN">
+      <option value="印度-IN">
+      <option value="印尼-ID">
+      <option value="越南-VN">
+      <option value="巴基斯坦-PK">
+      <option value="摩洛哥-MA">
+      <option value="土耳其-TR">
+      <option value="斯里蘭卡-LK">
+      <option value="埃及-EG">
     </datalist>
     <datalist id="supplierSuggestions"></datalist>
     <datalist id="manufacturerSuggestions"></datalist>
@@ -2002,6 +2006,29 @@ let currentUserEmail = null;
 let isCurrentUserAdmin = false;
 
 let orders = []; // [{id, customer, items:[...]}]
+// ---- 產地統一格式：「國名-國碼」，例如 台灣-TW ----
+const ORIGIN_CODES = {
+  '台灣':'TW','臺灣':'TW','中國':'CN','印度':'IN','印尼':'ID','巴基斯坦':'PK','摩洛哥':'MA','越南':'VN','泰國':'TH',
+  '馬來西亞':'MY','斯里蘭卡':'LK','土耳其':'TR','埃及':'EG','伊朗':'IR','敘利亞':'SY','西班牙':'ES','美國':'US',
+  '墨西哥':'MX','秘魯':'PE','智利':'CL','巴西':'BR','日本':'JP','韓國':'KR','緬甸':'MM','阿富汗':'AF',
+  '衣索比亞':'ET','坦尚尼亞':'TZ','馬達加斯加':'MG','瓜地馬拉':'GT','匈牙利':'HU','保加利亞':'BG','法國':'FR',
+  '義大利':'IT','德國':'DE','荷蘭':'NL','澳洲':'AU','紐西蘭':'NZ','加拿大':'CA','阿根廷':'AR','菲律賓':'PH','柬埔寨':'KH','寮國':'LA'
+};
+function normalizeOrigin(v){
+  const raw = String(v || '').trim();
+  if(!raw) return '';
+  // 拿掉後面已經有的國碼（台灣TW、台灣 TW、台灣-TW、台灣(TW)都視為台灣）
+  const name = raw.replace(/[\s\-－_()（）]*[A-Za-z]{2}[)）]?$/, '').trim();
+  const key = name === '臺灣' ? '台灣' : name;
+  const code = ORIGIN_CODES[key] || ORIGIN_CODES[name];
+  return code ? key + '-' + code : raw;
+}
+function sameOrigin(a, b){ return normalizeOrigin(a) === normalizeOrigin(b); }
+['mfOrigin','sgOrigin'].forEach(id=>{
+  const el = document.getElementById(id);
+  if(el) el.addEventListener('blur', ()=>{ el.value = normalizeOrigin(el.value); });
+});
+
 let materials = []; // [{id, code, name, unit, defaultSpec, batches:[{batchNo, mfgDate, expDate, stock}]}]
 let additives = []; // [{id, code, name, unit, defaultSpec, batches:[...]}] 食品添加物，結構跟原料完全一樣，各自獨立清單
 const INVENTORY_KIND_CONFIG = {
@@ -2038,7 +2065,7 @@ function deductMaterialStockFIFO(m, qty, filters){
   filters = filters || {};
   const requiredOrigin = filters.origin || (typeof filters === 'string' ? filters : '');
   const requiredManufacturer = filters.manufacturer || '';
-  const itemMatches = (!requiredOrigin || (m.origin||'') === requiredOrigin) && (!requiredManufacturer || (m.manufacturer||'') === requiredManufacturer);
+  const itemMatches = (!requiredOrigin || sameOrigin(m.origin, requiredOrigin)) && (!requiredManufacturer || (m.manufacturer||'') === requiredManufacturer);
   if(!itemMatches){
     // 這個料號本身的產地/製造商跟配方要求的不符，完全沒有可用庫存，直接回報全部短缺，不去動這個料號的任何批次
     return { shortage: true, consumed: [] };
@@ -2079,7 +2106,7 @@ function makeStockSimClone(m){
 }
 function simulateMaterialUsage(clone, qty, filters){
   filters = filters || {};
-  const itemMatches = (!filters.origin || clone.origin === filters.origin) && (!filters.manufacturer || clone.manufacturer === filters.manufacturer);
+  const itemMatches = (!filters.origin || sameOrigin(clone.origin, filters.origin)) && (!filters.manufacturer || clone.manufacturer === filters.manufacturer);
   if(!itemMatches) return { plan: [], shortfall: Math.round(qty*1000)/1000, blocked: true };
   let sorted = materialBatchesSorted(clone);
   if(filters.preferredBatchNo){
@@ -5618,6 +5645,9 @@ function loadBomData(){
     semiGoods = (data.semiGoods || []).map(ensureMaterialBatches);
     semiBoms = data.semiBoms || [];
     inventoryTransactions = data.inventoryTransactions || [];
+    // 舊資料的產地（例如「台灣」「台灣TW」）一律以「台灣-TW」格式顯示，下次儲存時會一起寫回
+    [materials, additives, semiGoods].forEach(list=> list.forEach(x=>{ if(x.origin) x.origin = normalizeOrigin(x.origin); }));
+    [boms, semiBoms].forEach(list=> list.forEach(b=> (b.rows||[]).forEach(r=>{ if(r.requiredOrigin) r.requiredOrigin = normalizeOrigin(r.requiredOrigin); })));
     renderMaterialList();
     renderAdditiveList();
     renderBomList();
@@ -5948,7 +5978,7 @@ document.getElementById('btnSaveMaterial').onclick = async ()=>{
   const code = document.getElementById('mfCode').value.trim();
   const name = document.getElementById('mfName').value.trim();
   const unit = document.getElementById('mfUnit').value.trim();
-  const origin = document.getElementById('mfOrigin').value.trim();
+  const origin = normalizeOrigin(document.getElementById('mfOrigin').value);
   const manufacturer = document.getElementById('mfManufacturer').value.trim();
   const supplier = document.getElementById('mfSupplier').value.trim();
   const defaultSpec = parseFloat(document.getElementById('mfDefaultSpec').value);
@@ -6353,7 +6383,7 @@ document.getElementById('btnSaveSg').onclick = async ()=>{
   const code = document.getElementById('sgCode').value.trim();
   const name = document.getElementById('sgName').value.trim();
   const unit = document.getElementById('sgUnit').value.trim();
-  const origin = document.getElementById('sgOrigin').value.trim();
+  const origin = normalizeOrigin(document.getElementById('sgOrigin').value);
   const manufacturer = document.getElementById('sgManufacturer').value.trim();
   const batches = getSemiGoodBatchLotsFromForm().filter(b=> b.batchNo || b.mfgDate || b.expDate || b.stock);
   if(!name){ showToast('請填寫半成品名稱'); return; }
@@ -7113,7 +7143,7 @@ function renderBomRows(){
     const options = list.map(x=>'<option value="'+x.id+'"'+(x.id===refId?' selected':'')+'>'+(type!=='semi'?materialLabel(x):escapeHtml(x.name))+'</option>').join('');
     const originRow = type !== 'semi'
       ? '<div class="row2" style="margin-top:6px;">' +
-          '<div class="field"><label style="font-size:12.4px; color:var(--ink-dim);">限定產地（選填）</label><input type="text" class="bomRowOrigin" placeholder="例如 印度" list="originSuggestions" value="'+escapeHtml(row.requiredOrigin||'')+'"></div>' +
+          '<div class="field"><label style="font-size:12.4px; color:var(--ink-dim);">限定產地（選填）</label><input type="text" class="bomRowOrigin" placeholder="例如 印度-IN" list="originSuggestions" value="'+escapeHtml(row.requiredOrigin||'')+'"></div>' +
           '<div class="field"><label style="font-size:12.4px; color:var(--ink-dim);">限定製造商（選填）</label><input type="text" class="bomRowManufacturer" placeholder="例如 XX食品廠" list="manufacturerSuggestions" value="'+escapeHtml(row.requiredManufacturer||'')+'"></div>' +
         '</div>'
       : '';
@@ -7152,7 +7182,8 @@ function renderBomRows(){
     inp.oninput = ()=>{ bomRowsState[i].requiredManufacturer = inp.value.trim(); };
   });
   wrap.querySelectorAll('.bomRowOrigin').forEach((inp, i)=>{
-    inp.oninput = ()=>{ bomRowsState[i].requiredOrigin = inp.value.trim(); };
+    inp.oninput = ()=>{ bomRowsState[i].requiredOrigin = normalizeOrigin(inp.value); };
+    inp.onblur = ()=>{ inp.value = normalizeOrigin(inp.value); bomRowsState[i].requiredOrigin = inp.value; };
   });
   wrap.querySelectorAll('[data-remove]').forEach(btn=>{
     btn.onclick = ()=>{
@@ -7399,7 +7430,7 @@ async function restoreStockForItem(item, order){
         });
       }else{
         // 沒有追溯記錄(較舊的資料)，退回最簡單的方式：如果這個料號本身符合限定條件，歸還加回最早的那筆批次
-        const itemMatches = (!row.requiredOrigin || (target.origin||'')===row.requiredOrigin) && (!row.requiredManufacturer || (target.manufacturer||'')===row.requiredManufacturer);
+        const itemMatches = (!row.requiredOrigin || sameOrigin(target.origin, row.requiredOrigin)) && (!row.requiredManufacturer || (target.manufacturer||'')===row.requiredManufacturer);
         const pool = itemMatches ? target.batches : [];
         let restoredBatchNo = '';
         if(pool.length > 0){
