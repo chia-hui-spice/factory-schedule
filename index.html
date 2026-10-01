@@ -571,7 +571,7 @@
           </div>
           <div class="field">
             <label class="i18n" style="color:var(--amber); font-weight:800;">製造批號</label>
-            <input type="text" id="fProductBatchNo" placeholder="製造批號" style="border-color:var(--amber);">
+            <input type="text" id="fProductBatchNo" placeholder="預設為製造日期，例如 20261001" style="border-color:var(--amber);">
           </div>
         </div>
         <div class="row2">
@@ -588,7 +588,7 @@
           </div>
         </div>
         <div class="field">
-          <label class="i18n">原料批號（可新增多筆，如果同一原料用了不同批號補滿數量，可以分開記錄各自用量）</label>
+          <label>原料批號（可新增多筆，如果同一原料用了不同批號補滿數量，可以分開記錄各自用量）</label>
           <div id="fManualMaterialBatchList"></div>
           <button type="button" class="i18n split-btn" id="btnAddManualMaterialBatch" style="margin-top:6px;">+ 新增批號</button>
         </div>
@@ -3150,6 +3150,18 @@ function setFlexDateValue(textId, value){
   }
 }
 ['fFillFormDate','fDue','fProductMfgDate','fProductExpDate','fActualShipDate'].forEach(setupFlexDate);
+// 製造批號預設 = 產品製造日期（YYYYMMDD）。只有在批號空白、或還是上次自動帶入的值時才會跟著日期改；手動改過的批號不會被蓋掉
+function syncBatchNoFromMfgDate(){
+  const batchInput = document.getElementById('fProductBatchNo');
+  const current = batchInput.value.trim();
+  if(current && current !== batchInput.dataset.autoValue) return;
+  const mfg = getFlexDateValue('fProductMfgDate');
+  const auto = mfg ? mfg.replace(/-/g, '') : '';
+  batchInput.value = auto;
+  batchInput.dataset.autoValue = auto;
+}
+document.getElementById('fProductMfgDate').addEventListener('input', syncBatchNoFromMfgDate);
+document.getElementById('fProductMfgDate_native').addEventListener('change', syncBatchNoFromMfgDate);
 
 // ---- COA數值科學記號輔助輸入(係數 × 10的次方，避免自己找上標符號打) ----
 const SUPERSCRIPT_DIGITS = { '0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻' };
@@ -3204,11 +3216,12 @@ function renderManualMaterialBatchList(batches){
   }
   container.innerHTML = list.map((b, idx)=>{
     return '<div class="material-batch-row" data-idx="'+idx+'">' +
-      '<div class="field"><label>原料名稱</label><input type="text" class="mmbName" placeholder="例如 黑胡椒" value="'+escapeHtml(b.materialName||'')+'"></div>' +
+      // 原料名稱欄位已拿掉，舊資料若有填過名稱，仍保留在 data-material-name 裡，儲存時不會遺失
+      '<input type="hidden" class="mmbName" value="'+escapeHtml(b.materialName||'')+'">' +
       '<div class="row3">' +
-        '<div class="field"><label>批號</label><input type="text" class="mmbBatchNo" placeholder="批號" value="'+escapeHtml(b.batchNo||'')+'"></div>' +
-        '<div class="field"><label>製造日期</label><input type="date" class="mmbMfgDate" value="'+escapeHtml(b.mfgDate||'')+'"></div>' +
-        '<div class="field"><label>有效日期</label><input type="date" class="mmbExpDate" value="'+escapeHtml(b.expDate||'')+'"></div>' +
+        '<div class="field"><label>原料批號</label><input type="text" class="mmbBatchNo" placeholder="原料批號" value="'+escapeHtml(b.batchNo||'')+'"></div>' +
+        '<div class="field"><label>原料製造日期</label><input type="date" class="mmbMfgDate" value="'+escapeHtml(b.mfgDate||'')+'"></div>' +
+        '<div class="field"><label>原料有效日期</label><input type="date" class="mmbExpDate" value="'+escapeHtml(b.expDate||'')+'"></div>' +
       '</div>' +
       '<div class="field"><label>這批用量（選填）</label><input type="number" class="mmbQty" step="any" placeholder="例如 30" value="'+(b.qty ?? '')+'"></div>' +
       '<button type="button" class="material-batch-remove-btn">✕ 移除這筆批號</button>' +
@@ -3415,7 +3428,10 @@ function openSheet(order, item){
       batchNo = batchNo || item.productBatches[0].batchNo || '';
     }
     setFlexDateValue('fProductMfgDate', mfgDate);
-    document.getElementById('fProductBatchNo').value = batchNo;
+    const batchInput = document.getElementById('fProductBatchNo');
+    batchInput.value = batchNo;
+    batchInput.dataset.autoValue = '';
+    if(!batchNo) syncBatchNoFromMfgDate();
   }
   {
     const packagingDateVisible = item && (STATUS.indexOf(item.status) >= STATUS.indexOf('refill'));
