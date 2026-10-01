@@ -477,6 +477,13 @@
       <option value="createdAsc">訂單建立日期（舊到新）</option>
     </select>
   </div>
+  <div id="tabSearchBar" style="display:flex; align-items:center; gap:8px; padding:8px 14px 0 14px;">
+    <div style="flex:1; position:relative;">
+      <input type="search" id="tabSearchInput" placeholder="🔍 搜尋這個分頁：客戶、產品、規格、批號、備註…" autocomplete="off" style="width:100%; padding:10px 40px 10px 12px; font-size:17px; border-radius:10px; border:2px solid var(--line); background:var(--panel); color:var(--ink);">
+      <button type="button" id="tabSearchClear" aria-label="清除搜尋" style="display:none; position:absolute; right:6px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--ink-dim); font-size:20px; padding:4px 8px; cursor:pointer;">✕</button>
+    </div>
+  </div>
+  <div id="tabSearchResultHint" style="display:none; padding:6px 14px 0 14px; font-size:14.5px; color:var(--amber); font-weight:700;"></div>
   <div id="listArea"></div>
 </main>
 
@@ -2389,6 +2396,23 @@ function itemMatchesZoneFilter(item){
   if((currentTab !== 'labeling' && currentTab !== 'refill') || !currentZoneFilter) return true;
   return (item.productionZones || []).includes(currentZoneFilter);
 }
+// ---- 分頁搜尋：比對訂單與品項上所有文字/數字欄位（客戶、產品、規格、批號、備註、日期等）----
+let tabSearchKeyword = '';
+function searchableText(obj){
+  if(!obj) return '';
+  return Object.keys(obj).map(k=>{
+    const v = obj[k];
+    if(typeof v === 'string' || typeof v === 'number') return String(v);
+    if(Array.isArray(v)) return v.filter(x=>typeof x === 'string' || typeof x === 'number').join(' ');
+    return '';
+  }).join(' ').toLowerCase();
+}
+function itemMatchesTabSearch(item, order){
+  if(!tabSearchKeyword) return true;
+  const hay = searchableText(order) + ' ' + searchableText(item) + ' ' + String(STATUS_LABEL_RAW[item.status]||'').toLowerCase();
+  // 多個關鍵字用空白分開時，每個都要符合（例如「王 孜然」）
+  return tabSearchKeyword.split(/\s+/).filter(Boolean).every(kw=>hay.includes(kw));
+}
 function itemBelongsToTab(item, tab){
   if(item.deleted) return false;
   if(tab === 'coa'){
@@ -2398,14 +2422,40 @@ function itemBelongsToTab(item, tab){
   return item.status === tab;
 }
 
+function updateTabSearchHint(matchingOrders){
+  const hintEl = document.getElementById('tabSearchResultHint');
+  if(!tabSearchKeyword){ hintEl.style.display = 'none'; return; }
+  let n = 0;
+  matchingOrders.forEach(o=> (o.items||[]).forEach(it=>{ if(itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it) && itemMatchesTabSearch(it, o)) n++; }));
+  hintEl.textContent = '🔍 搜尋中：找到 ' + n + ' 個品項（按 ✕ 清除搜尋）';
+  hintEl.style.display = 'block';
+}
+(function setupTabSearch(){
+  const input = document.getElementById('tabSearchInput');
+  const clearBtn = document.getElementById('tabSearchClear');
+  let timer = null;
+  const apply = ()=>{
+    tabSearchKeyword = input.value.trim().toLowerCase();
+    clearBtn.style.display = input.value ? 'block' : 'none';
+    input.style.borderColor = tabSearchKeyword ? 'var(--amber)' : 'var(--line)';
+    renderList();
+  };
+  input.addEventListener('input', ()=>{ clearTimeout(timer); timer = setTimeout(apply, 150); });
+  clearBtn.onclick = ()=>{ input.value = ''; apply(); input.focus(); };
+})();
 function renderList(){
   const listEl = document.getElementById('listArea');
-  const matchingOrders = orders.filter(o => (o.items||[]).some(it => itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it)));
+  const matchingOrders = orders.filter(o => (o.items||[]).some(it => itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it) && itemMatchesTabSearch(it, o)));
+  updateTabSearchHint(matchingOrders);
 
   if(matchingOrders.length === 0){
     const hint = (currentTab === 'pending') ? '<br>點右下角 + 新增一筆' : '';
     const zoneHint = ((currentTab === 'labeling' || currentTab === 'refill') && currentZoneFilter) ? '（「' + escapeHtml(currentZoneFilter) + '」目前沒有品項）' : '';
     const qcHint = (currentTab === 'coa') ? '<br>（這裡只顯示需要COA的品項，不需要COA的不會出現）' : '';
+    if(tabSearchKeyword){
+      listEl.innerHTML = '<div class="empty"><div class="empty-tag">🔍</div><p>「' + STATUS_LABEL[currentTab] + '」裡找不到符合「' + escapeHtml(document.getElementById('tabSearchInput').value.trim()) + '」的品項<br>可以換個關鍵字，或到「報表 → 🔍 訂單查詢」搜尋全部訂單</p></div>';
+      return;
+    }
     listEl.innerHTML = '<div class="empty"><div class="empty-tag">🏷️</div><p>目前「' + STATUS_LABEL[currentTab] + '」沒有品項' + zoneHint + hint + qcHint + '</p></div>';
     return;
   }
@@ -2415,8 +2465,8 @@ function renderList(){
       const diff = (a.createdAt||0) - (b.createdAt||0);
       return currentSortMode === 'createdDesc' ? -diff : diff;
     }
-    const aItems = a.items.filter(it=>itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it)).map(it=>it.due||'9999');
-    const bItems = b.items.filter(it=>itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it)).map(it=>it.due||'9999');
+    const aItems = a.items.filter(it=>itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it) && itemMatchesTabSearch(it, a)).map(it=>it.due||'9999');
+    const bItems = b.items.filter(it=>itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it) && itemMatchesTabSearch(it, b)).map(it=>it.due||'9999');
     const aMin = aItems.reduce((min,v)=> (min===null || v<min) ? v : min, null) || '9999';
     const bMin = bItems.reduce((min,v)=> (min===null || v<min) ? v : min, null) || '9999';
     const cmp = String(aMin).localeCompare(String(bMin));
@@ -2427,7 +2477,7 @@ function renderList(){
   const wrap = document.getElementById('orderList');
 
   matchingOrders.forEach(order=>{
-    const activeItems = (order.items||[]).filter(it=>itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it));
+    const activeItems = (order.items||[]).filter(it=>itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it) && itemMatchesTabSearch(it, order));
     const card = document.createElement('div');
     card.className = 'order-card';
 
