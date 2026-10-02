@@ -425,6 +425,7 @@
   .ship-filter-bar{ background:var(--panel-raised); border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:12px; }
   #sortModeSelect option{ background:var(--panel); color:var(--ink); font-weight:700; font-size:17px; }
   #sortModeSelect:focus{ outline:2px solid var(--amber); outline-offset:2px; }
+  #stExtraKind, #stExtraItem, #stExtraBatch, #stExtraQty{ padding:9px 8px; font-size:16px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); }
 </style>
 </head>
 <body>
@@ -1253,6 +1254,7 @@
       <button type="button" class="i18n report-tab" data-bom-tab="finishedGoods">🏷 成品庫存</button>
       <button type="button" class="i18n report-tab" data-bom-tab="boms">🧾 成品配方</button>
       <button type="button" class="i18n report-tab" data-bom-tab="semiBoms">🧫 半成品配方</button>
+      <button type="button" class="report-tab" data-bom-tab="stocktake">📋 盤點</button>
     </div>
 
     <div class="report-tab-panel" id="bomPanelReceipts">
@@ -1304,6 +1306,10 @@
     <div class="report-tab-panel" id="bomPanelBoms" style="display:none;">
       <button type="button" class="i18n add-item-btn" id="btnAddBom" style="margin-bottom:12px;">+ 新增成品配方</button>
       <div id="bomList"></div>
+    </div>
+
+    <div class="report-tab-panel" id="bomPanelStocktake" style="display:none;">
+      <div id="stocktakePanel"></div>
     </div>
 
     <div class="report-tab-panel" id="bomPanelSemiBoms" style="display:none;">
@@ -5593,7 +5599,7 @@ document.getElementById('btnMergeToProd').onclick = async ()=>{
 
     const clearOk = await showConfirm('要不要順便清空測試資料，讓測試環境恢復乾淨？', '清空測試資料？');
     if(clearOk){
-      orders = []; materials = []; additives = []; packagings = []; boms = []; receipts = []; finishedGoods = []; semiGoods = []; semiBoms = []; inventoryTransactions = [];
+      orders = []; materials = []; additives = []; packagings = []; boms = []; receipts = []; finishedGoods = []; semiGoods = []; semiBoms = []; inventoryTransactions = []; stocktakes = [];
       await saveOrders();
       await saveBomData();
       showToast('測試資料已清空');
@@ -5734,6 +5740,8 @@ function loadBomData(){
     semiGoods = (data.semiGoods || []).map(ensureMaterialBatches);
     semiBoms = data.semiBoms || [];
     inventoryTransactions = data.inventoryTransactions || [];
+    stocktakes = data.stocktakes || [];
+    renderStocktakePanel();
     // 舊資料的產地（例如「台灣」「台灣TW」）一律以「台灣-TW」格式顯示，下次儲存時會一起寫回
     [materials, additives, packagings, semiGoods].forEach(list=> list.forEach(x=>{ if(x.origin) x.origin = normalizeOrigin(x.origin); }));
     [boms, semiBoms].forEach(list=> list.forEach(b=> (b.rows||[]).forEach(r=>{ if(r.requiredOrigin) r.requiredOrigin = normalizeOrigin(r.requiredOrigin); })));
@@ -5752,7 +5760,7 @@ function loadBomData(){
 }
 async function saveBomData(){
   try{
-    await setDoc(bomDataDocRef, { materials, additives, packagings, boms, receipts, finishedGoods, semiGoods, semiBoms, inventoryTransactions });
+    await setDoc(bomDataDocRef, { materials, additives, packagings, boms, receipts, finishedGoods, semiGoods, semiBoms, inventoryTransactions, stocktakes });
   }catch(e){
     console.error(e);
     showToast('儲存失敗，請檢查網路');
@@ -5773,7 +5781,7 @@ document.getElementById('bomBtn').onclick = ()=>{
 document.getElementById('btnCloseBom').onclick = ()=> bomOverlay.classList.remove('show');
 bomOverlay.onclick = (e)=>{ if(e.target === bomOverlay) bomOverlay.classList.remove('show'); };
 
-const BOM_PANELS = { materials:'bomPanelMaterials', additives:'bomPanelAdditives', packagings:'bomPanelPackagings', semiGoods:'bomPanelSemiGoods', finishedGoods:'bomPanelFinishedGoods', boms:'bomPanelBoms', semiBoms:'bomPanelSemiBoms', receipts:'bomPanelReceipts' };
+const BOM_PANELS = { stocktake:'bomPanelStocktake', materials:'bomPanelMaterials', additives:'bomPanelAdditives', packagings:'bomPanelPackagings', semiGoods:'bomPanelSemiGoods', finishedGoods:'bomPanelFinishedGoods', boms:'bomPanelBoms', semiBoms:'bomPanelSemiBoms', receipts:'bomPanelReceipts' };
 function switchBomTab(key){
   document.querySelectorAll('#bomTabs .report-tab').forEach(btn=>{
     btn.classList.toggle('active', btn.dataset.bomTab === key);
@@ -6097,6 +6105,429 @@ document.getElementById('btnConfirmBulkImport').onclick = async ()=>{
   document.getElementById('bulkImportOverlay').classList.remove('show');
   showToast('✅ 已新增 ' + total + ' 筆資料');
 };
+
+
+// ================= 📋 盤點 =================
+// 流程：開始盤點（存下當下帳面數量快照）→ 下載盤點表列印 → 倉庫手寫實盤數量 → 上傳 → 差異預覽 → 確認調整
+// 調整方式：新庫存 = 目前庫存 + (實盤數量 − 快照帳面數量)，所以快照之後的進貨/生產異動不會被盤點蓋掉
+let stocktakes = [];
+let stocktakePreview = null;
+const ST_KINDS = [
+  { kind:'material',  label:'原料',       logKind:'material' },
+  { kind:'additive',  label:'食品添加物', logKind:'additive' },
+  { kind:'packaging', label:'包材',       logKind:'packaging' },
+  { kind:'semi',      label:'半成品',     logKind:'semiGood' },
+  { kind:'finished',  label:'成品',       logKind:'finishedGood' }
+];
+const ST_LABEL_TO_KIND = {}; ST_KINDS.forEach(k=>{ ST_LABEL_TO_KIND[k.label] = k.kind; }); ST_LABEL_TO_KIND['添加物'] = 'additive';
+function stList(kind){ return kind === 'finished' ? finishedGoods : listForKind(kind); }
+function stItemName(kind, x){ return kind === 'finished' ? (x.product + (x.spec ? '（' + x.spec + '）' : '')) : x.name; }
+function stOpen(){ return stocktakes.find(st=>st.status === 'open'); }
+const r3 = (n)=> Math.round(n * 1000) / 1000;
+
+function buildStocktakeSnapshot(){
+  const rows = [];
+  ST_KINDS.forEach(k=>{
+    const list = [...stList(k.kind)].sort((a,b)=> String(a.code||stItemName(k.kind,a)).localeCompare(String(b.code||stItemName(k.kind,b)), 'zh-Hant'));
+    list.forEach(x=>{
+      const batches = (x.batches||[]).filter(b=>(b.stock||0) !== 0);
+      const base = { kind:k.kind, itemId:x.id, code:x.code||'', name:stItemName(k.kind,x), unit:x.unit||'' };
+      if(batches.length === 0){
+        rows.push(Object.assign({ batchNo:'', mfgDate:'', expDate:'', book:0 }, base));
+      }else{
+        materialBatchesSorted({ batches }).forEach(b=> rows.push(Object.assign({ batchNo:b.batchNo||'', mfgDate:b.mfgDate||'', expDate:b.expDate||'', book:r3(b.stock||0) }, base)));
+      }
+    });
+  });
+  return rows;
+}
+function stRowKey(r){ return r.kind + '|' + r.itemId + '|' + (r.batchNo||''); }
+
+function renderStocktakePanel(){
+  const wrap = document.getElementById('stocktakePanel');
+  if(!wrap) return;
+  const open = stOpen();
+  let html = '';
+  if(!open){
+    const year = new Date().getFullYear();
+    const nth = stocktakes.filter(st=> String(st.name||'').startsWith(year + '年')).length + 1;
+    html += '<div class="report-updated" style="margin-bottom:10px; line-height:1.7;">① 開始盤點　② 列印盤點表　③ 到倉庫手寫實盤數量　④ 回來依序號輸入（或上傳 Excel）　⑤ 確認差異、調整庫存<br>沒填數量的品項不會被修改。</div>' +
+      '<div class="field"><label>盤點名稱</label><input type="text" id="stNewName" value="' + year + '年第' + nth + '次盤點"></div>' +
+      '<button type="button" class="btn-primary" id="btnStartStocktake" style="width:100%; margin-bottom:16px;">📋 開始盤點（記下目前帳面數量）</button>';
+  }else{
+    if(!open.entries) open.entries = {};
+    if(!open.extras) open.extras = [];
+    const filled = Object.values(open.entries).filter(e=>e && e.counted !== null && e.counted !== undefined && e.counted !== '').length + open.extras.length;
+    html += '<div style="border:2px solid var(--amber); border-radius:12px; padding:12px; margin-bottom:14px; background:rgba(242,183,5,0.08);">' +
+      '<div style="font-size:19px; font-weight:800; color:var(--amber);">🟡 盤點進行中：' + escapeHtml(open.name) + '</div>' +
+      '<div style="font-size:14.5px; color:var(--ink-dim); margin:4px 0 12px;">開始 ' + new Date(open.startedAt).toLocaleString('zh-TW') + '　' + escapeHtml(open.startedBy||'') + '　共 ' + open.snapshot.length + ' 列，已輸入 ' + filled + ' 列</div>' +
+      '<label style="display:flex; align-items:center; gap:8px; font-size:15px; margin-bottom:8px;"><input type="checkbox" id="stBlind" style="width:20px; height:20px;"> 盤點表不印帳面數量（盲盤，避免盤點人員照抄）</label>' +
+      '<button type="button" class="btn-primary" id="btnPrintStocktakeSheet" style="width:100%; margin-bottom:8px;">🖨 列印盤點表</button>' +
+      '<details id="stEntryDetails" style="margin:8px 0; border:1px solid var(--line); border-radius:10px; padding:8px 10px;"' + (stocktakePreview ? '' : ' open') + '>' +
+        '<summary style="font-size:17px; font-weight:800; cursor:pointer;">✍️ 輸入實盤數量（依盤點表序號）</summary>' +
+        '<input type="search" id="stEntrySearch" placeholder="搜尋序號、品名、料號、批號" style="width:100%; margin:10px 0; padding:9px 10px; font-size:16px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink);">' +
+        '<div id="stEntryList"></div>' +
+        '<div class="section-label">盤到系統沒有的批號（紙本最下方手寫的列）</div>' +
+        '<div id="stExtraList"></div>' +
+        '<div style="display:flex; gap:6px; flex-wrap:wrap; align-items:flex-end; margin-top:6px;">' +
+          '<select id="stExtraKind" style="flex:0 0 96px; width:96px;">' + ST_KINDS.map(k=>'<option value="'+k.kind+'">'+k.label+'</option>').join('') + '</select>' +
+          '<select id="stExtraItem" style="flex:1 1 100%; width:100%;"></select>' +
+          '<input type="text" id="stExtraBatch" placeholder="批號" style="flex:1 1 90px; width:90px; min-width:0;">' +
+          '<input type="number" id="stExtraQty" placeholder="實盤" step="any" style="flex:0 0 80px; width:80px; min-width:0;">' +
+          '<button type="button" class="split-btn" id="btnAddStExtra" style="flex:0 0 auto;">＋加入</button>' +
+        '</div>' +
+      '</details>' +
+      '<button type="button" class="btn-primary" id="btnCalcStocktake" style="width:100%; margin-top:6px; background:var(--teal); border-color:var(--teal);">💾 儲存輸入並計算差異</button>' +
+      '<details style="margin-top:10px;"><summary style="font-size:14.5px; color:var(--ink-dim); cursor:pointer;">也可以用 Excel：下載電子檔填好後上傳</summary>' +
+        '<button type="button" class="split-btn" id="btnDownloadStocktakeSheet" style="width:100%; margin:8px 0;">⬇️ 下載盤點表 Excel</button>' +
+        '<input type="file" id="stUploadFile" accept=".xlsx,.xls">' +
+      '</details>' +
+      '<div id="stPreview"></div>' +
+      '<button type="button" class="btn-primary" id="btnConfirmStocktake" style="width:100%; margin-top:10px; opacity:0.5;" disabled>✅ 確認盤點，調整庫存</button>' +
+      '<button type="button" class="btn-delete" id="btnCancelStocktake" style="margin-top:8px;">取消這次盤點（不調整任何庫存）</button>' +
+    '</div>';
+  }
+  const done = stocktakes.filter(st=>st.status === 'done').sort((a,b)=>(b.finishedAt||0)-(a.finishedAt||0));
+  html += '<div class="section-label">盤點紀錄</div>' + (done.length === 0 ? '<div class="ship-list-empty">還沒有完成的盤點</div>' :
+    done.map(st=>{
+      const diffs = st.results.filter(r=>r.diff !== 0);
+      return '<div class="material-item"><div class="material-item-top"><div class="material-item-name">' + escapeHtml(st.name) + '</div></div>' +
+        '<div class="material-item-meta">完成 ' + new Date(st.finishedAt).toLocaleString('zh-TW') + '　' + escapeHtml(st.finishedBy||'') + '<br>已盤 ' + st.results.length + ' 列，有差異 ' + diffs.length + ' 列' + (st.uncounted ? '，未盤 ' + st.uncounted + ' 列' : '') + '</div>' +
+        '<button type="button" class="split-btn" data-st-export="' + st.id + '" style="margin-top:8px;">📊 匯出盤點報表</button></div>';
+    }).join(''));
+  wrap.innerHTML = html;
+
+  const bind = (id, fn, ev)=>{ const el = document.getElementById(id); if(el) el[ev||'onclick'] = fn; };
+  bind('btnStartStocktake', startStocktake);
+  bind('btnPrintStocktakeSheet', printStocktakeSheet);
+  bind('btnDownloadStocktakeSheet', downloadStocktakeSheet);
+  bind('btnConfirmStocktake', confirmStocktake);
+  bind('btnCancelStocktake', cancelStocktake);
+  bind('btnCalcStocktake', async ()=>{ await saveBomData(); computeStocktakePreview([]); });
+  bind('btnAddStExtra', addStocktakeExtra);
+  const up = document.getElementById('stUploadFile');
+  if(up) up.addEventListener('change', handleStocktakeUpload);
+  const search = document.getElementById('stEntrySearch');
+  if(search) search.addEventListener('input', renderStocktakeEntryList);
+  const kindSel = document.getElementById('stExtraKind');
+  if(kindSel){ kindSel.onchange = fillStExtraItems; fillStExtraItems(); }
+  wrap.querySelectorAll('[data-st-export]').forEach(b=> b.onclick = ()=> exportStocktakeReport(b.dataset.stExport));
+  if(open){ renderStocktakeEntryList(); renderStocktakeExtras(); if(stocktakePreview) renderStocktakePreview(); }
+}
+
+function fillStExtraItems(){
+  const kind = document.getElementById('stExtraKind').value;
+  document.getElementById('stExtraItem').innerHTML = stList(kind).map(x=>'<option value="'+x.id+'">'+escapeHtml((x.code?x.code+' ・ ':'') + stItemName(kind,x))+'</option>').join('') || '<option value="">（沒有品項）</option>';
+}
+function renderStocktakeEntryList(){
+  const open = stOpen(); const el = document.getElementById('stEntryList');
+  if(!open || !el) return;
+  const kw = (document.getElementById('stEntrySearch').value||'').trim().toLowerCase();
+  const label = {}; ST_KINDS.forEach(k=> label[k.kind] = k.label);
+  let lastKind = '';
+  const rowsHtml = open.snapshot.map((r, i)=>{
+    const no = i + 1;
+    if(kw && !(String(no) === kw || (r.name+' '+r.code+' '+r.batchNo).toLowerCase().includes(kw))) return '';
+    const e = open.entries[stRowKey(r)] || {};
+    const head = (!kw && r.kind !== lastKind) ? '<div style="font-size:15px; font-weight:800; color:var(--amber); margin:10px 0 4px;">' + label[r.kind] + '</div>' : '';
+    lastKind = r.kind;
+    const hasVal = e.counted !== undefined && e.counted !== null && e.counted !== '';
+    return head + '<div style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--line);">' +
+      '<div style="flex:0 0 34px; font-weight:800; color:var(--ink-dim); text-align:right;">' + no + '</div>' +
+      '<div style="flex:1; min-width:0; font-size:14.5px; line-height:1.35;"><div style="font-weight:700;">' + escapeHtml(r.name) + '</div>' +
+        '<div style="color:var(--ink-dim); font-size:13px;">' + escapeHtml(r.code||'') + (r.batchNo ? '　批號 ' + escapeHtml(r.batchNo) : '　（無批號）') + '　帳面 ' + r.book + ' ' + escapeHtml(r.unit||'') + '</div></div>' +
+      '<input type="number" inputmode="decimal" step="any" class="stCount" data-key="' + escapeHtml(stRowKey(r)) + '" value="' + (hasVal ? e.counted : '') + '" placeholder="實盤" style="flex:0 0 92px; width:92px; min-width:0; padding:9px 8px; font-size:17px; font-weight:700; border-radius:8px; border:2px solid ' + (hasVal ? 'var(--teal)' : 'var(--line)') + '; background:var(--panel); color:var(--ink);">' +
+    '</div>';
+  }).join('');
+  el.innerHTML = rowsHtml || '<div class="ship-list-empty">沒有符合的列</div>';
+  el.querySelectorAll('.stCount').forEach(inp=>{
+    inp.addEventListener('input', ()=>{
+      const v = inp.value.trim();
+      if(v === '') delete open.entries[inp.dataset.key];
+      else open.entries[inp.dataset.key] = Object.assign({}, open.entries[inp.dataset.key], { counted: parseFloat(v) });
+      inp.style.borderColor = v === '' ? 'var(--line)' : 'var(--teal)';
+    });
+  });
+}
+function renderStocktakeExtras(){
+  const open = stOpen(); const el = document.getElementById('stExtraList');
+  if(!open || !el) return;
+  el.innerHTML = open.extras.length === 0 ? '<div style="font-size:14px; color:var(--ink-dim);">（沒有）</div>' :
+    open.extras.map((x, i)=>{
+      const item = stList(x.kind).find(it=>it.id===x.itemId);
+      return '<div style="display:flex; align-items:center; gap:8px; font-size:14.5px; padding:4px 0;">' +
+        '<div style="flex:1;">' + escapeHtml(item ? stItemName(x.kind,item) : '（已刪除）') + '　批號 ' + escapeHtml(x.batchNo||'－') + '　<b>實盤 ' + x.counted + '</b></div>' +
+        '<button type="button" class="bom-row-remove" data-st-extra-del="' + i + '">✕</button></div>';
+    }).join('');
+  el.querySelectorAll('[data-st-extra-del]').forEach(b=> b.onclick = ()=>{ open.extras.splice(parseInt(b.dataset.stExtraDel,10), 1); renderStocktakeExtras(); });
+}
+function addStocktakeExtra(){
+  const open = stOpen(); if(!open) return;
+  const kind = document.getElementById('stExtraKind').value;
+  const itemId = document.getElementById('stExtraItem').value;
+  const batchNo = document.getElementById('stExtraBatch').value.trim();
+  const qty = parseFloat(document.getElementById('stExtraQty').value);
+  if(!itemId){ showToast('請選擇品項'); return; }
+  if(isNaN(qty) || qty < 0){ showToast('請填寫實盤數量'); return; }
+  const key = kind + '|' + itemId + '|' + batchNo;
+  if(open.snapshot.some(r=>stRowKey(r)===key)){
+    open.entries[key] = Object.assign({}, open.entries[key], { counted: qty });
+    showToast('這個批號已在盤點表上，已直接填入該列');
+    renderStocktakeEntryList();
+  }else{
+    open.extras = open.extras.filter(x=> !(x.kind===kind && x.itemId===itemId && (x.batchNo||'')===batchNo));
+    open.extras.push({ kind, itemId, batchNo, counted: qty, note:'', mfgDate:'', expDate:'' });
+    renderStocktakeExtras();
+  }
+  document.getElementById('stExtraBatch').value = ''; document.getElementById('stExtraQty').value = '';
+}
+
+function printStocktakeSheet(){
+  const open = stOpen(); if(!open) return;
+  const blind = document.getElementById('stBlind').checked;
+  const label = {}; ST_KINDS.forEach(k=> label[k.kind] = k.label);
+  const esc = escapeHtml;
+  const rows = open.snapshot.map((r, i)=>'<tr><td class="c">' + (i+1) + '</td><td>' + label[r.kind] + '</td><td>' + esc(r.code||'') + '</td><td class="nm">' + esc(r.name) + '</td><td>' + esc(r.batchNo||'') + '</td><td>' + esc(r.expDate||'') + '</td><td class="c">' + esc(r.unit||'') + '</td>' + (blind ? '' : '<td class="r">' + r.book + '</td>') + '<td class="w"></td><td class="n"></td></tr>').join('');
+  let blank = '';
+  for(let i=0;i<8;i++) blank += '<tr class="blank"><td class="c">新</td><td></td><td></td><td class="nm"></td><td></td><td></td><td></td>' + (blind ? '' : '<td></td>') + '<td class="w"></td><td class="n"></td></tr>';
+  const html = '<!doctype html><html><head><meta charset="utf-8"><title>' + esc(open.name) + ' 盤點表</title><style>' +
+    '@page{ size:A4 landscape; margin:10mm; }' +
+    'body{ font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif; color:#000; margin:0; }' +
+    'h1{ font-size:18px; margin:0 0 6px; } .info{ font-size:13px; margin-bottom:6px; display:flex; gap:28px; flex-wrap:wrap; } .info span{ white-space:nowrap; }' +
+    '.tip{ font-size:11.5px; margin-bottom:6px; color:#333; }' +
+    'table{ width:calc(100% - 2px); border-collapse:collapse; font-size:12.5px; } th,td{ border:1px solid #000; padding:5px 5px; height:22px; }' +
+    'th{ background:#e8e8e8; } thead{ display:table-header-group; } tr{ page-break-inside:avoid; }' +
+    '.c{ text-align:center; width:30px; } .r{ text-align:right; } .nm{ min-width:160px; } .w{ width:90px; background:#fffbe6; } .n{ width:110px; }' +
+    '.blank td{ height:26px; } .btn{ margin:10px 0; padding:8px 16px; font-size:15px; } @media print{ .btn{ display:none; } }' +
+    '</style></head><body>' +
+    '<button class="btn" onclick="window.print()">🖨 列印</button>' +
+    '<h1>' + esc(open.name) + '　盤點表</h1>' +
+    '<div class="info"><span>盤點日期：＿＿＿＿＿＿＿＿</span><span>盤點人：＿＿＿＿＿＿＿＿</span><span>複核人：＿＿＿＿＿＿＿＿</span><span>系統建立：' + new Date(open.startedAt).toLocaleString('zh-TW') + '</span></div>' +
+    '<div class="tip">請在「實盤數量」欄填寫實際數量；沒有盤的列留空白（不會被修改）。盤到表上沒有的批號，請寫在最後「新」的空白列。輸入系統時依「序號」對照。</div>' +
+    '<table><thead><tr><th>序號</th><th>類別</th><th>料號</th><th>品名</th><th>批號</th><th>有效日期</th><th>單位</th>' + (blind ? '' : '<th>帳面數量</th>') + '<th>實盤數量</th><th>備註</th></tr></thead><tbody>' + rows + blank + '</tbody></table>' +
+    '<script>window.onload=function(){ setTimeout(function(){ window.print(); }, 300); };<\/script>' +
+    '</body></html>';
+  const w = window.open('', '_blank');
+  if(!w){ showToast('瀏覽器擋住了列印視窗，請允許彈出視窗後再試一次'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
+
+const ST_HEADER = ['序號','類別','料號','品名','批號','製造日期','有效日期','單位','帳面數量','實盤數量','備註','系統代碼(請勿修改)'];
+function downloadStocktakeSheet(){
+  const open = stOpen(); if(!open) return;
+  if(typeof XLSX === 'undefined'){ showToast('Excel 元件載入失敗，請檢查網路後重新整理再試'); return; }
+  const blind = document.getElementById('stBlind').checked;
+  const label = {}; ST_KINDS.forEach(k=> label[k.kind] = k.label);
+  const aoa = [
+    [open.name + '　　盤點日期：______________　　盤點人：______________　　複核人：______________'],
+    ['說明：在「實盤數量」欄填寫實際數量；沒有盤的列留空白（不會被修改）。盤到表上沒有的批號，請填在最下方空白列（填類別、料號或品名、批號、實盤數量）。'],
+    ST_HEADER
+  ];
+  open.snapshot.forEach((r, i)=>{
+    const e = open.entries[stRowKey(r)];
+    aoa.push([i+1, label[r.kind], r.code, r.name, r.batchNo, r.mfgDate, r.expDate, r.unit, blind ? '' : r.book, (e && e.counted !== undefined) ? e.counted : '', '', stRowKey(r)]);
+  });
+  for(let i=0;i<15;i++) aoa.push(['','','','','','','','','','','','']);
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{wch:5},{wch:8},{wch:11},{wch:24},{wch:12},{wch:10},{wch:10},{wch:5},{wch:9},{wch:10},{wch:12},{wch:4, hidden:true}];
+  ws['!merges'] = [{ s:{r:0,c:0}, e:{r:0,c:10} }, { s:{r:1,c:0}, e:{r:1,c:10} }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '盤點表');
+  const wbout = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+  const blob = new Blob([wbout], { type:'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = open.name + '_盤點表.xlsx'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('已下載盤點表 Excel');
+}
+
+async function handleStocktakeUpload(e){
+  const file = e.target.files[0];
+  const open = stOpen();
+  if(!file || !open) return;
+  try{
+    const wb = XLSX.read(await file.arrayBuffer(), { type:'array', cellDates:true });
+    const rowsRaw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:'' });
+    const hIdx = rowsRaw.findIndex(r=> r.some(c=>String(c).trim()==='實盤數量'));
+    if(hIdx < 0){ document.getElementById('stPreview').innerHTML = '<div class="coa-notice-row" style="border-color:var(--red);">⚠ 找不到「實盤數量」欄位，請使用這次盤點下載的盤點表</div>'; return; }
+    const hdr = rowsRaw[hIdx].map(c=>String(c).trim());
+    const col = (n)=> hdr.findIndex(h=>h.startsWith(n));
+    const C = { kind:col('類別'), code:col('料號'), name:col('品名'), batch:col('批號'), mfg:col('製造日期'), exp:col('有效日期'), counted:col('實盤數量'), note:col('備註'), key:col('系統代碼') };
+    const snapKeys = new Set(open.snapshot.map(stRowKey));
+    const errors = [];
+    let n = 0;
+    rowsRaw.slice(hIdx+1).forEach((row, i)=>{
+      const excelRow = hIdx + 2 + i;
+      const cell = (c)=> c >= 0 ? row[c] : '';
+      const countedRaw = String(cell(C.counted) instanceof Date ? '' : cell(C.counted)).replace(/,/g,'').trim();
+      if(countedRaw === '') return;
+      const counted = parseFloat(countedRaw);
+      const label = String(cell(C.name)||cell(C.code)||'').trim() || ('第' + excelRow + '列');
+      if(isNaN(counted) || counted < 0){ errors.push('第' + excelRow + '列「' + label + '」實盤數量不是正確的數字（' + countedRaw + '）'); return; }
+      const note = String(cell(C.note)||'').trim();
+      const key = String(cell(C.key)||'').trim();
+      if(key && snapKeys.has(key)){ open.entries[key] = { counted, note }; n++; return; }
+      const kind = ST_LABEL_TO_KIND[String(cell(C.kind)||'').trim()];
+      const code = String(cell(C.code)||'').trim(), name = String(cell(C.name)||'').trim();
+      const kinds = kind ? [kind] : ST_KINDS.map(k=>k.kind);
+      let found = null;
+      kinds.some(k=>{ const x = stList(k).find(it=> (code && it.code === code) || (!code && name && (stItemName(k,it) === name || it.name === name || it.product === name))); if(x){ found = { kind:k, item:x }; return true; } return false; });
+      if(!found){ errors.push('第' + excelRow + '列「' + label + '」在系統裡找不到這個品項（請確認類別、料號或品名）'); return; }
+      const batchNo = String(cell(C.batch)||'').trim();
+      const k2 = found.kind + '|' + found.item.id + '|' + batchNo;
+      if(snapKeys.has(k2)){ open.entries[k2] = { counted, note }; n++; return; }
+      const fmtD = (v)=> v instanceof Date ? new Date(v.getTime() - v.getTimezoneOffset()*60000).toISOString().slice(0,10) : (bulkDate(v) || '');
+      open.extras = open.extras.filter(x=> !(x.kind===found.kind && x.itemId===found.item.id && (x.batchNo||'')===batchNo));
+      open.extras.push({ kind:found.kind, itemId:found.item.id, batchNo, counted, note, mfgDate: fmtD(cell(C.mfg)), expDate: fmtD(cell(C.exp)) });
+      n++;
+    });
+    await saveBomData();
+    renderStocktakeEntryList(); renderStocktakeExtras();
+    computeStocktakePreview(errors);
+    showToast('已讀入 ' + n + ' 列實盤數量');
+  }catch(err){
+    console.error(err);
+    document.getElementById('stPreview').innerHTML = '<div class="coa-notice-row" style="border-color:var(--red);">⚠ 讀取檔案失敗，請確認是 Excel（.xlsx）檔</div>';
+  }
+}
+
+function computeStocktakePreview(errors){
+  const open = stOpen(); if(!open) return;
+  const results = [];
+  const pushResult = (sn, en, isNew)=>{
+    const item = stList(sn.kind).find(x=>x.id===sn.itemId);
+    const batch = item ? (item.batches||[]).find(b=>(b.batchNo||'')===(sn.batchNo||'')) : null;
+    const current = batch ? r3(batch.stock||0) : 0;
+    const diff = r3(en.counted - sn.book);
+    let after = r3(current + diff);
+    const clamped = after < 0;
+    if(clamped) after = 0;
+    results.push({ kind:sn.kind, itemId:sn.itemId, code:sn.code, name:sn.name, unit:sn.unit, batchNo:sn.batchNo, mfgDate:sn.mfgDate, expDate:sn.expDate,
+      book:sn.book, counted:en.counted, diff, current, after, movedSince: r3(current - sn.book), clamped, isNew, note:en.note||'' });
+  };
+  open.snapshot.forEach(sn=>{ const en = open.entries[stRowKey(sn)]; if(en && en.counted !== undefined && en.counted !== null && !isNaN(en.counted)) pushResult(sn, en, false); });
+  open.extras.forEach(x=>{
+    const item = stList(x.kind).find(it=>it.id===x.itemId);
+    if(!item) return;
+    pushResult({ kind:x.kind, itemId:x.itemId, code:item.code||'', name:stItemName(x.kind,item), unit:item.unit||'', batchNo:x.batchNo, mfgDate:x.mfgDate||'', expDate:x.expDate||'', book:0 }, x, true);
+  });
+  const uncounted = open.snapshot.filter(sn=>{ const en = open.entries[stRowKey(sn)]; return !(en && en.counted !== undefined && en.counted !== null && !isNaN(en.counted)); }).length;
+  stocktakePreview = { results, uncounted, errors: errors || [] };
+  renderStocktakePreview();
+  const d = document.getElementById('stEntryDetails'); if(d) d.open = false;
+  const cBtn = document.getElementById('btnConfirmStocktake');
+  cBtn.disabled = results.length === 0; cBtn.style.opacity = results.length ? '1' : '0.5';
+  if(results.length === 0) showToast('還沒有輸入任何實盤數量');
+  document.getElementById('stPreview').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+async function startStocktake(){
+  const name = (document.getElementById('stNewName').value || '').trim() || '盤點';
+  const snapshot = buildStocktakeSnapshot();
+  if(snapshot.length === 0){ showToast('目前沒有任何品項可以盤點'); return; }
+  const ok = await showConfirm('會記下目前 ' + snapshot.length + ' 列（品項 × 批號）的帳面數量。\n建議盤點期間暫停進貨和生產。', '開始「' + name + '」？');
+  if(!ok) return;
+  stocktakes.push({ id:'st_' + Date.now(), name, status:'open', startedAt:Date.now(), startedBy:currentUserEmail||'', snapshot, entries:{}, extras:[] });
+  stocktakePreview = null;
+  await saveBomData();
+  renderStocktakePanel();
+  showToast('已開始盤點，請按「🖨 列印盤點表」');
+}
+async function cancelStocktake(){
+  const open = stOpen(); if(!open) return;
+  const ok = await showConfirm('取消後不會調整任何庫存，這次盤點的快照也會刪除。', '取消「' + open.name + '」？');
+  if(!ok) return;
+  stocktakes = stocktakes.filter(st=>st !== open);
+  stocktakePreview = null;
+  await saveBomData();
+  renderStocktakePanel();
+  showToast('已取消這次盤點');
+}
+
+function renderStocktakePreview(){
+  const p = stocktakePreview; const el = document.getElementById('stPreview');
+  if(!p || !el) return;
+  const diffs = p.results.filter(r=>r.diff !== 0);
+  const plus = diffs.filter(r=>r.diff>0).length, minus = diffs.filter(r=>r.diff<0).length;
+  const moved = p.results.filter(r=>r.movedSince !== 0);
+  let html = '<div class="section-label" style="margin-top:6px;">差異預覽</div>' +
+    '<div style="font-size:15.5px; line-height:1.7;">已盤 <b>' + p.results.length + '</b> 列　相符 <b>' + (p.results.length - diffs.length) + '</b>　' +
+    '<span style="color:var(--teal);">盤盈 <b>' + plus + '</b></span>　<span style="color:var(--red);">盤虧 <b>' + minus + '</b></span>' +
+    (p.uncounted ? '　<span style="color:var(--ink-dim);">未盤 ' + p.uncounted + ' 列（維持原數量）</span>' : '') + '</div>';
+  if(p.errors.length) html += '<div class="coa-notice-row" style="border-color:var(--red); margin-top:8px; line-height:1.6;">⚠ 下列 ' + p.errors.length + ' 列無法辨識，不會調整，請修正後重新上傳：<br>' + p.errors.map(escapeHtml).join('<br>') + '</div>';
+  if(moved.length) html += '<div class="coa-notice-row" style="margin-top:8px; line-height:1.6;">ℹ️ 有 ' + moved.length + ' 列在開始盤點後有進出貨或生產異動，系統會以「實盤 − 盤點開始時帳面」的差額調整，不會蓋掉這些異動。</div>';
+  if(diffs.length){
+    html += '<div style="overflow-x:auto; margin-top:8px;"><table class="hygiene-detail-table"><thead><tr><th>品名</th><th>批號</th><th>帳面</th><th>實盤</th><th>差異</th><th>調整後</th></tr></thead><tbody>' +
+      diffs.sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff)).map(r=>'<tr><td>' + escapeHtml((r.code?r.code+' ':'') + r.name) + (r.isNew ? ' <span style="color:var(--amber);">(新批號)</span>' : '') + '</td><td>' + escapeHtml(r.batchNo||'－') + '</td><td>' + r.book + '</td><td>' + r.counted + '</td>' +
+        '<td style="font-weight:800; color:' + (r.diff>0?'var(--teal)':'var(--red)') + ';">' + (r.diff>0?'+':'') + r.diff + ' ' + escapeHtml(r.unit||'') + '</td><td>' + r.after + (r.clamped ? ' <span style="color:var(--red);">⚠以0計</span>' : '') + '</td></tr>').join('') +
+      '</tbody></table></div>';
+  }else if(p.results.length){
+    html += '<div style="color:var(--teal); font-weight:700; margin-top:8px;">👍 已盤的品項全部與帳面相符</div>';
+  }
+  el.innerHTML = html;
+}
+async function confirmStocktake(){
+  const open = stOpen(); const p = stocktakePreview;
+  if(!open || !p || !p.results.length) return;
+  const diffs = p.results.filter(r=>r.diff !== 0);
+  const ok = await showConfirm('會調整 ' + diffs.length + ' 列有差異的庫存，並結束「' + open.name + '」。' + (p.uncounted ? '\n未盤的 ' + p.uncounted + ' 列維持原數量。' : ''), '確認盤點結果？');
+  if(!ok) return;
+  const reason = '盤點調整（' + open.name + '）';
+  const logKind = {}; ST_KINDS.forEach(k=> logKind[k.kind] = k.logKind);
+  diffs.forEach(r=>{
+    const item = stList(r.kind).find(x=>x.id===r.itemId);
+    if(!item) return;
+    if(!item.batches) item.batches = [];
+    let batch = item.batches.find(b=>(b.batchNo||'')===(r.batchNo||''));
+    if(!batch){
+      batch = r.kind === 'finished' ? { batchNo:r.batchNo, mfgDate:r.mfgDate||'', expDate:r.expDate||'', stock:0 } : { batchNo:r.batchNo, mfgDate:r.mfgDate||'', expDate:r.expDate||'', stock:0, origin:'', supplier:'', manufacturer:'' };
+      item.batches.push(batch);
+    }
+    const before = r3(batch.stock||0);
+    batch.stock = r.after;
+    const delta = r3(r.after - before);
+    if(delta !== 0) logInventoryTransaction(logKind[r.kind], item.id, stItemName(r.kind, item), delta > 0 ? 'in' : 'out', r.batchNo||'', Math.abs(delta), reason + (r.note ? '：' + r.note : ''));
+  });
+  open.status = 'done';
+  open.finishedAt = Date.now();
+  open.finishedBy = currentUserEmail || '';
+  open.results = p.results.map(r=>({ kind:r.kind, code:r.code, name:r.name, unit:r.unit, batchNo:r.batchNo, expDate:r.expDate, book:r.book, counted:r.counted, diff:r.diff, after:r.after, note:r.note, isNew:r.isNew }));
+  open.uncounted = p.uncounted;
+  open.uncountedRows = open.snapshot.filter(sn=> !p.results.some(r=>r.kind===sn.kind && r.itemId===sn.itemId && (r.batchNo||'')===(sn.batchNo||''))).map(sn=>({ kind:sn.kind, code:sn.code, name:sn.name, batchNo:sn.batchNo, book:sn.book, unit:sn.unit }));
+  delete open.snapshot; delete open.entries; delete open.extras; // 結束後不需要完整快照，減少資料量
+  stocktakePreview = null;
+  await saveBomData();
+  renderMaterialList(); renderAdditiveList(); renderPackagingList(); renderSemiGoodList(); renderFinishedGoodList();
+  renderStocktakePanel();
+  showToast('✅ 盤點完成，已調整 ' + diffs.length + ' 列庫存');
+}
+function exportStocktakeReport(id){
+  const st = stocktakes.find(x=>x.id===id); if(!st) return;
+  if(typeof XLSX === 'undefined'){ showToast('Excel 元件載入失敗，請檢查網路後重新整理再試'); return; }
+  const label = {}; ST_KINDS.forEach(k=> label[k.kind] = k.label);
+  const toRow = (r)=>({ '類別':label[r.kind], '料號':r.code, '品名':r.name, '批號':r.batchNo, '有效日期':r.expDate||'', '單位':r.unit, '帳面數量':r.book, '實盤數量':r.counted, '差異':r.diff, '結果':r.diff>0?'盤盈':(r.diff<0?'盤虧':'相符'), '調整後庫存':r.after, '備註':(r.isNew?'盤點新增批號 ':'') + (r.note||'') });
+  const wb = XLSX.utils.book_new();
+  const diffs = st.results.filter(r=>r.diff!==0);
+  const summary = [
+    { '項目':'盤點名稱', '內容':st.name },
+    { '項目':'開始時間', '內容':new Date(st.startedAt).toLocaleString('zh-TW') + '　' + (st.startedBy||'') },
+    { '項目':'完成時間', '內容':new Date(st.finishedAt).toLocaleString('zh-TW') + '　' + (st.finishedBy||'') },
+    { '項目':'已盤列數', '內容':st.results.length },
+    { '項目':'相符', '內容':st.results.length - diffs.length },
+    { '項目':'盤盈', '內容':diffs.filter(r=>r.diff>0).length },
+    { '項目':'盤虧', '內容':diffs.filter(r=>r.diff<0).length },
+    { '項目':'未盤列數', '內容':st.uncounted||0 }
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summary), '摘要');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(diffs.length ? diffs.map(toRow) : [{'類別':'(全部相符)'}]), '差異明細');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(st.results.map(toRow)), '盤點全部明細');
+  if((st.uncountedRows||[]).length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(st.uncountedRows.map(r=>({ '類別':label[r.kind], '料號':r.code, '品名':r.name, '批號':r.batchNo, '單位':r.unit, '帳面數量':r.book }))), '未盤項目');
+  const wbout = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+  const blob = new Blob([wbout], { type:'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = st.name + '_盤點報表.xlsx'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('已匯出盤點報表');
+}
 
 // ---- 原料庫存 ----
 function materialLabel(m){
