@@ -1290,16 +1290,18 @@
       <button type="button" class="i18n add-item-btn" id="btnAddSemiGood" style="margin-bottom:8px;">+ 新增半成品</button>
       <button type="button" class="i18n split-btn" id="btnMultiOutputProduce" style="margin-bottom:12px; width:100%;">⚗️ 一次投料、多重產出生產（例如磨粉同時產出多種篩目）</button>
       <div class="field" style="margin-bottom:10px;">
-        <input type="text" id="semiGoodSearchInput" placeholder="搜尋半成品名稱">
+        <input type="text" id="semiGoodSearchInput" placeholder="搜尋半成品料號或名稱">
       </div>
+      <button type="button" class="split-btn" id="btnAutoCodeSg" style="display:none; width:100%; margin-bottom:10px; border-color:var(--amber); color:var(--amber);"></button>
       <div id="semiGoodList"></div>
     </div>
 
     <div class="report-tab-panel" id="bomPanelFinishedGoods" style="display:none;">
       <button type="button" class="i18n add-item-btn" id="btnAddFinishedGood" style="margin-bottom:12px;">+ 新增成品</button>
       <div class="field" style="margin-bottom:10px;">
-        <input type="text" id="finishedGoodSearchInput" placeholder="搜尋成品名稱或規格">
+        <input type="text" id="finishedGoodSearchInput" placeholder="搜尋成品料號、名稱或規格">
       </div>
+      <button type="button" class="split-btn" id="btnAutoCodeFg" style="display:none; width:100%; margin-bottom:10px; border-color:var(--amber); color:var(--amber);"></button>
       <div id="finishedGoodList"></div>
     </div>
 
@@ -1480,6 +1482,10 @@
   <div class="sheet">
     <div class="sheet-handle"></div>
     <h2 id="fgFormTitle">新增成品</h2>
+    <div class="field">
+      <label>料號</label>
+      <input type="text" id="fgCode" placeholder="例如 F-001（新增時會自動帶入下一個號碼，可自行修改）">
+    </div>
     <div class="field">
       <label class="i18n">產品名稱（需與訂單品項的產品名稱完全一致）</label>
       <input type="text" id="fgProduct" placeholder="例如 炒香料" list="productSuggestions">
@@ -5941,8 +5947,8 @@ const BULK_SHEETS = [
     cols:['類別(SR或SA)','料號','名稱','單位','產地','製造商','期初批號','期初數量','製造日期','有效日期'],
     example:{'類別(SR或SA)':'SR','料號':'','名稱':'（範例）孜然粉30目','單位':'kg','產地':'台灣','製造商':'','期初批號':'','期初數量':'','製造日期':'','有效日期':''} },
   { sheet:'成品', kind:'finished', label:'成品',
-    cols:['產品名稱','規格','單位','期初批號','期初數量','製造日期','有效日期'],
-    example:{'產品名稱':'（範例）黑胡椒粉','規格':'1公斤/包','單位':'包','期初批號':'','期初數量':'','製造日期':'','有效日期':''} }
+    cols:['料號','產品名稱','規格','單位','期初批號','期初數量','製造日期','有效日期'],
+    example:{'料號':'','產品名稱':'（範例）黑胡椒粉','規格':'1公斤/包','單位':'包','期初批號':'','期初數量':'','製造日期':'','有效日期':''} }
 ];
 let bulkImportPlan = null;
 
@@ -6004,7 +6010,7 @@ document.getElementById('btnDownloadImportTemplate').onclick = ()=>{
     ['填寫說明'],
     ['1. 每個工作表一種類別：原料、食品添加物、包材、半成品、成品。用不到的工作表留空即可。'],
     ['2. 每一列一個品項。「名稱」（成品是「產品名稱」）必填，其他欄位都可以留空。'],
-    ['3. 料號留空會自動編號（原料 R-、添加物 A-、包材 P-、半成品 SR-/SA-）。'],
+    ['3. 料號留空會自動編號（原料 R-、添加物 A-、包材 P-、半成品 SR-/SA-、成品 F-）。'],
     ['4. 產地可以只打「台灣」，系統會自動整理成「台灣-TW」。'],
     ['5. 有現有庫存的話，填「期初批號、期初數量」（數量要填數字），會建立一筆批次庫存；製造日期、有效日期格式例如 2026/09/01。'],
     ['6. 名稱開頭是「（範例）」的那一列不會被匯入，可以直接刪掉或留著。'],
@@ -6040,6 +6046,7 @@ function buildBulkImportPlan(wb){
     let existing, usedCodes, seenKeys = new Set();
     if(cfg.kind === 'finished'){
       existing = finishedGoods;
+      usedCodes = new Set(existing.map(x=>x.code).filter(Boolean));
       existing.forEach(f=> seenKeys.add('fg|' + (f.product||'') + '|' + (f.spec||'')));
     }else if(cfg.kind === 'semi'){
       existing = semiGoods;
@@ -6071,9 +6078,13 @@ function buildBulkImportPlan(wb){
       if(cfg.kind === 'finished'){
         const spec = String(bulkCell(row,'規格') || '');
         const key = 'fg|' + name + '|' + spec;
+        const fgCode = String(bulkCell(row,'料號') || '');
+        if(fgCode && usedCodes.has(fgCode)){ sec.skips.push({ rowNo, name: name + (spec?'（'+spec+'）':''), why:'料號 ' + fgCode + ' 已存在' }); return; }
         if(seenKeys.has(key)){ sec.skips.push({ rowNo, name: name + (spec?'（'+spec+'）':''), why:'已存在相同產品名稱＋規格' }); return; }
         seenKeys.add(key);
-        sec.adds.push({ rowNo, display: name + (spec ? '（' + spec + '）' : ''), record: { product: name, spec, unit: String(bulkCell(row,'單位')||''), batches: batch ? [batch] : [] } });
+        const fgRec = { code: fgCode, product: name, spec, unit: String(bulkCell(row,'單位')||''), batches: batch ? [batch] : [] };
+        if(fgCode) usedCodes.add(fgCode); else pendingNoCode.push(fgRec);
+        sec.adds.push({ rowNo, record: fgRec, fgDisplay: name + (spec ? '（' + spec + '）' : '') });
         return;
       }
       let code = String(bulkCell(row,'料號') || '');
@@ -6102,10 +6113,10 @@ function buildBulkImportPlan(wb){
     });
     // 沒填料號的，等全部有料號的都登記完再依序自動編號，避免撞號
     pendingNoCode.forEach(r=>{
-      const prefix = cfg.kind === 'semi' ? (r.category === 'SA' ? 'SA-' : 'SR-') : cfg.prefix;
+      const prefix = cfg.kind === 'semi' ? (r.category === 'SA' ? 'SA-' : 'SR-') : (cfg.kind === 'finished' ? 'F-' : cfg.prefix);
       r.code = bulkNextCode(prefix, usedCodes);
     });
-    sec.adds.forEach(a=>{ if(!a.display) a.display = (a.record.code ? a.record.code + ' ・ ' : '') + a.record.name + (a.record.origin ? '（' + a.record.origin + '）' : ''); });
+    sec.adds.forEach(a=>{ if(!a.display) a.display = (a.record.code ? a.record.code + ' ・ ' : '') + (a.fgDisplay || (a.record.name + (a.record.origin ? '（' + a.record.origin + '）' : ''))); });
     plan.totalNew += sec.adds.length;
   });
   return plan;
@@ -6975,12 +6986,36 @@ function openInventoryLog(kind, itemId){
 document.getElementById('btnCloseInventoryLog').onclick = ()=> inventoryLogOverlay.classList.remove('show');
 inventoryLogOverlay.onclick = (e)=>{ if(e.target === inventoryLogOverlay) inventoryLogOverlay.classList.remove('show'); };
 
+function updateAutoCodeButtons(){
+  const fgMissing = finishedGoods.filter(f=>!f.code).length;
+  const sgMissing = semiGoods.filter(x=>!x.code).length;
+  const bf = document.getElementById('btnAutoCodeFg'), bs = document.getElementById('btnAutoCodeSg');
+  if(bf){ bf.style.display = fgMissing ? 'block' : 'none'; bf.textContent = '🔢 幫 ' + fgMissing + ' 個未設料號的成品自動編號（F-001 起）'; }
+  if(bs){ bs.style.display = sgMissing ? 'block' : 'none'; bs.textContent = '🔢 幫 ' + sgMissing + ' 個未設料號的半成品自動編號（SR-／SA- 起）'; }
+}
+document.getElementById('btnAutoCodeFg').onclick = async ()=>{
+  const list = finishedGoods.filter(f=>!f.code);
+  if(!list.length) return;
+  const ok = await showConfirm('會依建立順序給 ' + list.length + ' 個成品編上料號，例如 ' + suggestNextFgCode() + '。之後還是可以點進去個別修改。', '自動編號成品料號？');
+  if(!ok) return;
+  list.forEach(f=>{ f.code = suggestNextFgCode(); });
+  await saveBomData(); renderFinishedGoodList(); showToast('已幫 ' + list.length + ' 個成品編上料號');
+};
+document.getElementById('btnAutoCodeSg').onclick = async ()=>{
+  const list = semiGoods.filter(x=>!x.code);
+  if(!list.length) return;
+  const ok = await showConfirm('會依類別給 ' + list.length + ' 個半成品編上料號（原料類 SR-、添加物類 SA-）。之後還是可以點進去個別修改。', '自動編號半成品料號？');
+  if(!ok) return;
+  list.forEach(x=>{ x.code = suggestNextSemiGoodCode(x.category || 'SR'); });
+  await saveBomData(); renderSemiGoodList(); showToast('已幫 ' + list.length + ' 個半成品編上料號');
+};
 function renderFinishedGoodList(){
+  updateAutoCodeButtons();
   const listEl = document.getElementById('finishedGoodList');
   if(!listEl) return;
   const keyword = (document.getElementById('finishedGoodSearchInput').value || '').trim().toLowerCase();
   const filtered = keyword
-    ? finishedGoods.filter(f => (f.product||'').toLowerCase().includes(keyword) || (f.spec||'').toLowerCase().includes(keyword))
+    ? finishedGoods.filter(f => (f.product||'').toLowerCase().includes(keyword) || (f.spec||'').toLowerCase().includes(keyword) || (f.code||'').toLowerCase().includes(keyword))
     : finishedGoods;
   if(finishedGoods.length === 0){
     listEl.innerHTML = '<div class="ship-list-empty">還沒有任何成品，生產完成後系統會自動建立，也可以先手動新增</div>';
@@ -6998,7 +7033,7 @@ function renderFinishedGoodList(){
           ? ('批號 ' + escapeHtml(activeBatches[0].batchNo||'－') + '　有效期限 ' + (activeBatches[0].expDate||'－'))
           : (activeBatches.length + ' 個批次：' + activeBatches.map(b=>escapeHtml(b.batchNo||'未命名')+'('+b.stock+')').join('、'))) + '</div>';
     return '<div class="material-item" data-fgid="'+f.id+'">' +
-      '<div class="material-item-top"><div class="material-item-name">'+escapeHtml(f.product)+(f.spec ? '<span class="item-spec"> ・ '+escapeHtml(f.spec)+'</span>' : '')+'</div><div class="material-item-stock">'+ total +' '+escapeHtml(f.unit||'')+'</div></div>' +
+      '<div class="material-item-top"><div class="material-item-name">'+(f.code ? escapeHtml(f.code)+' ・ ' : '<span style="color:var(--amber); font-size:13px; border:1px solid var(--amber); border-radius:6px; padding:1px 5px; margin-right:6px;">未設料號</span>')+escapeHtml(f.product)+(f.spec ? '<span class="item-spec"> ・ '+escapeHtml(f.spec)+'</span>' : '')+'</div><div class="material-item-stock">'+ total +' '+escapeHtml(f.unit||'')+'</div></div>' +
       metaLine +
       '<button type="button" class="split-btn" data-log-kind="finishedGood" data-log-id="'+f.id+'" style="margin-top:8px; width:100%;">📋 出入庫紀錄</button>' +
     '</div>';
@@ -7021,7 +7056,7 @@ function findOrCreateFinishedGood(productName, spec){
   const specNorm = spec || '';
   let f = finishedGoods.find(x=>x.product === productName && (x.spec||'') === specNorm);
   if(!f){
-    f = { id:'fg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), product: productName, spec: specNorm, unit:'', batches:[] };
+    f = { id:'fg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), code: suggestNextFgCode(), product: productName, spec: specNorm, unit:'', batches:[] };
     finishedGoods.push(f);
   }
   return f;
@@ -7080,9 +7115,20 @@ document.getElementById('fgUnit').addEventListener('input', updateFgStockTotalDi
 
 let editingFgId = null;
 const fgFormOverlay = document.getElementById('fgFormOverlay');
+function suggestNextFgCode(){
+  let max = 0;
+  finishedGoods.forEach(f=>{ const m = /^F-(\d+)$/.exec(f.code||''); if(m) max = Math.max(max, parseInt(m[1],10)); });
+  return 'F-' + String(max + 1).padStart(3, '0');
+}
+// 料號重複檢查（同一類清單裡，排除自己）
+function findDuplicateCode(list, code, selfId){
+  if(!code) return null;
+  return list.find(x=> x.id !== selfId && (x.code||'').trim().toLowerCase() === code.trim().toLowerCase()) || null;
+}
 function openFgForm(f){
   editingFgId = f ? f.id : null;
   populateProductSuggestions();
+  document.getElementById('fgCode').value = f ? (f.code || '') : suggestNextFgCode();
   document.getElementById('fgFormTitle').textContent = f ? '編輯成品' : '新增成品';
   document.getElementById('fgProduct').value = f ? f.product : '';
   populateSpecSelect('fgSpec', 'fgSpecCustom', f ? f.product : '', f ? (f.spec||'') : '');
@@ -7103,17 +7149,20 @@ document.getElementById('btnCancelFg').onclick = ()=>{
 };
 fgFormOverlay.onclick = (e)=>{ if(e.target === fgFormOverlay) fgFormOverlay.classList.remove('show'); };
 document.getElementById('btnSaveFg').onclick = async ()=>{
+  const code = document.getElementById('fgCode').value.trim();
   const product = document.getElementById('fgProduct').value.trim();
   const spec = getPickerValue('fgSpec', 'fgSpecCustom');
   const unit = document.getElementById('fgUnit').value.trim();
   const batches = getFgBatchLotsFromForm().filter(b=> b.batchNo || b.mfgDate || b.expDate || b.stock);
   if(!product){ showToast('請填寫產品名稱'); return; }
+  const dupFg = findDuplicateCode(finishedGoods, code, editingFgId);
+  if(dupFg){ showToast('料號 ' + code + ' 已經用在「' + dupFg.product + (dupFg.spec ? '（' + dupFg.spec + '）' : '') + '」，請換一個'); return; }
   if(editingFgId){
     const f = finishedGoods.find(x=>x.id===editingFgId);
-    if(f) Object.assign(f, { product, spec, unit, batches });
+    if(f) Object.assign(f, { code, product, spec, unit, batches });
     showToast('已更新成品');
   }else{
-    finishedGoods.push({ id:'fg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), product, spec, unit, batches });
+    finishedGoods.push({ id:'fg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), code, product, spec, unit, batches });
     showToast('已新增成品');
   }
   await saveBomData();
@@ -7135,6 +7184,7 @@ document.getElementById('btnDeleteFg').onclick = async ()=>{
 
 // ---- 半成品庫存 ----
 function renderSemiGoodList(){
+  if(typeof updateAutoCodeButtons === 'function') updateAutoCodeButtons();
   const listEl = document.getElementById('semiGoodList');
   if(!listEl) return;
   const keyword = (document.getElementById('semiGoodSearchInput').value || '').trim().toLowerCase();
@@ -7158,7 +7208,7 @@ function renderSemiGoodList(){
       : (activeBatches.length + ' 個批次：' + activeBatches.map(b=>escapeHtml(b.batchNo||'未命名')+' x'+b.stock).join('、'));
     const metaLine = fixedInfo ? (fixedInfo + '<br>' + batchSummary) : batchSummary;
     return '<div class="material-item">' +
-      '<div class="material-item-top" data-sgid="'+s.id+'" style="cursor:pointer;"><div class="material-item-name">'+materialLabel(s)+'</div><div class="material-item-stock">'+ total +' '+escapeHtml(s.unit||'')+'</div></div>' +
+      '<div class="material-item-top" data-sgid="'+s.id+'" style="cursor:pointer;"><div class="material-item-name">'+(s.code ? '' : '<span style="color:var(--amber); font-size:13px; border:1px solid var(--amber); border-radius:6px; padding:1px 5px; margin-right:6px;">未設料號</span>')+materialLabel(s)+'</div><div class="material-item-stock">'+ total +' '+escapeHtml(s.unit||'')+'</div></div>' +
       '<div class="material-item-meta" data-sgid="'+s.id+'" style="cursor:pointer;">'+metaLine+'</div>' +
       '<div style="display:flex; gap:8px; margin-top:8px;">' +
       '<button type="button" class="split-btn" data-produce-sgid="'+s.id+'" style="flex:1;">🏭 生產半成品</button>' +
@@ -7283,6 +7333,8 @@ document.getElementById('btnSaveSg').onclick = async ()=>{
   const manufacturer = document.getElementById('sgManufacturer').value.trim();
   const batches = getSemiGoodBatchLotsFromForm().filter(b=> b.batchNo || b.mfgDate || b.expDate || b.stock);
   if(!name){ showToast('請填寫半成品名稱'); return; }
+  const dupSg = findDuplicateCode(semiGoods, code, editingSgId);
+  if(dupSg){ showToast('料號 ' + code + ' 已經用在「' + dupSg.name + '」，請換一個'); return; }
   if(editingSgId){
     const s = semiGoods.find(x=>x.id===editingSgId);
     if(s) Object.assign(s, { category, code, name, unit, origin, manufacturer, batches });
@@ -7715,7 +7767,7 @@ function openSemiBomForm(b){
   editingSemiBomId = b ? b.id : null;
   document.getElementById('semiBomFormTitle').textContent = b ? '編輯半成品配方' : '新增半成品配方';
   const sel = document.getElementById('sbfSemiGood');
-  sel.innerHTML = semiGoods.map(s=>'<option value="'+s.id+'">'+escapeHtml(s.name)+'</option>').join('');
+  sel.innerHTML = semiGoods.map(s=>'<option value="'+s.id+'">'+materialLabel(s)+'</option>').join('');
   if(semiGoods.length === 0) sel.innerHTML = '<option value="">請先新增半成品</option>';
   sel.value = b ? b.semiGoodId : (semiGoods[0] ? semiGoods[0].id : '');
   semiBomRowsState = b ? JSON.parse(JSON.stringify(b.rows||[])) : (materials.length ? [{ materialId: materials[0].id, qtyPerUnit: 0 }] : []);
@@ -8187,7 +8239,7 @@ function renderBomList(){
     const rowsHtml = (b.rows||[]).map(r=>{
       const { type, item } = resolveBomRowItem(r);
       const tag = KIND_TAG[type] || '📦原料';
-      const itemLabel = item ? (type !== 'semi' ? materialLabel(item) : escapeHtml(item.name)) : '（已刪除）';
+      const itemLabel = item ? materialLabel(item) : '（已刪除）';
       return '<div class="bom-item-row">・ ['+tag+'] '+itemLabel+'　每單位用量 '+r.qtyPerUnit+' '+escapeHtml(item?item.unit||'':'')+'</div>';
     }).join('');
     return '<div class="bom-item" data-bid="'+b.id+'"><div class="bom-item-name">'+escapeHtml(b.product)+'</div>'+rowsHtml+'</div>';
@@ -8215,7 +8267,7 @@ function renderBomRows(){
     const type = row.type || 'material';
     const refId = row.refId || row.materialId;
     const list = listForType(type);
-    const options = list.map(x=>'<option value="'+x.id+'"'+(x.id===refId?' selected':'')+'>'+(type!=='semi'?materialLabel(x):escapeHtml(x.name))+'</option>').join('');
+    const options = list.map(x=>'<option value="'+x.id+'"'+(x.id===refId?' selected':'')+'>'+materialLabel(x)+'</option>').join('');
     const originRow = type !== 'semi'
       ? '<div class="row2" style="margin-top:6px;">' +
           '<div class="field"><label style="font-size:12.4px; color:var(--ink-dim);">限定產地（選填）</label><input type="text" class="bomRowOrigin" placeholder="例如 印度-IN" list="originSuggestions" value="'+escapeHtml(row.requiredOrigin||'')+'"></div>' +
@@ -8390,7 +8442,7 @@ function openMaterialPreview(order, item){
       const filters = type === 'semi' ? {} : { origin: row.requiredOrigin, manufacturer: row.requiredManufacturer };
       const result = simulateMaterialUsage(clones[key], need, filters);
       if(result.shortfall > 0) hasShortage = true;
-      const name = type === 'semi' ? escapeHtml(target.name) : materialLabel(target);
+      const name = materialLabel(target);
       rowsHtml += '<tr><td>' + typeLabel[type] + '</td><td>' + name + '</td><td>' + need + (target.unit ? ' ' + escapeHtml(target.unit) : '') + '</td><td style="white-space:normal;">' + formatUsagePlanHtml(result, target.unit, filters) + '</td></tr>';
     });
     wrap.innerHTML = (hasShortage ? '<div class="coa-notice-row" style="border-color:var(--red); background:rgba(229,84,77,0.12);">⚠ 有項目庫存不足，照現在的庫存無法全部備齊</div>' : '') +
