@@ -91,6 +91,7 @@
   .order-card-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
   .order-no{ font-family:var(--mono); font-size:15.7px; color:var(--ink-dim); letter-spacing:0.5px; margin-bottom:2px; }
   .order-customer{ font-size:22px; font-weight:800; }
+  .order-created{ display:inline-block; margin-top:5px; font-size:15.5px; font-weight:700; color:var(--teal); background:rgba(43,182,163,0.10); border:1px solid rgba(43,182,163,0.45); border-radius:8px; padding:3px 9px; }
   .order-actions{ display:flex; gap:6px; }
   .icon-btn{ width:38px; height:38px; border-radius:9px; background:var(--panel-raised); border:1px solid var(--line); color:var(--ink-dim); font-size:19.1px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
 
@@ -2560,6 +2561,24 @@ function updateTabSearchHint(matchingOrders){
   input.addEventListener('input', ()=>{ clearTimeout(timer); timer = setTimeout(apply, 150); });
   clearBtn.onclick = ()=>{ input.value = ''; apply(); input.focus(); };
 })();
+// 訂單成立時間：優先用建立訂單的時間；從備份還原或很舊的訂單沒有準確時間時，改用第一個品項的填單日期＋時間
+const WEEKDAY_ZH = ['日','一','二','三','四','五','六'];
+function orderCreatedDate(order){
+  const restored = String(order.id||'').startsWith('o_restore_');
+  if(order.createdAt && !restored) return new Date(order.createdAt);
+  const first = (order.items||[])[0];
+  if(first && first.fillFormDate){
+    const d = new Date(first.fillFormDate.replace(/\//g,'-') + 'T' + ((first.fillFormTime||'00:00').slice(0,5)) + ':00');
+    if(!isNaN(d)) return d;
+  }
+  return order.createdAt ? new Date(order.createdAt) : null;
+}
+function formatOrderCreated(order){
+  const d = orderCreatedDate(order);
+  if(!d) return '';
+  return d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日（星期' + WEEKDAY_ZH[d.getDay()] + '）' +
+    String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
 function renderList(){
   const listEl = document.getElementById('listArea');
   const matchingOrders = orders.filter(o => (o.items||[]).some(it => itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it) && itemMatchesTabSearch(it, o)));
@@ -2704,7 +2723,8 @@ function renderList(){
 
     card.innerHTML =
       '<div class="order-card-top">' +
-        '<div><div class="order-no">' + escapeHtml(order.orderNo || '') + '</div><div class="order-customer">' + escapeHtml(order.customer) + '</div></div>' +
+        '<div><div class="order-no">' + escapeHtml(order.orderNo || '') + '</div><div class="order-customer">' + escapeHtml(order.customer) + '</div>' +
+          (formatOrderCreated(order) ? '<div class="order-created">🕒 訂單成立：' + formatOrderCreated(order) + '</div>' : '') + '</div>' +
         '<div class="order-actions">' +
           '<button class="icon-btn" data-act="delorder" data-oid="' + order.id + '" title="刪除整張訂單">🗑</button>' +
         '</div>' +
@@ -5486,7 +5506,7 @@ document.getElementById('btnImportBackup').onclick = async ()=>{
         id: 'o_restore_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
         orderNo: orderNo,
         customer: String(first['客戶名稱'] || ''),
-        createdAt: Date.now(),
+        createdAt: (function(){ const fd = String(first['填寫日期']||'').replace(/\//g,'-'); const d = fd ? new Date(fd + 'T' + (String(first['填寫時間']||'00:00').slice(0,5)) + ':00') : null; return (d && !isNaN(d)) ? d.getTime() : Date.now(); })(),
         items: items
       });
     });
