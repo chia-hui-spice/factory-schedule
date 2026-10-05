@@ -5593,6 +5593,14 @@ document.getElementById('btnMergeToProd').onclick = async ()=>{
     const mergedSemiGoods = prodSemiGoods.concat(semiGoods);
     const mergedSemiBoms = prodSemiBoms.concat(semiBoms);
     const mergedInventoryTransactions = prodInventoryTransactions.concat(inventoryTransactions);
+    // 測試資料裡的照片存在測試區，合併到正式版時一併複製過去
+    const photoIds = new Set();
+    receipts.forEach(r=>{ if(r.photoId) photoIds.add(r.photoId); });
+    [materials, additives, packagings].forEach(list=> list.forEach(m=> (m.batches||[]).forEach(b=>{ if(b.photoId) photoIds.add(b.photoId); })));
+    for(const pid of photoIds){
+      const ps = await getDoc(photoDocRef(pid));
+      if(ps.exists()) await setDoc(photoDocRef(pid, 'appData'), ps.data());
+    }
     await setDoc(prodBomDataDocRef, { materials: mergedMaterials, additives: mergedAdditives, packagings: mergedPackagings, boms: mergedBoms, receipts: mergedReceipts, finishedGoods: mergedFinishedGoods, semiGoods: mergedSemiGoods, semiBoms: mergedSemiBoms, inventoryTransactions: mergedInventoryTransactions });
 
     showToast('已合併到正式版！');
@@ -5742,6 +5750,7 @@ function loadBomData(){
     inventoryTransactions = data.inventoryTransactions || [];
     stocktakes = data.stocktakes || [];
     renderStocktakePanel();
+    setTimeout(migrateInlinePhotos, 1500);
     // 舊資料的產地（例如「台灣」「台灣TW」）一律以「台灣-TW」格式顯示，下次儲存時會一起寫回
     [materials, additives, packagings, semiGoods].forEach(list=> list.forEach(x=>{ if(x.origin) x.origin = normalizeOrigin(x.origin); }));
     [boms, semiBoms].forEach(list=> list.forEach(b=> (b.rows||[]).forEach(r=>{ if(r.requiredOrigin) r.requiredOrigin = normalizeOrigin(r.requiredOrigin); })));
@@ -5758,12 +5767,87 @@ function loadBomData(){
     console.error(err);
   });
 }
-async function saveBomData(){
+// ---- 照片獨立存放 ----
+// 雲端單一文件上限約 1MB。照片如果直接塞在進銷存資料裡，累積十幾二十張就會超過上限，之後所有儲存都會失敗、畫面跳回舊資料。
+// 所以每張照片各自存成一份文件（photo_xxx），進銷存資料裡只記照片編號 photoId。
+const photoCache = {};
+const BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+function photoDocRef(id, prefix){ return doc(db, prefix || dataPrefix, 'photo_' + id); }
+async function savePhoto(dataUrl){
+  const id = 'ph_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+  await setDoc(photoDocRef(id), { data: dataUrl, createdAt: Date.now(), by: currentUserEmail || '' });
+  photoCache[id] = dataUrl;
+  return id;
+}
+async function loadPhoto(id){
+  if(!id) return '';
+  if(photoCache[id]) return photoCache[id];
   try{
-    await setDoc(bomDataDocRef, { materials, additives, packagings, boms, receipts, finishedGoods, semiGoods, semiBoms, inventoryTransactions, stocktakes });
+    const snap = await getDoc(photoDocRef(id));
+    const data = snap.exists() ? (snap.data().data || '') : '';
+    photoCache[id] = data;
+    return data;
+  }catch(e){ console.error(e); return ''; }
+}
+function hasPhoto(o){ return !!(o && (o.photoId || o.photoData)); }
+// 產生照片 <img>：舊資料（照片還在本體裡）直接顯示；新資料先放空白圖，之後由 hydratePhotos 補上
+function photoImgTag(o, attrs){
+  if(o && o.photoData) return '<img src="' + o.photoData + '" ' + (attrs||'') + '>';
+  return '<img src="' + (photoCache[o.photoId] || BLANK_IMG) + '" data-photo-id="' + escapeHtml(o.photoId) + '" ' + (attrs||'') + '>';
+}
+function hydratePhotos(root){
+  (root || document).querySelectorAll('img[data-photo-id]').forEach(async img=>{
+    const id = img.dataset.photoId;
+    if(photoCache[id]){ img.src = photoCache[id]; return; }
+    const data = await loadPhoto(id);
+    if(data && img.dataset.photoId === id) img.src = data;
+  });
+}
+// 把舊資料裡直接存在本體的照片搬出去（每台裝置第一次開新版時自動執行一次）
+let photoMigrationRunning = false;
+async function migrateInlinePhotos(){
+  if(photoMigrationRunning) return;
+  const holders = [];
+  receipts.forEach(r=>{ if(r.photoData) holders.push(r); });
+  [materials, additives, packagings].forEach(list=> list.forEach(m=> (m.batches||[]).forEach(b=>{ if(b.photoData) holders.push(b); })));
+  if(holders.length === 0) return;
+  photoMigrationRunning = true;
+  try{
+    for(const h of holders){
+      h.photoId = await savePhoto(h.photoData);
+      delete h.photoData;
+    }
+    const ok = await saveBomData(true);
+    if(ok) showToast('已整理 ' + holders.length + ' 張照片的存放方式，資料空間已釋放');
   }catch(e){
     console.error(e);
-    showToast('儲存失敗，請檢查網路');
+    showAlert('整理照片存放方式時發生錯誤：' + (e && e.message ? e.message : e) + '\n\n如果訊息有 permission，代表雲端資料庫的權限規則不允許新增照片文件，請聯絡系統管理員。', '照片整理失敗');
+  }finally{
+    photoMigrationRunning = false;
+  }
+}
+
+const BOM_DOC_WARN_BYTES = 850000;
+let bomSizeWarned = false;
+async function saveBomData(silent){
+  const payload = { materials, additives, packagings, boms, receipts, finishedGoods, semiGoods, semiBoms, inventoryTransactions, stocktakes };
+  const size = new Blob([JSON.stringify(payload)]).size;
+  if(size > BOM_DOC_WARN_BYTES && !bomSizeWarned){
+    bomSizeWarned = true;
+    showAlert('進銷存資料已使用約 ' + Math.round(size/1024) + ' KB，接近雲端單一文件上限（1024 KB）。\n超過上限後會無法儲存。請盡快聯絡系統維護人員整理資料。', '⚠ 資料量接近上限');
+  }
+  try{
+    await setDoc(bomDataDocRef, payload);
+    return true;
+  }catch(e){
+    console.error(e);
+    const msg = String(e && (e.message || e.code) || e);
+    if(/size|exceeds|invalid-argument/i.test(msg)){
+      showAlert('這次的變更沒有存進雲端，畫面會回到上一次成功儲存的資料。\n原因：進銷存資料超過雲端單一文件上限（約 ' + Math.round(size/1024) + ' KB / 1024 KB）。\n請聯絡系統維護人員。', '❌ 儲存失敗');
+    }else{
+      showAlert('這次的變更沒有存進雲端，請確認網路後再操作一次。\n（' + msg + '）', '❌ 儲存失敗');
+    }
+    return false;
   }
 }
 
@@ -6609,11 +6693,11 @@ function renderPackagingList(){ renderInventoryList('packaging'); }
 let editingMaterialId = null;
 let editingInventoryKind = 'material';
 const materialFormOverlay = document.getElementById('materialFormOverlay');
-let currentBatchPhotoData = {}; // idx -> base64，暫存目前正在編輯的批次清單各自的標籤照片
+let currentBatchPhotoData = {}; // idx -> { photoId } 或舊資料 { photoData }，暫存目前正在編輯的批次清單各自的標籤照片
 function renderMaterialBatchLotList(batches){
   const list = (batches && batches.length > 0) ? batches : [];
   currentBatchPhotoData = {};
-  list.forEach((b, idx)=>{ if(b.photoData) currentBatchPhotoData[idx] = b.photoData; });
+  list.forEach((b, idx)=>{ if(hasPhoto(b)) currentBatchPhotoData[idx] = b.photoId ? { photoId: b.photoId } : { photoData: b.photoData }; });
   const container = document.getElementById('materialBatchList');
   if(list.length === 0){
     container.innerHTML = '<div class="ship-list-empty" style="margin-bottom:8px;">還沒有任何批次，點下面「+ 新增批次」加入第一筆</div>';
@@ -6621,18 +6705,18 @@ function renderMaterialBatchLotList(batches){
   }
   container.innerHTML = list.map((b, idx)=>{
     const photoPreview = currentBatchPhotoData[idx]
-      ? '<img src="'+currentBatchPhotoData[idx]+'" style="max-width:120px; max-height:120px; border-radius:8px; border:1px solid var(--line); display:block; margin-bottom:6px;">'
+      ? photoImgTag(currentBatchPhotoData[idx], 'style="max-width:120px; max-height:120px; border-radius:8px; border:1px solid var(--line); display:block; margin-bottom:6px;"')
       : '';
     // 這一批的進貨照片（同料號、同批號的進貨紀錄，不含已作廢）
     const batchReceipts = editingMaterialId
-      ? receipts.filter(r=> r.materialId===editingMaterialId && (r.batchNo||'')===(b.batchNo||'') && !r.voided && r.photoData)
+      ? receipts.filter(r=> r.materialId===editingMaterialId && (r.batchNo||'')===(b.batchNo||'') && !r.voided && hasPhoto(r))
           .sort((a,c)=>(a.createdAt||0)-(c.createdAt||0))
       : [];
     const receiptPhotosHtml = batchReceipts.length
       ? '<div class="field"><label style="color:var(--teal); font-weight:800;">📷 這批的進貨照片（' + batchReceipts.length + ' 張，點照片放大）</label>' +
           '<div style="display:flex; gap:8px; flex-wrap:wrap;">' +
           batchReceipts.map(r=>'<div data-batch-photo-rid="'+r.id+'" style="cursor:pointer; text-align:center; width:96px;">' +
-            '<img src="'+r.photoData+'" style="width:96px; height:96px; object-fit:cover; border-radius:8px; border:2px solid var(--teal); display:block;">' +
+            photoImgTag(r, 'style="width:96px; height:96px; object-fit:cover; border-radius:8px; border:2px solid var(--teal); display:block;"') +
             '<div style="font-size:12.5px; color:var(--ink-dim); margin-top:3px; line-height:1.3;">' + escapeHtml(r.receivedDate||'') + '<br>+' + r.qty + ' ' + escapeHtml(r.unit||'') + '</div></div>').join('') +
           '</div></div>'
       : '';
@@ -6658,6 +6742,7 @@ function renderMaterialBatchLotList(batches){
   container.querySelectorAll('[data-batch-photo-rid]').forEach(el=>{
     el.onclick = ()=> openPhotoView(el.dataset.batchPhotoRid);
   });
+  hydratePhotos(container);
   container.querySelectorAll('.material-batch-remove-btn').forEach(btn=>{
     btn.onclick = ()=>{
       const current = getMaterialBatchLotsFromForm();
@@ -6690,8 +6775,9 @@ function renderMaterialBatchLotList(batches){
       const idx = Number(this.closest('.material-batch-row').dataset.idx);
       try{
         const compressed = await compressImageToBase64(file, 480, 0.5);
-        currentBatchPhotoData[idx] = compressed;
         const wrap = this.closest('.material-batch-row').querySelector('.mbPhotoPreviewWrap');
+        wrap.innerHTML = '<div style="font-size:13.5px; color:var(--ink-dim);">上傳照片中...</div>';
+        currentBatchPhotoData[idx] = { photoId: await savePhoto(compressed) };
         wrap.innerHTML = '<img src="'+compressed+'" style="max-width:120px; max-height:120px; border-radius:8px; border:1px solid var(--line); display:block; margin-bottom:6px;">';
       }catch(e){
         showToast('照片處理失敗，請換一張再試');
@@ -6708,7 +6794,8 @@ function getMaterialBatchLotsFromForm(){
       mfgDate: row.querySelector('.mbMfgDate').value,
       expDate: row.querySelector('.mbExpDate').value,
       stock: parseFloat(row.querySelector('.mbStock').value) || 0,
-      photoData: currentBatchPhotoData[idx] || ''
+      photoId: (currentBatchPhotoData[idx] && currentBatchPhotoData[idx].photoId) || '',
+      photoData: (currentBatchPhotoData[idx] && currentBatchPhotoData[idx].photoData) || ''
     };
   });
 }
@@ -6790,7 +6877,7 @@ document.getElementById('btnSaveMaterial').onclick = async ()=>{
   const manufacturer = document.getElementById('mfManufacturer').value.trim();
   const supplier = document.getElementById('mfSupplier').value.trim();
   const defaultSpec = parseFloat(document.getElementById('mfDefaultSpec').value);
-  const batches = getMaterialBatchLotsFromForm().filter(b=> b.batchNo || b.mfgDate || b.expDate || b.stock || b.photoData);
+  const batches = getMaterialBatchLotsFromForm().filter(b=> b.batchNo || b.mfgDate || b.expDate || b.stock || b.photoData || b.photoId).map(b=>{ if(!b.photoData) delete b.photoData; if(!b.photoId) delete b.photoId; return b; });
   if(!name){ showToast('請填寫' + cfg.label + '名稱'); return; }
   const list = cfg.getList();
   let targetId;
@@ -7759,7 +7846,8 @@ document.getElementById('photoViewReplaceInput').addEventListener('change', asyn
   btn.textContent = '處理照片中...';
   try{
     const newPhotoData = await compressImageToBase64(file, 480, 0.5);
-    r.photoData = newPhotoData;
+    r.photoId = await savePhoto(newPhotoData);
+    delete r.photoData;
     await saveBomData();
     document.getElementById('photoViewImg').src = newPhotoData;
     document.getElementById('photoViewImg').style.display = '';
@@ -7852,14 +7940,16 @@ document.getElementById('btnSaveReceipt').onclick = async ()=>{
   saveBtn.textContent = '處理照片中...';
 
   const receiptId = 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
-  let photoData = '';
+  let photoId = '';
   try{
-    photoData = await compressImageToBase64(photoFile, 480, 0.5);
+    const photoData = await compressImageToBase64(photoFile, 480, 0.5);
+    saveBtn.textContent = '上傳照片中...';
+    photoId = await savePhoto(photoData);
   }catch(e){
     console.error(e);
     saveBtn.disabled = false;
     saveBtn.textContent = originalLabel;
-    showToast('照片處理失敗，請換一張照片再試一次');
+    showToast('照片上傳失敗，進貨沒有存檔，請確認網路後再試一次');
     return;
   }
 
@@ -7878,19 +7968,19 @@ document.getElementById('btnSaveReceipt').onclick = async ()=>{
     id: receiptId, kind: receivingKind,
     materialId: m.id, materialName: m.name, materialCode: m.code || '', unit: m.unit || '',
     pieces, spec, qty, supplier: m.supplier||'', manufacturer: m.manufacturer||'', batchNo, mfgDate, expDate, origin: m.origin||'', receivedDate,
-    photoData, operator: currentUserEmail || '',
+    photoId, operator: currentUserEmail || '',
     createdAt: Date.now()
   });
   // 注意：這裡不再另外呼叫 logInventoryTransaction，因為 receipts[] 本身在出入庫紀錄畫面裡就會被讀取顯示，
   // 之前同時呼叫兩邊會導致同一筆進貨在「出入庫紀錄」重複出現兩次
 
-  await saveBomData();
+  const saved = await saveBomData();
   saveBtn.disabled = false;
   saveBtn.textContent = originalLabel;
   materialReceiptOverlay.classList.remove('show');
   renderInventoryList(receivingKind);
   renderReceiptList();
-  showToast('已記錄進貨，庫存已更新');
+  if(saved) showToast('已記錄進貨，庫存已更新');
 };
 
 function renderReceiptList(){
@@ -7902,8 +7992,8 @@ function renderReceiptList(){
   }
   const sorted = [...receipts].sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
   listEl.innerHTML = sorted.map(r=>{
-    const thumb = r.photoData
-      ? '<img src="'+r.photoData+'" class="receipt-thumb" data-photo-rid="'+r.id+'">'
+    const thumb = hasPhoto(r)
+      ? photoImgTag(r, 'class="receipt-thumb" data-photo-rid="'+r.id+'"')
       : '<div class="receipt-thumb receipt-thumb-empty" data-photo-rid="'+r.id+'">點擊<br>補照片</div>';
     const namePrefix = r.materialCode ? escapeHtml(r.materialCode) + ' ・ ' : '';
     const pieceInfo = (r.pieces && r.spec) ? ' （'+r.pieces+'件 × '+r.spec+'）' : '';
@@ -7925,6 +8015,7 @@ function renderReceiptList(){
   listEl.querySelectorAll('[data-fix-rid]').forEach(btn=>{
     btn.onclick = ()=> openReceiptFix(btn.dataset.fixRid);
   });
+  hydratePhotos(listEl);
 }
 
 // ---- 進貨紀錄修正／作廢 ----
@@ -8070,8 +8161,11 @@ function openPhotoView(receiptId){
   currentViewingReceiptId = receiptId;
   const r = receipts.find(x=>x.id===receiptId);
   const img = document.getElementById('photoViewImg');
-  img.style.display = (r && r.photoData) ? '' : 'none';
-  img.src = (r && r.photoData) ? r.photoData : '';
+  img.style.display = hasPhoto(r) ? '' : 'none';
+  img.src = (r && r.photoData) ? r.photoData : ((r && photoCache[r.photoId]) || BLANK_IMG);
+  if(r && !r.photoData && r.photoId && !photoCache[r.photoId]){
+    loadPhoto(r.photoId).then(d=>{ if(currentViewingReceiptId === receiptId && d) img.src = d; });
+  }
   document.getElementById('photoViewOverlay').classList.add('show');
 }
 
