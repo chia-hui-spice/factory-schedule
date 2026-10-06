@@ -427,6 +427,14 @@
   #sortModeSelect option{ background:var(--panel); color:var(--ink); font-weight:700; font-size:17px; }
   #sortModeSelect:focus{ outline:2px solid var(--amber); outline-offset:2px; }
   #stExtraKind, #stExtraItem, #stExtraBatch, #stExtraQty{ padding:9px 8px; font-size:16px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); }
+  .fab-quick{ position:fixed; right:18px; bottom:92px; z-index:30; height:46px; padding:0 16px; border-radius:23px; background:var(--panel); color:var(--amber); border:2px solid var(--amber); font-size:16.5px; font-weight:800; box-shadow:0 6px 18px rgba(0,0,0,0.4); cursor:pointer; }
+  .qo-row{ border:1px solid var(--line); border-radius:10px; padding:8px; margin-bottom:8px; background:var(--panel); }
+  .qo-row .qo-line{ display:flex; gap:6px; align-items:center; }
+  .qo-row .qo-line + .qo-line{ margin-top:6px; }
+  .qo-row input{ min-width:0; width:100%; padding:10px 9px; font-size:16.5px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel-raised, var(--panel)); color:var(--ink); }
+  .qo-no{ flex:0 0 26px; text-align:center; font-weight:800; color:var(--ink-dim); }
+  .qo-mini{ flex:0 0 40px; height:40px; border-radius:8px; border:1px solid var(--line); background:none; color:var(--ink-dim); font-size:17px; cursor:pointer; }
+  .qo-recent{ border:1.5px solid var(--teal); border-radius:10px; padding:10px; margin-bottom:8px; background:rgba(43,182,163,0.07); }
 </style>
 </head>
 <body>
@@ -490,6 +498,7 @@
 </main>
 
 <button class="i18n fab" id="fabAdd" aria-label="新增訂單">+</button>
+<button class="fab-quick" id="fabQuickOrder" aria-label="快速多品項下單">⚡ 多品項下單</button>
 
 <div class="overlay" id="overlay">
   <div class="sheet">
@@ -1547,6 +1556,39 @@
       <button type="button" class="i18n btn-primary" id="btnSaveFg">儲存</button>
     </div>
     <button type="button" class="i18n btn-delete" id="btnDeleteFg" style="display:none;">刪除此成品</button>
+  </div>
+</div>
+
+<div class="overlay" id="quickOrderOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>⚡ 快速多品項下單</h2>
+    <div class="field">
+      <label>客戶名稱 <span style="color:var(--red);">*</span></label>
+      <input type="text" id="qoCustomer" list="qoCustomerList" placeholder="輸入或選擇客戶" autocomplete="off">
+      <datalist id="qoCustomerList"></datalist>
+    </div>
+    <div id="qoRecent"></div>
+    <div class="row2">
+      <div class="field"><label>預計需求出貨日期 <span style="color:var(--red);">*</span></label><input type="date" id="qoDue"></div>
+      <div class="field"><label>填寫人員</label><select id="qoFilledBy"></select></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>COA</label><select id="qoCoa"></select></div>
+      <div class="field"><label>急件</label>
+        <label style="display:flex; align-items:center; gap:8px; font-size:16px; padding:10px 0;"><input type="checkbox" id="qoUrgent" style="width:22px; height:22px;"> 這張是急件</label>
+      </div>
+    </div>
+    <div class="field"><label>備註（每個品項都會帶入）</label><input type="text" id="qoNote" placeholder="選填"></div>
+    <div class="section-label">品項（產品 → 規格 → 數量，按 Enter 自動跳下一格）</div>
+    <div id="qoRows"></div>
+    <datalist id="qoProductList"></datalist>
+    <button type="button" class="add-item-btn" id="qoAddRow" style="margin-top:4px;">＋ 新增一列</button>
+    <div id="qoSummary" style="font-size:16px; font-weight:800; color:var(--amber); margin-top:10px;"></div>
+    <div class="sheet-actions">
+      <button type="button" class="btn-secondary" id="qoCancel">取消</button>
+      <button type="button" class="btn-primary" id="qoSave">建立訂單</button>
+    </div>
   </div>
 </div>
 
@@ -3054,6 +3096,7 @@ function renderList(){
 function render(){
   renderTabs(); renderZoneFilterBar(); renderList(); renderAlertBanner(); updateQuickStatBadges();
   document.getElementById('fabAdd').style.display = (currentTab === 'pending') ? '' : 'none';
+  document.getElementById('fabQuickOrder').style.display = (currentTab === 'pending') ? '' : 'none';
 }
 
 function renderZoneFilterBar(){
@@ -3706,6 +3749,183 @@ document.getElementById('priNormal').onclick = ()=>{ selectedPriority = 'normal'
 document.getElementById('priUrgent').onclick = ()=>{ selectedPriority = 'urgent'; updatePriorityUI(); };
 
 document.getElementById('fabAdd').onclick = ()=> openSheet(null, null);
+
+// ================= ⚡ 快速多品項下單 =================
+// 一次輸入整張訂單：共用資料填一次，品項用表格逐列輸入；可一鍵複製這位客戶上一張訂單的品項
+let qoRows = [];
+const qoOverlay = document.getElementById('quickOrderOverlay');
+function qoBlankRow(){ return { product:'', spec:'', qty:'', origin:'', productionZones:[], needsIrradiation:false, irradiationDestination:'' }; }
+function qoCustomerOrders(name){
+  return orders.filter(o=> o.customer === name && (o.items||[]).some(it=>!it.deleted))
+    .sort((a,b)=> (orderCreatedDate(b)||0) - (orderCreatedDate(a)||0));
+}
+// 拆分過的品項合併回原本的數量，避免複製時變成好幾列
+function qoItemsOfOrder(o){
+  const out = []; const seenSplit = new Set();
+  (o.items||[]).filter(it=>!it.deleted).forEach(it=>{
+    if(it.splitGroupId){
+      if(seenSplit.has(it.splitGroupId)) return;
+      seenSplit.add(it.splitGroupId);
+      out.push(Object.assign({}, it, { qty: it.originalQty || it.qty }));
+    }else out.push(it);
+  });
+  return out;
+}
+function openQuickOrder(){
+  qoRows = [qoBlankRow(), qoBlankRow(), qoBlankRow()];
+  const custs = [];
+  [...orders].sort((a,b)=>(orderCreatedDate(b)||0)-(orderCreatedDate(a)||0)).forEach(o=>{ if(o.customer && !custs.includes(o.customer)) custs.push(o.customer); });
+  document.getElementById('qoCustomerList').innerHTML = custs.map(c=>'<option value="'+escapeHtml(c)+'">').join('');
+  document.getElementById('qoCustomer').value = '';
+  document.getElementById('qoDue').value = todayStr();
+  document.getElementById('qoFilledBy').innerHTML = Array.from(document.getElementById('fFilledBy').options).filter(o=>o.value!=='自訂').map(o=>'<option value="'+escapeHtml(o.value)+'">'+escapeHtml(o.textContent)+'</option>').join('');
+  document.getElementById('qoCoa').innerHTML = document.getElementById('fCoa').innerHTML;
+  document.getElementById('qoFilledBy').value = '';
+  document.getElementById('qoCoa').value = '';
+  document.getElementById('qoUrgent').checked = false;
+  document.getElementById('qoNote').value = '';
+  document.getElementById('qoRecent').innerHTML = '';
+  qoRefreshProductList();
+  renderQoRows();
+  qoOverlay.classList.add('show');
+  setTimeout(()=> document.getElementById('qoCustomer').focus(), 50);
+}
+function qoRefreshProductList(){
+  const cust = document.getElementById('qoCustomer').value.trim();
+  const mine = getProductsForCustomer(cust);
+  const all = getAllKnownProductNames();
+  document.getElementById('qoProductList').innerHTML = mine.concat(all.filter(n=>!mine.includes(n))).map(n=>'<option value="'+escapeHtml(n)+'">').join('');
+}
+function renderQoRecent(){
+  const cust = document.getElementById('qoCustomer').value.trim();
+  const el = document.getElementById('qoRecent');
+  const list = cust ? qoCustomerOrders(cust).slice(0, 3) : [];
+  if(list.length === 0){ el.innerHTML = cust ? '<div style="font-size:14px; color:var(--ink-dim); margin:-4px 0 10px;">這位客戶還沒有訂單紀錄，請在下方直接輸入品項</div>' : ''; return; }
+  el.innerHTML = list.map((o, idx)=>{
+    const items = qoItemsOfOrder(o);
+    const summary = items.slice(0, 4).map(it=> it.product + (it.spec ? '（' + it.spec + '）' : '') + '×' + it.qty).join('、') + (items.length > 4 ? '…等 ' + items.length + ' 項' : '');
+    return '<div class="qo-recent"' + (idx ? ' style="border-color:var(--line); background:none;"' : '') + '>' +
+      '<div style="font-size:14px; color:var(--ink-dim);">' + (idx === 0 ? '<b style="color:var(--teal);">上一張訂單</b>　' : '') + escapeHtml(formatOrderCreated(o)) + '　共 ' + items.length + ' 項</div>' +
+      '<div style="font-size:14.5px; margin:4px 0 8px; line-height:1.5;">' + escapeHtml(summary) + '</div>' +
+      '<button type="button" class="' + (idx === 0 ? 'btn-primary' : 'split-btn') + '" data-qo-copy="' + o.id + '" style="width:100%;' + (idx === 0 ? ' background:var(--teal); border-color:var(--teal);' : '') + '">📋 ' + (idx === 0 ? '複製上一張訂單的品項' : '複製這張') + '</button></div>';
+  }).join('');
+  el.querySelectorAll('[data-qo-copy]').forEach(b=> b.onclick = ()=> qoCopyOrder(b.dataset.qoCopy));
+}
+async function qoCopyOrder(orderId){
+  const o = orders.find(x=>x.id===orderId); if(!o) return;
+  const filled = qoRows.filter(r=>r.product);
+  if(filled.length){
+    const ok = await showConfirm('下方已經有 ' + filled.length + ' 個品項，要換成這張訂單的品項嗎？', '覆蓋目前的品項？');
+    if(!ok) return;
+  }
+  const items = qoItemsOfOrder(o);
+  qoRows = items.map(it=>({ product: it.product||'', spec: it.spec||'', qty: it.qty||'', origin: it.origin||'', productionZones: (it.productionZones||[]).slice(), needsIrradiation: !!it.needsIrradiation, irradiationDestination: it.irradiationDestination||'' }));
+  qoRows.push(qoBlankRow());
+  const first = items[0] || {};
+  if(!document.getElementById('qoCoa').value && first.coa) document.getElementById('qoCoa').value = first.coa;
+  if(!document.getElementById('qoFilledBy').value && first.filledBy) document.getElementById('qoFilledBy').value = first.filledBy;
+  renderQoRows();
+  showToast('已帶入 ' + items.length + ' 個品項，請確認數量');
+  const firstQty = document.querySelector('#qoRows .qoQty'); if(firstQty){ firstQty.focus(); firstQty.select(); }
+}
+function qoSpecOptionsHtml(product){
+  const mine = getSpecsForProduct(product);
+  return mine.concat(ALL_SPEC_OPTIONS.filter(x=>!mine.includes(x))).map(x=>'<option value="'+escapeHtml(x)+'">').join('');
+}
+function renderQoRows(){
+  const wrap = document.getElementById('qoRows');
+  wrap.innerHTML = qoRows.map((r, i)=>
+    '<div class="qo-row" data-i="' + i + '">' +
+      '<div class="qo-line"><div class="qo-no">' + (i+1) + '</div>' +
+        '<input type="text" class="qoProduct" list="qoProductList" placeholder="產品名稱" value="' + escapeHtml(r.product) + '" autocomplete="off">' +
+        '<button type="button" class="qo-mini" data-qo-del="' + i + '" title="刪除這列">✕</button></div>' +
+      '<div class="qo-line"><div class="qo-no"></div>' +
+        '<input type="text" class="qoSpec" list="qoSpec' + i + '" placeholder="規格" value="' + escapeHtml(r.spec) + '" autocomplete="off" style="flex:1.4;">' +
+        '<datalist id="qoSpec' + i + '">' + qoSpecOptionsHtml(r.product) + '</datalist>' +
+        '<input type="number" class="qoQty" inputmode="numeric" placeholder="數量" value="' + escapeHtml(String(r.qty)) + '" style="flex:0.8; font-weight:800;">' +
+        '<button type="button" class="qo-mini" data-qo-dup="' + i + '" title="複製這列">⧉</button></div>' +
+    '</div>').join('');
+  const rowEls = wrap.querySelectorAll('.qo-row');
+  rowEls.forEach(el=>{
+    const i = parseInt(el.dataset.i, 10);
+    const p = el.querySelector('.qoProduct'), sp = el.querySelector('.qoSpec'), q = el.querySelector('.qoQty');
+    p.addEventListener('input', ()=>{ qoRows[i].product = p.value.trim(); updateQoSummary(); });
+    p.addEventListener('change', ()=>{
+      document.getElementById('qoSpec' + i).innerHTML = qoSpecOptionsHtml(p.value.trim());
+      const mine = getSpecsForProduct(p.value.trim());
+      if(!sp.value && mine.length === 1){ sp.value = mine[0]; qoRows[i].spec = mine[0]; } // 只有一種常用規格就直接帶入
+    });
+    sp.addEventListener('input', ()=>{ qoRows[i].spec = sp.value.trim(); });
+    q.addEventListener('input', ()=>{ qoRows[i].qty = q.value; updateQoSummary(); });
+    p.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); p.dispatchEvent(new Event('change')); sp.focus(); } });
+    sp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); q.focus(); q.select(); } });
+    q.addEventListener('keydown', e=>{
+      if(e.key !== 'Enter') return;
+      e.preventDefault();
+      if(i === qoRows.length - 1){ qoRows.push(qoBlankRow()); renderQoRows(); }
+      const next = document.querySelectorAll('#qoRows .qo-row')[i+1];
+      if(next){ const nq = next.querySelector('.qoProduct'); if(next.querySelector('.qoProduct').value){ next.querySelector('.qoQty').focus(); next.querySelector('.qoQty').select(); } else nq.focus(); }
+    });
+  });
+  wrap.querySelectorAll('[data-qo-del]').forEach(b=> b.onclick = ()=>{ qoRows.splice(parseInt(b.dataset.qoDel,10), 1); if(!qoRows.length) qoRows.push(qoBlankRow()); renderQoRows(); });
+  wrap.querySelectorAll('[data-qo-dup]').forEach(b=> b.onclick = ()=>{ const i = parseInt(b.dataset.qoDup,10); qoRows.splice(i+1, 0, Object.assign({}, qoRows[i], { productionZones: (qoRows[i].productionZones||[]).slice() })); renderQoRows(); });
+  updateQoSummary();
+}
+function updateQoSummary(){
+  const filled = qoRows.filter(r=>r.product);
+  const total = filled.reduce((s, r)=> s + (parseInt(r.qty, 10) || 0), 0);
+  document.getElementById('qoSummary').textContent = filled.length ? ('共 ' + filled.length + ' 個品項，總數量 ' + total) : '';
+}
+document.getElementById('qoCustomer').addEventListener('input', ()=>{ qoRefreshProductList(); renderQoRecent(); });
+document.getElementById('qoAddRow').onclick = ()=>{ qoRows.push(qoBlankRow()); renderQoRows(); const rows = document.querySelectorAll('#qoRows .qoProduct'); rows[rows.length-1].focus(); };
+document.getElementById('fabQuickOrder').onclick = openQuickOrder;
+document.getElementById('qoCancel').onclick = async ()=>{
+  if(qoRows.some(r=>r.product)){ const ok = await showConfirm('已輸入的品項不會儲存。', '確定要取消嗎？'); if(!ok) return; }
+  qoOverlay.classList.remove('show');
+};
+document.getElementById('qoSave').onclick = async ()=>{
+  const customer = document.getElementById('qoCustomer').value.trim();
+  const due = document.getElementById('qoDue').value;
+  const rows = qoRows.filter(r=>r.product || r.qty);
+  const problems = [];
+  if(!customer) problems.push('客戶名稱');
+  if(!due) problems.push('出貨日期');
+  if(rows.length === 0) problems.push('至少一個品項');
+  rows.forEach((r)=>{
+    const n = qoRows.indexOf(r) + 1;
+    if(!r.product) problems.push('第' + n + '列的產品名稱');
+    if(!(parseInt(r.qty, 10) > 0)) problems.push('第' + n + '列的數量');
+  });
+  if(problems.length){ showToast('請填寫：' + problems.join('、')); return; }
+  const filledBy = document.getElementById('qoFilledBy').value;
+  const coa = document.getElementById('qoCoa').value;
+  const note = document.getElementById('qoNote').value.trim();
+  const priority = document.getElementById('qoUrgent').checked ? 'urgent' : 'normal';
+  const ok = await showConfirm('客戶「' + customer + '」，出貨日 ' + due + '，共 ' + rows.length + ' 個品項。' + ((!filledBy || !coa) ? '\n（填寫人員或 COA 還沒選，之後進入庫存確認前要補上）' : ''), '建立這張訂單？');
+  if(!ok) return;
+  const fillFormDate = todayStr(), fillFormTime = nowTimeStr();
+  const stamp = Date.now();
+  const items = rows.map((r, idx)=>{
+    const it = {
+      id: 'i_' + stamp + '_' + idx + '_' + Math.random().toString(36).slice(2,6), status: 'pending',
+      product: r.product, spec: r.spec || '', qty: parseInt(r.qty, 10), actualYieldQty: null, due, origin: r.origin || '',
+      productExpDate:'', productMfgDate:'', productBatchNo:'', packagingDate:'', trayBatchNo:'', manualMaterialBatches: [],
+      coa, coaConfirmBy:'', needsIrradiation: !!r.needsIrradiation, irradiationLabelConfirm:false, irradiationDestination: r.irradiationDestination || '', note,
+      coaMoisture:'', coaWaterActivity:'', coaTotalPlateCount:'', coaColiform:'', coaEcoli:'',
+      fillFormDate, fillFormTime, releaseBy:'', filledBy, warehouseConfirm:'', priority,
+      shipMethod:'', actualShipDate:'', productionZones: normalizeZoneList(r.productionZones || []), packagingStaff:'',
+      checklist: { c1:false, c2:false, c3:false, c4:false }
+    };
+    syncManualMaterialTraceability(it, []);
+    return it;
+  });
+  orders.push({ id: 'o_' + stamp + '_' + Math.random().toString(36).slice(2,7), orderNo: generateOrderNo(), customer, createdAt: stamp, items });
+  await saveOrders();
+  qoOverlay.classList.remove('show');
+  render();
+  showToast('✅ 已建立訂單，共 ' + items.length + ' 個品項');
+};
+
 document.getElementById('btnCancel').onclick = closeSheet;
 // 移除點擊外部背景關閉表單的行為，避免手機誤觸導致輸入內容遺失
 // 只能透過「取消」或「儲存」按鈕關閉
