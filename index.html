@@ -2307,9 +2307,9 @@ function logInventoryTransaction(kind, itemId, itemName, type, batchNo, qty, rea
 let semiBoms = []; // [{id, semiGoodId, rows:[{materialId, qtyPerUnit}]}]
 let currentTab = 'pending';
 let currentEditingStage = 'pending';
-const PRODUCTION_ZONES = ['自動包裝區產線','大包裝區產線','小包裝區產線','滷包包裝區產線','醬料包裝區產線','清真包裝區產線','調味粉攪拌產線','半成品樣品產線','原料產線'];
+const PRODUCTION_ZONES = ['自動包裝區產線','大包裝區產線','小包裝區產線','滷包包裝區產線','醬料包裝區產線','清真包裝區產線','調味粉攪拌產線','半成品產線','原料產線'];
 // 產線改名對照：舊名稱的訂單、權限設定讀進來時自動換成新名稱
-const ZONE_RENAMES = { '調味粉產線': '調味粉攪拌產線' };
+const ZONE_RENAMES = { '調味粉產線': '調味粉攪拌產線', '半成品樣品產線': '半成品產線' };
 function normalizeZone(z){ return ZONE_RENAMES[z] || z; }
 function normalizeZoneList(list){ return [...new Set((list || []).map(normalizeZone))]; }
 let currentZoneFilter = null; // null = 全部
@@ -3481,7 +3481,7 @@ const PACKAGING_STAFF_BY_ZONE = {
   '小包裝區產線': ['德迪'],
   '調味粉攪拌產線': ['劉美足','尼寧'],
   '原料產線': ['李燕束'],
-  '半成品樣品產線': ['陳張葵珠']
+  '半成品產線': ['陳張葵珠']
 };
 function populatePackagingStaffOptions(zones, currentValue){
   const select = document.getElementById('fPackagingStaff');
