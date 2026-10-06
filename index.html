@@ -2307,7 +2307,11 @@ function logInventoryTransaction(kind, itemId, itemName, type, batchNo, qty, rea
 let semiBoms = []; // [{id, semiGoodId, rows:[{materialId, qtyPerUnit}]}]
 let currentTab = 'pending';
 let currentEditingStage = 'pending';
-const PRODUCTION_ZONES = ['自動包裝區產線','大包裝區產線','小包裝區產線','滷包包裝區產線','醬料包裝區產線','清真包裝區產線','調味粉產線','半成品樣品產線','原料產線'];
+const PRODUCTION_ZONES = ['自動包裝區產線','大包裝區產線','小包裝區產線','滷包包裝區產線','醬料包裝區產線','清真包裝區產線','調味粉攪拌產線','半成品樣品產線','原料產線'];
+// 產線改名對照：舊名稱的訂單、權限設定讀進來時自動換成新名稱
+const ZONE_RENAMES = { '調味粉產線': '調味粉攪拌產線' };
+function normalizeZone(z){ return ZONE_RENAMES[z] || z; }
+function normalizeZoneList(list){ return [...new Set((list || []).map(normalizeZone))]; }
 let currentZoneFilter = null; // null = 全部
 let currentSortMode = 'dueAsc'; // dueAsc | dueDesc | createdDesc | createdAsc
 let editingOrderId = null; // 目前編輯表單所屬的訂單 id（null = 新訂單）
@@ -2417,7 +2421,7 @@ let firstOrdersSnapshotHandled = false;
 function loadOrders(){
   onSnapshot(ordersDocRef, async (snap)=>{
     orders = (snap.exists() && snap.data().list) ? snap.data().list : [];
-    orders.forEach(o=>{ if(!o.items) o.items = []; });
+    orders.forEach(o=>{ if(!o.items) o.items = []; o.items.forEach(it=>{ if(it.productionZones) it.productionZones = normalizeZoneList(it.productionZones); }); });
     await purgeExpiredTrash();
     render();
     checkShipmentAlerts();
@@ -3475,7 +3479,7 @@ const PACKAGING_STAFF_BY_ZONE = {
   '醬料包裝區產線': ['張梅瓊','萬淑芳'],
   '滷包包裝區產線': ['陳金安'],
   '小包裝區產線': ['德迪'],
-  '調味粉產線': ['劉美足','尼寧'],
+  '調味粉攪拌產線': ['劉美足','尼寧'],
   '原料產線': ['李燕束'],
   '半成品樣品產線': ['陳張葵珠']
 };
@@ -5496,7 +5500,7 @@ document.getElementById('btnImportBackup').onclick = async ()=>{
           fillFormTime: String(row['填寫時間'] || ''),
           warehouseConfirm: String(row['倉管會計出貨確認'] || ''),
           shipMethod: parseShipMethod(String(row['出貨方式'] || '')),
-          productionZones: row['生產線'] ? String(row['生產線']).split('、').filter(Boolean) : [],
+          productionZones: row['生產線'] ? normalizeZoneList(String(row['生產線']).split('、').filter(Boolean)) : [],
           packagingStaff: String(row['包裝人員'] || ''),
           coaConfirmBy: String(row['COA確認人員'] || ''),
           actualShipDate: String(row['實際出貨日期'] || '')
@@ -5658,6 +5662,7 @@ document.getElementById('btnMergeToProd').onclick = async ()=>{
 function loadPermissions(){
   onSnapshot(permissionsDocRef, (snap)=>{
     permissions = snap.exists() ? (snap.data().map || {}) : {};
+    Object.values(permissions).forEach(p=>{ if(p && p.productionZone) p.productionZone = normalizeZone(p.productionZone); });
     applyPermissions();
   }, (err)=>{
     console.error(err);
