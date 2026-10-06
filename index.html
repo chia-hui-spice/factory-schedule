@@ -435,6 +435,8 @@
   .qo-no{ flex:0 0 26px; text-align:center; font-weight:800; color:var(--ink-dim); }
   .qo-mini{ flex:0 0 40px; height:40px; border-radius:8px; border:1px solid var(--line); background:none; color:var(--ink-dim); font-size:17px; cursor:pointer; }
   .qo-recent{ border:1.5px solid var(--teal); border-radius:10px; padding:10px; margin-bottom:8px; background:rgba(43,182,163,0.07); }
+  .qo-irr{ flex:0 0 auto; height:40px; padding:0 10px; border-radius:8px; border:1.5px solid var(--line); background:none; color:var(--ink-dim); font-size:14.5px; font-weight:700; cursor:pointer; white-space:nowrap; }
+  .qo-irr.on{ border-color:var(--orange, #F08A24); color:#fff; background:var(--orange, #F08A24); }
 </style>
 </head>
 <body>
@@ -1580,7 +1582,8 @@
       </div>
     </div>
     <div class="field"><label>備註（每個品項都會帶入）</label><input type="text" id="qoNote" placeholder="選填"></div>
-    <div class="section-label">品項（產品 → 規格 → 數量，按 Enter 自動跳下一格）</div>
+    <label style="display:flex; align-items:center; gap:8px; font-size:16px; font-weight:700; margin:-4px 0 12px;"><input type="checkbox" id="qoIrrAll" style="width:22px; height:22px;"> ☢️ 整張訂單都需要照射滅菌</label>
+    <div class="section-label">品項（產品 → 規格 → 數量，按 Enter 自動跳下一格；需要照射滅菌的按「☢️ 照射」）</div>
     <div id="qoRows"></div>
     <datalist id="qoProductList"></datalist>
     <button type="button" class="add-item-btn" id="qoAddRow" style="margin-top:4px;">＋ 新增一列</button>
@@ -3775,7 +3778,7 @@ document.getElementById('fabAdd').onclick = ()=> openSheet(null, null);
 // 一次輸入整張訂單：共用資料填一次，品項用表格逐列輸入；可一鍵複製這位客戶上一張訂單的品項
 let qoRows = [];
 const qoOverlay = document.getElementById('quickOrderOverlay');
-function qoBlankRow(){ return { product:'', spec:'', qty:'', origin:'', productionZones:[], needsIrradiation:false, irradiationDestination:'' }; }
+function qoBlankRow(){ const all = document.getElementById('qoIrrAll'); return { product:'', spec:'', qty:'', origin:'', productionZones:[], needsIrradiation: !!(all && all.checked), irradiationDestination:'' }; }
 function qoCustomerOrders(name){
   return orders.filter(o=> o.customer === name && (o.items||[]).some(it=>!it.deleted))
     .sort((a,b)=> (orderCreatedDate(b)||0) - (orderCreatedDate(a)||0));
@@ -3804,6 +3807,7 @@ function openQuickOrder(){
   document.getElementById('qoFilledBy').value = '';
   document.getElementById('qoCoa').value = '';
   document.getElementById('qoUrgent').checked = false;
+  document.getElementById('qoIrrAll').checked = false;
   document.getElementById('qoNote').value = '';
   document.getElementById('qoRecent').innerHTML = '';
   qoRefreshProductList();
@@ -3846,6 +3850,7 @@ async function qoCopyOrder(orderId){
   if(!document.getElementById('qoCoa').value && first.coa) document.getElementById('qoCoa').value = first.coa;
   if(!document.getElementById('qoFilledBy').value && first.filledBy) document.getElementById('qoFilledBy').value = first.filledBy;
   renderQoRows();
+  qoSyncIrrAll();
   showToast('已帶入 ' + items.length + ' 個品項，請確認數量');
   const firstQty = document.querySelector('#qoRows .qoQty'); if(firstQty){ firstQty.focus(); firstQty.select(); }
 }
@@ -3859,6 +3864,7 @@ function renderQoRows(){
     '<div class="qo-row" data-i="' + i + '">' +
       '<div class="qo-line"><div class="qo-no">' + (i+1) + '</div>' +
         '<input type="text" class="qoProduct" list="qoProductList" placeholder="產品名稱" value="' + escapeHtml(r.product) + '" autocomplete="off">' +
+        '<button type="button" class="qo-irr' + (r.needsIrradiation ? ' on' : '') + '" data-qo-irr="' + i + '" title="需要照射滅菌">☢️ 照射</button>' +
         '<button type="button" class="qo-mini" data-qo-del="' + i + '" title="刪除這列">✕</button></div>' +
       '<div class="qo-line"><div class="qo-no"></div>' +
         '<input type="text" class="qoSpec" list="qoSpec' + i + '" placeholder="規格" value="' + escapeHtml(r.spec) + '" autocomplete="off" style="flex:1.4;">' +
@@ -3888,6 +3894,12 @@ function renderQoRows(){
       if(next){ const nq = next.querySelector('.qoProduct'); if(next.querySelector('.qoProduct').value){ next.querySelector('.qoQty').focus(); next.querySelector('.qoQty').select(); } else nq.focus(); }
     });
   });
+  wrap.querySelectorAll('[data-qo-irr]').forEach(b=> b.onclick = ()=>{
+    const r = qoRows[parseInt(b.dataset.qoIrr,10)];
+    r.needsIrradiation = !r.needsIrradiation;
+    b.classList.toggle('on', r.needsIrradiation);
+    qoSyncIrrAll(); updateQoSummary();
+  });
   wrap.querySelectorAll('[data-qo-del]').forEach(b=> b.onclick = ()=>{ qoRows.splice(parseInt(b.dataset.qoDel,10), 1); if(!qoRows.length) qoRows.push(qoBlankRow()); renderQoRows(); });
   wrap.querySelectorAll('[data-qo-dup]').forEach(b=> b.onclick = ()=>{ const i = parseInt(b.dataset.qoDup,10); qoRows.splice(i+1, 0, Object.assign({}, qoRows[i], { productionZones: (qoRows[i].productionZones||[]).slice() })); renderQoRows(); });
   updateQoSummary();
@@ -3895,8 +3907,18 @@ function renderQoRows(){
 function updateQoSummary(){
   const filled = qoRows.filter(r=>r.product);
   const total = filled.reduce((s, r)=> s + (parseInt(r.qty, 10) || 0), 0);
-  document.getElementById('qoSummary').textContent = filled.length ? ('共 ' + filled.length + ' 個品項，總數量 ' + total) : '';
+  const irr = filled.filter(r=>r.needsIrradiation).length;
+  document.getElementById('qoSummary').textContent = filled.length ? ('共 ' + filled.length + ' 個品項，總數量 ' + total + (irr ? '　☢️ 照射滅菌 ' + irr + ' 項' : '')) : '';
 }
+// 「整張都需要照射」勾選框跟每列的狀態同步
+function qoSyncIrrAll(){
+  const filled = qoRows.filter(r=>r.product);
+  document.getElementById('qoIrrAll').checked = filled.length > 0 && filled.every(r=>r.needsIrradiation);
+}
+document.getElementById('qoIrrAll').addEventListener('change', (e)=>{
+  qoRows.forEach(r=>{ r.needsIrradiation = e.target.checked; });
+  renderQoRows();
+});
 document.getElementById('qoCustomer').addEventListener('input', ()=>{ qoRefreshProductList(); renderQoRecent(); });
 document.getElementById('qoAddRow').onclick = ()=>{ qoRows.push(qoBlankRow()); renderQoRows(); const rows = document.querySelectorAll('#qoRows .qoProduct'); rows[rows.length-1].focus(); };
 document.getElementById('fabQuickOrder').onclick = openQuickOrder;
@@ -3922,7 +3944,8 @@ document.getElementById('qoSave').onclick = async ()=>{
   const coa = document.getElementById('qoCoa').value;
   const note = document.getElementById('qoNote').value.trim();
   const priority = document.getElementById('qoUrgent').checked ? 'urgent' : 'normal';
-  const ok = await showConfirm('客戶「' + customer + '」，出貨日 ' + due + '，共 ' + rows.length + ' 個品項。' + ((!filledBy || !coa) ? '\n（填寫人員或 COA 還沒選，之後進入庫存確認前要補上）' : ''), '建立這張訂單？');
+  const irrCount = rows.filter(r=>r.needsIrradiation).length;
+  const ok = await showConfirm('客戶「' + customer + '」，出貨日 ' + due + '，共 ' + rows.length + ' 個品項' + (irrCount ? '（其中 ' + irrCount + ' 項需要照射滅菌）' : '') + '。' + ((!filledBy || !coa) ? '\n（填寫人員或 COA 還沒選，之後進入庫存確認前要補上）' : ''), '建立這張訂單？');
   if(!ok) return;
   const fillFormDate = todayStr(), fillFormTime = nowTimeStr();
   const stamp = Date.now();
