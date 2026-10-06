@@ -2762,6 +2762,13 @@ function renderList(){
         coaNoticeHtml +
         '<div class="checklist-row">' + chkHtml + '</div>' +
         (item.note ? '<div class="item-note">' + escapeHtml(item.note) + '</div>' : '') +
+        ((item.status === 'done' && item.needsIrradiation) ? (function(){
+          const ok = !!item.irradiationLabelConfirm;
+          return '<label data-irr-oid="' + order.id + '" data-irr-iid="' + item.id + '" style="display:flex; align-items:center; gap:10px; margin:8px 0; padding:12px; border-radius:10px; cursor:pointer; border:2px solid ' + (ok ? 'var(--teal)' : 'var(--red)') + '; background:' + (ok ? 'rgba(43,182,163,0.10)' : 'rgba(229,84,77,0.10)') + ';">' +
+            '<input type="checkbox" class="irrConfirmChk"' + (ok ? ' checked' : '') + ' style="width:26px; height:26px; flex:0 0 26px; accent-color:var(--teal);">' +
+            '<span style="font-size:17px; font-weight:800; color:' + (ok ? 'var(--teal)' : 'var(--red)') + ';">☢️ 確認已印有「照射滅菌」標籤' +
+            (ok && item.irradiationLabelConfirmBy ? '<br><span style="font-size:13px; font-weight:400; color:var(--ink-dim);">' + escapeHtml(item.irradiationLabelConfirmBy) + (item.irradiationLabelConfirmAt ? '　' + new Date(item.irradiationLabelConfirmAt).toLocaleString('zh-TW') : '') + '</span>' : (ok ? '' : '<br><span style="font-size:13px; font-weight:400;">勾選後才能進入充填包裝</span>')) + '</span></label>';
+        })() : '') +
         '<div class="item-actions">' + actionsHtml + '</div>' +
         splitBtnHtml +
       '</div>';
@@ -3034,6 +3041,20 @@ function renderList(){
       renderFinishedGoodList();
       render();
     };
+  });
+  wrap.querySelectorAll('[data-irr-iid]').forEach(lbl=>{
+    const chk = lbl.querySelector('.irrConfirmChk');
+    chk.addEventListener('click', e=> e.stopPropagation());
+    chk.addEventListener('change', async ()=>{
+      const order = orders.find(o=>o.id === lbl.dataset.irrOid);
+      const item = order && order.items.find(i=>i.id === lbl.dataset.irrIid);
+      if(!item) return;
+      item.irradiationLabelConfirm = chk.checked;
+      if(chk.checked){ item.irradiationLabelConfirmBy = currentUserEmail || ''; item.irradiationLabelConfirmAt = Date.now(); }
+      else { delete item.irradiationLabelConfirmBy; delete item.irradiationLabelConfirmAt; }
+      await saveOrders(); render();
+      showToast(chk.checked ? '已確認印有照射滅菌標籤' : '已取消照射標籤確認');
+    });
   });
   wrap.querySelectorAll('[data-act="matpreview"]').forEach(btn=>{
     btn.onclick = (e)=>{
