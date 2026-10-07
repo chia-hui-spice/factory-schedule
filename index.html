@@ -4988,7 +4988,7 @@ function openClimateEntry(areaId, timeSlot){
   climateEntryOverlay.classList.add('show');
 }
 document.getElementById('climateEntryCancelBtn').onclick = ()=> climateEntryOverlay.classList.remove('show');
-climateEntryOverlay.onclick = (e)=>{ if(e.target === climateEntryOverlay) climateEntryOverlay.classList.remove('show'); };
+// climateEntryOverlay：點表單外面不會關閉，避免誤觸讓輸入到一半的資料消失（請用「取消」或「儲存」）
 document.getElementById('climateEntrySaveBtn').onclick = async ()=>{
   if(!editingClimateEntry) return;
   const temperature = document.getElementById('climateTempInput').value;
@@ -5146,7 +5146,7 @@ document.getElementById('hygieneEntryCheckAllBtn').onclick = ()=>{
   const allOn = Array.from(boxes).every(b=>b.checked);
   boxes.forEach(b=> b.checked = !allOn);
 };
-hygieneEntryOverlay.onclick = (e)=>{ if(e.target === hygieneEntryOverlay) hygieneEntryOverlay.classList.remove('show'); };
+// hygieneEntryOverlay：點表單外面不會關閉，避免誤觸讓輸入到一半的資料消失（請用「取消」或「儲存」）
 document.getElementById('hygieneEntrySaveBtn').onclick = async ()=>{
   if(!editingHygieneEntry) return;
   const { kind, entityId, existingLog } = editingHygieneEntry;
@@ -5257,7 +5257,7 @@ function openMachineForm(machine){
 }
 document.getElementById('machineAddBtn').onclick = ()=> openMachineForm(null);
 document.getElementById('machineFormCancelBtn').onclick = ()=> machineFormOverlay.classList.remove('show');
-machineFormOverlay.onclick = (e)=>{ if(e.target === machineFormOverlay) machineFormOverlay.classList.remove('show'); };
+// machineFormOverlay：點表單外面不會關閉，避免誤觸讓輸入到一半的資料消失（請用「取消」或「儲存」）
 document.getElementById('machineFormSaveBtn').onclick = async ()=>{
   const name = document.getElementById('mfMachineName').value.trim();
   if(!name){ showToast('請輸入機器名稱'); return; }
@@ -6299,7 +6299,7 @@ function setBulkConfirmEnabled(on){
   b.disabled = !on; b.style.opacity = on ? '1' : '0.5';
 }
 document.getElementById('btnCancelBulkImport').onclick = ()=> document.getElementById('bulkImportOverlay').classList.remove('show');
-document.getElementById('bulkImportOverlay').onclick = (e)=>{ if(e.target.id === 'bulkImportOverlay') e.target.classList.remove('show'); };
+// bulkImportOverlay：點表單外面不會關閉，避免誤觸（請用「取消」）
 
 document.getElementById('btnDownloadImportTemplate').onclick = ()=>{
   if(typeof XLSX === 'undefined'){ showToast('Excel 元件載入失敗，請檢查網路後重新整理再試'); return; }
@@ -7445,7 +7445,7 @@ document.getElementById('btnCancelFg').onclick = ()=>{
   }
   fgFormOverlay.classList.remove('show');
 };
-fgFormOverlay.onclick = (e)=>{ if(e.target === fgFormOverlay) fgFormOverlay.classList.remove('show'); };
+// fgFormOverlay：點表單外面不會關閉，避免誤觸讓輸入到一半的資料消失（請用「取消」或「儲存」）
 document.getElementById('btnSaveFg').onclick = async ()=>{
   const code = document.getElementById('fgCode').value.trim();
   const product = document.getElementById('fgProduct').value.trim();
@@ -7779,7 +7779,7 @@ function syncSpExpDate(){
 }
 document.getElementById('spDate').addEventListener('change', syncSpExpDate);
 document.getElementById('btnCancelSemiProduce').onclick = ()=> semiProduceOverlay.classList.remove('show');
-semiProduceOverlay.onclick = (e)=>{ if(e.target === semiProduceOverlay) semiProduceOverlay.classList.remove('show'); };
+// semiProduceOverlay：點表單外面不會關閉，避免誤觸讓輸入到一半的資料消失（請用「取消」或「儲存」）
 document.getElementById('btnSaveSemiProduce').onclick = async ()=>{
   const saveBtn = document.getElementById('btnSaveSemiProduce');
   if(saveBtn.disabled) return; // 防止連續點擊造成重複生產
@@ -7982,7 +7982,7 @@ document.getElementById('btnAddMopOutput').onclick = ()=>{
   renderMopOutputList();
 };
 document.getElementById('btnCancelMultiOutputProduce').onclick = ()=> multiOutputProduceOverlay.classList.remove('show');
-multiOutputProduceOverlay.onclick = (e)=>{ if(e.target === multiOutputProduceOverlay) multiOutputProduceOverlay.classList.remove('show'); };
+// multiOutputProduceOverlay：點表單外面不會關閉，避免誤觸讓輸入到一半的資料消失（請用「取消」或「儲存」）
 document.getElementById('btnSaveMultiOutputProduce').onclick = async ()=>{
   const saveBtn = document.getElementById('btnSaveMultiOutputProduce');
   if(saveBtn.disabled) return; // 防止連續點擊造成重複生產
@@ -8134,7 +8134,7 @@ document.getElementById('btnAddSemiBom').onclick = ()=>{
   openSemiBomForm(null);
 };
 document.getElementById('btnCancelSemiBom').onclick = ()=> semiBomFormOverlay.classList.remove('show');
-semiBomFormOverlay.onclick = (e)=>{ if(e.target === semiBomFormOverlay) semiBomFormOverlay.classList.remove('show'); };
+// semiBomFormOverlay：點表單外面不會關閉，避免誤觸讓輸入到一半的資料消失（請用「取消」或「儲存」）
 document.getElementById('btnSaveSemiBom').onclick = async ()=>{
   const semiGoodId = document.getElementById('sbfSemiGood').value;
   if(!semiGoodId){ showToast('請選擇半成品'); return; }
@@ -8229,7 +8229,7 @@ document.getElementById('mrDate').addEventListener('input', syncReceiptBatchNoFr
 document.getElementById('mrBatchNo').addEventListener('input', updateReceiptBatchHint);
 document.getElementById('mrSpec').addEventListener('input', updateReceiptTotal);
 document.getElementById('btnCancelReceipt').onclick = ()=> materialReceiptOverlay.classList.remove('show');
-materialReceiptOverlay.onclick = (e)=>{ if(e.target === materialReceiptOverlay) materialReceiptOverlay.classList.remove('show'); };
+// materialReceiptOverlay：點表單外面不會關閉，避免誤觸讓輸入到一半的資料消失（請用「取消」或「儲存」）
 
 const photoViewOverlay = document.getElementById('photoViewOverlay');
 document.getElementById('btnClosePhotoView').onclick = ()=> photoViewOverlay.classList.remove('show');
@@ -8464,7 +8464,7 @@ function openReceiptFix(rid){
 }
 function closeReceiptFix(){ document.getElementById('receiptFixOverlay').classList.remove('show'); fixingReceiptId = null; }
 document.getElementById('btnCancelReceiptFix').onclick = closeReceiptFix;
-document.getElementById('receiptFixOverlay').onclick = (e)=>{ if(e.target.id === 'receiptFixOverlay') closeReceiptFix(); };
+// receiptFixOverlay：點表單外面不會關閉，避免誤觸（請用「取消」）
 function snapshotReceipt(r){ return { pieces:r.pieces, spec:r.spec, qty:r.qty, batchNo:r.batchNo||'', mfgDate:r.mfgDate||'', expDate:r.expDate||'', receivedDate:r.receivedDate||'' }; }
 function findOrCreateBatch(m, batchNo){
   if(!m.batches) m.batches = [];
