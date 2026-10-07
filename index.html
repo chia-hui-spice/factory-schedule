@@ -437,6 +437,16 @@
   .qo-recent{ border:1.5px solid var(--teal); border-radius:10px; padding:10px; margin-bottom:8px; background:rgba(43,182,163,0.07); }
   .qo-irr{ flex:0 0 auto; height:40px; padding:0 10px; border-radius:8px; border:1.5px solid var(--line); background:none; color:var(--ink-dim); font-size:14.5px; font-weight:700; cursor:pointer; white-space:nowrap; }
   .qo-irr.on{ border-color:var(--orange, #F08A24); color:#fff; background:var(--orange, #F08A24); }
+  /* 日期欄位：可以直接打字（電腦），也可以按右邊的📅用選的（iPad） */
+  .dual-date{ display:flex; gap:6px; align-items:stretch; width:100%; }
+  .dual-date .dual-date-text{ flex:1 1 auto; min-width:0; width:100%; font-variant-numeric:tabular-nums; padding-left:8px !important; padding-right:6px !important; }
+  @media (max-width:480px){ .dual-date .dual-date-text{ font-size:15.5px !important; } .dual-date input.dual-date-native{ flex-basis:42px; width:42px !important; min-width:42px !important; } }
+  .dual-date .dual-date-text.invalid{ border-color:var(--red) !important; }
+  .dual-date input.dual-date-native{ position:relative; flex:0 0 48px; width:48px !important; min-width:48px !important; padding:0 !important; color:transparent !important; cursor:pointer;
+    background:var(--panel-raised, var(--panel)) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F2B705' stroke-width='2'%3E%3Crect x='3' y='5' width='18' height='16' rx='2'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E") center/22px no-repeat !important;
+    border:1.5px solid var(--line); border-radius:8px; }
+  .dual-date input.dual-date-native::-webkit-calendar-picker-indicator{ position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+  .dual-date input.dual-date-native::-webkit-datetime-edit{ display:none; }
 </style>
 </head>
 <body>
@@ -3399,8 +3409,8 @@ function renderManualMaterialBatchList(batches){
     return '<div class="material-batch-row" data-idx="'+idx+'">' +
       // 原料名稱欄位已拿掉，舊資料若有填過名稱，仍保留在 data-material-name 裡，儲存時不會遺失
       '<input type="hidden" class="mmbName" value="'+escapeHtml(b.materialName||'')+'">' +
-      '<div class="row3">' +
-        '<div class="field"><label>原料批號</label><input type="text" class="mmbBatchNo" placeholder="原料批號" value="'+escapeHtml(b.batchNo||'')+'"></div>' +
+      '<div class="field"><label>原料批號</label><input type="text" class="mmbBatchNo" placeholder="原料批號" value="'+escapeHtml(b.batchNo||'')+'"></div>' +
+      '<div class="row2">' +
         '<div class="field"><label>原料製造日期</label><input type="date" class="mmbMfgDate" value="'+escapeHtml(b.mfgDate||'')+'"></div>' +
         '<div class="field"><label>原料有效日期</label><input type="date" class="mmbExpDate" value="'+escapeHtml(b.expDate||'')+'"></div>' +
       '</div>' +
@@ -7369,8 +7379,8 @@ function renderFgBatchLotList(batches){
   }
   container.innerHTML = list.map((b, idx)=>{
     return '<div class="material-batch-row" data-idx="'+idx+'">' +
-      '<div class="row3">' +
-        '<div class="field"><label>批號</label><input type="text" class="fbBatchNo" placeholder="批號" value="'+escapeHtml(b.batchNo||'')+'"></div>' +
+      '<div class="field"><label>批號</label><input type="text" class="fbBatchNo" placeholder="批號" value="'+escapeHtml(b.batchNo||'')+'"></div>' +
+      '<div class="row2">' +
         '<div class="field"><label>製造日期</label><input type="date" class="fbMfgDate" value="'+escapeHtml(b.mfgDate||'')+'"></div>' +
         '<div class="field"><label>有效日期</label><input type="date" class="fbExpDate" value="'+escapeHtml(b.expDate||'')+'"></div>' +
       '</div>' +
@@ -7570,8 +7580,8 @@ function renderSemiGoodBatchLotList(batches){
   }
   container.innerHTML = list.map((b, idx)=>{
     return '<div class="material-batch-row" data-idx="'+idx+'">' +
-      '<div class="row3">' +
-        '<div class="field"><label>批號</label><input type="text" class="sgbBatchNo" placeholder="批號" value="'+escapeHtml(b.batchNo||'')+'"></div>' +
+      '<div class="field"><label>批號</label><input type="text" class="sgbBatchNo" placeholder="批號" value="'+escapeHtml(b.batchNo||'')+'"></div>' +
+      '<div class="row2">' +
         '<div class="field"><label>製造日期</label><input type="date" class="sgbMfgDate" value="'+escapeHtml(b.mfgDate||'')+'"></div>' +
         '<div class="field"><label>有效日期</label><input type="date" class="sgbExpDate" value="'+escapeHtml(b.expDate||'')+'"></div>' +
       '</div>' +
@@ -8995,6 +9005,95 @@ function handleAuthError(e){
 getRedirectResult(auth).catch((e)=>{ console.error(e); handleAuthError(e); });
 
 document.getElementById('signOutBtn').onclick = ()=> signOut(auth);
+
+
+// ================= 日期欄位：打字＋選擇兩用 =================
+// 每個 <input type="date"> 旁邊自動加一個可打字的欄位（YYYY/MM/DD，只打數字也行，例如 20261007；民國年 115/10/07 也可以）。
+// 原本的日期欄位保留當作「📅 選日期」按鈕，程式讀寫的仍是它的 value，所以其他功能完全不用改。
+(function setupDualDateInputs(){
+  const valueDesc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+  const toText = (v)=> v ? v.replace(/-/g, '/') : '';
+  function validYmd(y, m, d){
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+  }
+  function parseLoose(str){
+    const t = String(str || '').trim();
+    if(!t) return '';
+    let m = t.match(/^(\d{2,4})\D+(\d{1,2})\D+(\d{1,2})$/);
+    let y, mo, d;
+    if(m){ y = +m[1]; mo = +m[2]; d = +m[3]; if(y < 1000) y += 1911; }
+    else{
+      const digits = t.replace(/\D/g, '');
+      if(digits.length === 8){ y = +digits.slice(0,4); mo = +digits.slice(4,6); d = +digits.slice(6,8); }
+      else if(digits.length === 7){ y = +digits.slice(0,3) + 1911; mo = +digits.slice(3,5); d = +digits.slice(5,7); }
+      else return null;
+    }
+    if(!validYmd(y, mo, d)) return null;
+    return y + '-' + String(mo).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+  }
+  function fire(el){ el.dispatchEvent(new Event('input', { bubbles:true })); el.dispatchEvent(new Event('change', { bubbles:true })); }
+  function enhance(dateEl){
+    if(dateEl.dataset.dualDate || dateEl.classList.contains('flex-date-native-btn')) return;
+    dateEl.dataset.dualDate = '1';
+    const wrap = document.createElement('div');
+    wrap.className = 'dual-date';
+    const text = document.createElement('input');
+    text.type = 'text';
+    text.className = 'dual-date-text';
+    text.placeholder = 'YYYY/MM/DD';
+    text.setAttribute('inputmode', 'numeric');
+    text.autocomplete = 'off';
+    if(dateEl.style.cssText) text.style.cssText = dateEl.style.cssText;
+    dateEl.parentNode.insertBefore(wrap, dateEl);
+    wrap.appendChild(text);
+    wrap.appendChild(dateEl);
+    dateEl.classList.add('dual-date-native');
+    dateEl.title = '用選的';
+    text.value = toText(valueDesc.get.call(dateEl));
+    // 程式直接設定 value（例如自動帶入有效日期）時，打字欄也跟著更新
+    Object.defineProperty(dateEl, 'value', {
+      configurable: true,
+      get(){ return valueDesc.get.call(this); },
+      set(v){ valueDesc.set.call(this, v); if(document.activeElement !== text) text.value = toText(valueDesc.get.call(this)); text.classList.remove('invalid'); }
+    });
+    dateEl.addEventListener('change', ()=>{ text.value = toText(valueDesc.get.call(dateEl)); text.classList.remove('invalid'); });
+    dateEl.addEventListener('click', ()=>{ try{ dateEl.showPicker(); }catch(e){} });
+    const fmtDigits = (dg)=> dg.length > 6 ? dg.slice(0,4) + '/' + dg.slice(4,6) + '/' + dg.slice(6) : dg.length > 4 ? dg.slice(0,4) + '/' + dg.slice(4) : dg;
+    text.addEventListener('input', ()=>{
+      const raw = text.value;
+      if(raw.trim() === ''){ valueDesc.set.call(dateEl, ''); text.classList.remove('invalid'); fire(dateEl); return; }
+      if(!/^[\d\/]*$/.test(raw)) return; // 用其他分隔符號（- . 空白）打的，離開欄位時再判斷
+      const dg = raw.replace(/\D/g, '').slice(0, 8);
+      text.value = fmtDigits(dg);
+      if(dg.length === 8){
+        const iso = parseLoose(dg);
+        if(iso){ valueDesc.set.call(dateEl, iso); text.classList.remove('invalid'); fire(dateEl); }
+        else text.classList.add('invalid');
+      }
+    });
+    text.addEventListener('blur', ()=>{
+      if(!text.value.trim()){ text.classList.remove('invalid'); return; }
+      const raw = text.value.trim();
+      const iso = parseLoose(raw) || (/^[\d\/]*$/.test(raw) ? parseLoose(raw.replace(/\D/g,'')) : null);
+      if(iso){
+        if(iso !== valueDesc.get.call(dateEl)){ valueDesc.set.call(dateEl, iso); fire(dateEl); }
+        text.value = toText(iso); text.classList.remove('invalid');
+      }else{
+        text.classList.add('invalid');
+        showToast('日期格式不對，請輸入例如 2026/10/07 或 20261007');
+      }
+    });
+  }
+  function scan(root){
+    if(!root || !root.querySelectorAll) return;
+    if(root.matches && root.matches('input[type="date"]')) enhance(root);
+    root.querySelectorAll('input[type="date"]').forEach(enhance);
+  }
+  scan(document.body);
+  new MutationObserver(muts=>{ muts.forEach(m=> m.addedNodes.forEach(n=>{ if(n.nodeType === 1) scan(n); })); })
+    .observe(document.body, { childList:true, subtree:true });
+})();
 
 onAuthStateChanged(auth, async (user)=>{
   const gate = document.getElementById('loginGate');
