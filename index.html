@@ -472,7 +472,6 @@
     </div>
     <button class="i18n bell-btn" id="permBtn" title="權限管理" style="display:none;">🔐</button>
     <button class="i18n bell-btn" id="bomBtn" title="進銷存管理">📦</button>
-    <button class="bell-btn quick-stat-btn" id="lawBtn" title="法規鑑別">⚖️<span class="quick-badge todayrisk-badge" id="lawAlertCount" style="display:none;">0</span></button>
     <button class="i18n bell-btn" id="signOutBtn" title="登出">👤</button>
     <button class="i18n bell-btn" id="trashBtn" title="查看垃圾桶">🗑️</button>
     <button class="bell-btn quick-stat-btn" id="reportBtn" title="查看統計報表">📊<span class="quick-badge todayrisk-badge" id="reportAlertCount" style="display:none;">0</span></button>
@@ -1572,70 +1571,6 @@
   </div>
 </div>
 
-<div class="overlay" id="lawOverlay">
-  <div class="sheet">
-    <div class="sheet-handle"></div>
-    <h2>⚖️ 法規鑑別</h2>
-    <div class="report-updated" style="line-height:1.6;">列出本廠適用的食品法規，逐項判定是否符合並定期複核，衛生局稽查時可直接匯出法規鑑別表。法規名稱與修正日期請以「全國法規資料庫」最新公告為準。</div>
-    <div id="lawStats" style="display:flex; gap:6px; flex-wrap:wrap; margin:10px 0;"></div>
-    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
-      <button type="button" class="add-item-btn" id="btnAddLaw" style="flex:1 1 140px; margin:0;">＋ 新增法規</button>
-      <button type="button" class="split-btn" id="btnExportLaw" style="flex:1 1 140px;">📊 匯出法規鑑別表</button>
-    </div>
-    <button type="button" class="split-btn" id="btnSeedLaw" style="width:100%; margin-bottom:10px; border-color:var(--teal); color:var(--teal);">📥 載入常用法規清單（香辛料／調味粉製造）</button>
-    <input type="search" id="lawSearch" placeholder="搜尋法規名稱、主管機關、要點" style="width:100%; padding:10px 12px; font-size:16px; border-radius:10px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); margin-bottom:10px;">
-    <div id="lawList"></div>
-    <div class="sheet-actions" style="margin-top:14px;"><button type="button" class="btn-primary" style="flex:1;" id="btnCloseLaw">關閉</button></div>
-  </div>
-</div>
-
-<div class="overlay" id="lawFormOverlay" style="z-index:46;">
-  <div class="sheet">
-    <div class="sheet-handle"></div>
-    <h2 id="lawFormTitle">新增法規</h2>
-    <div class="field"><label>法規名稱 <span style="color:var(--red);">*</span></label><input type="text" id="lfName"></div>
-    <div class="row2">
-      <div class="field"><label>類別</label><select id="lfCategory"><option>法律</option><option>法規命令</option><option>衛生標準</option><option>公告</option><option>其他</option></select></div>
-      <div class="field"><label>主管機關</label><input type="text" id="lfAuthority" placeholder="例如 衛生福利部"></div>
-    </div>
-    <div class="row2">
-      <div class="field"><label>最新修正／發布日期</label><input type="date" id="lfAmendDate"></div>
-      <div class="field"><label>複核週期（月）</label><input type="number" id="lfCycle" min="1" step="1" placeholder="12"></div>
-    </div>
-    <div class="field"><label>法規連結（全國法規資料庫或公告網址）</label><input type="text" id="lfUrl" placeholder="https://law.moj.gov.tw/..."></div>
-    <div class="field"><label>適用範圍／對應本廠產品或製程</label><input type="text" id="lfScope" placeholder="例如 全廠、需照射滅菌之產品"></div>
-    <div class="field"><label>鑑別要點（要查核的條文或重點）</label><textarea id="lfPoints" rows="3" style="width:100%;"></textarea></div>
-    <div class="field"><label>佐證資料（文件名稱、存放位置、系統功能）</label><input type="text" id="lfEvidence" placeholder="例如 原料COA、登錄字號、衛生管理紀錄"></div>
-    <div class="section-label">本次鑑別</div>
-    <div class="row2">
-      <div class="field"><label>鑑別結果</label><select id="lfStatus"><option value="pending">待鑑別</option><option value="comply">符合</option><option value="noncomply">不符合</option><option value="na">不適用</option></select></div>
-      <div class="field"><label>鑑別日期</label><input type="date" id="lfReviewDate"></div>
-    </div>
-    <div id="lfNonComply">
-      <div class="field"><label>改善對策</label><input type="text" id="lfAction"></div>
-      <div class="row2">
-        <div class="field"><label>負責人</label><input type="text" id="lfOwner"></div>
-        <div class="field"><label>完成期限</label><input type="date" id="lfDue"></div>
-      </div>
-    </div>
-    <div class="field"><label>鑑別說明（選填）</label><input type="text" id="lfNote" placeholder="例如 已確認添加物皆為准用品項"></div>
-    <details style="margin:6px 0 4px; border:1px solid var(--line); border-radius:10px; padding:8px 10px;">
-      <summary style="font-weight:800; cursor:pointer;">📢 登記法規修正（法規有新版本時使用）</summary>
-      <div class="row2" style="margin-top:8px;">
-        <div class="field"><label>新修正日期</label><input type="date" id="lfNewAmendDate"></div>
-        <div class="field"><label>修正重點</label><input type="text" id="lfAmendSummary" placeholder="例如 新增OO限量"></div>
-      </div>
-      <button type="button" class="split-btn" id="btnLawAmend" style="width:100%;">登記修正（會改成「待鑑別」，需重新判定）</button>
-    </details>
-    <div id="lfHistory"></div>
-    <div class="sheet-actions">
-      <button type="button" class="btn-secondary" id="btnCancelLaw">取消</button>
-      <button type="button" class="btn-primary" id="btnSaveLaw">儲存</button>
-    </div>
-    <button type="button" class="btn-delete" id="btnDeleteLaw" style="display:none;">刪除這筆法規</button>
-  </div>
-</div>
-
 <div class="overlay" id="quickOrderOverlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
@@ -1916,7 +1851,6 @@ const ordersDocRef = doc(db, dataPrefix, 'orders');
 const backupDocRef = doc(db, dataPrefix, 'backupState');
 const bomDataDocRef = doc(db, dataPrefix, 'bomData');
 const climateDataDocRef = doc(db, dataPrefix, 'climateData');
-const lawDataDocRef = doc(db, dataPrefix, 'regulations');
 const permissionsDocRef = doc(db, dataPrefix, 'permissions');
 // 正式資料的參照（測試模式下用於「合併到正式版」功能）
 const prodOrdersDocRef = doc(db, 'appData', 'orders');
@@ -2199,7 +2133,6 @@ const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui
 const HYGIENE_FEATURE_ENABLED = false; // 衛生管理功能開關：改成 true 即可恢復顯示，資料不受影響
 const PERM_BUTTON_OPTIONS = [
   { id: 'bomBtn', label: '📦 進銷存管理' },
-  { id: 'lawBtn', label: '⚖️ 法規鑑別' },
   { id: 'reportBtn', label: '📊 統計報表' },
   { id: 'trashBtn', label: '🗑️ 垃圾桶' },
   { id: 'bellBtn', label: '🔔 出貨提醒通知' }
@@ -3851,193 +3784,6 @@ document.getElementById('priUrgent').onclick = ()=>{ selectedPriority = 'urgent'
 
 document.getElementById('fabAdd').onclick = ()=> openSheet(null, null);
 
-
-// ================= ⚖️ 法規鑑別 =================
-// 資料存在獨立文件 regulations，不佔用訂單與進銷存的空間
-let lawItems = [];
-let editingLawId = null;
-const LAW_STATUS = { pending:{ label:'待鑑別', color:'var(--amber)' }, comply:{ label:'符合', color:'var(--teal)' }, noncomply:{ label:'不符合', color:'var(--red)' }, na:{ label:'不適用', color:'var(--ink-dim)' } };
-const LAW_SEARCH = (name)=> 'https://law.moj.gov.tw/Law/LawSearchResult.aspx?ty=ONEBAR&kw=' + encodeURIComponent(name);
-// 常用法規清單：修正日期為建檔時（2026/10）查到的資料；空白的請到連結確認最新版本
-const LAW_SEED = [
-  { name:'食品安全衛生管理法', category:'法律', authority:'衛生福利部', amendDate:'2019-06-12', url:'https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=L0040001', scope:'全廠', points:'食品業者登錄、追溯追蹤、產品標示（第22條）、添加物使用、自主管理與檢驗、產品責任保險等義務是否落實' },
-  { name:'食品安全衛生管理法施行細則', category:'法規命令', authority:'衛生福利部', amendDate:'', url:'https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=L0040003', scope:'全廠', points:'標示用詞、日期標示方式等細部規定' },
-  { name:'食品良好衛生規範準則', category:'法規命令', authority:'衛生福利部', amendDate:'2025-06-04', url:LAW_SEARCH('食品良好衛生規範準則'), scope:'全廠（作業場所、人員、製程、倉儲、運輸）', points:'作業場所與設備清潔消毒、病媒防治、從業人員健康檢查與衛生教育、製程及品質管制紀錄、倉儲溫溼度管理', evidence:'本系統：衛生管理（人員／機器）、溫溼度紀錄' },
-  { name:'食品工廠建築及設備設廠標準', category:'法規命令', authority:'衛生福利部、經濟部', amendDate:'2018-09-27', url:'https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=J0030045', scope:'工廠建築與設備', points:'廠區、作業區域劃分、設備與給排水是否符合設廠標準' },
-  { name:'食品業者登錄辦法', category:'法規命令', authority:'衛生福利部', amendDate:'2020-04-29', url:'https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=L0040112', scope:'全廠', points:'是否完成食品業者登錄、登錄字號、登錄內容變更與每年定期申報確認', evidence:'食品業者登錄字號' },
-  { name:'食品及其相關產品追溯追蹤系統管理辦法', category:'法規命令', authority:'衛生福利部', amendDate:'2018-10-03', url:'https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=L0040111', scope:'原料、半成品、成品', points:'原料來源、產品流向、批號紀錄是否完整可追溯，紀錄保存期限', evidence:'本系統：原料追溯、進貨紀錄、出貨紀錄、食安緊急召回查詢' },
-  { name:'應建立食品追溯追蹤系統之食品業者（公告）', category:'公告', authority:'衛生福利部', amendDate:'2024-11-15', url:LAW_SEARCH('應建立食品追溯追蹤系統之食品業者'), scope:'全廠', points:'確認本廠業別與規模是否列管，及是否需電子申報' },
-  { name:'食品添加物使用範圍及限量暨規格標準', category:'衛生標準', authority:'衛生福利部', amendDate:'2025-05-07', url:LAW_SEARCH('食品添加物使用範圍及限量暨規格標準'), scope:'使用食品添加物之產品', points:'使用之添加物是否為准用品項、使用範圍與限量，添加物是否有許可字號', evidence:'本系統：食品添加物紀錄簿、成品配方' },
-  { name:'食品中污染物質及毒素衛生標準', category:'衛生標準', authority:'衛生福利部', amendDate:'2024-11-28', url:'https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=L0040138', scope:'香辛料原料與產品', points:'真菌毒素（如黃麴毒素）、重金屬等限量；原料 COA 或檢驗報告', evidence:'原料 COA、檢驗報告' },
-  { name:'農藥殘留容許量標準', category:'衛生標準', authority:'衛生福利部', amendDate:'', url:LAW_SEARCH('農藥殘留容許量標準'), scope:'農產原料（香辛料）', points:'原料農藥殘留檢驗結果是否符合容許量（此標準修正頻繁，請每次複核時確認最新版）', evidence:'原料檢驗報告' },
-  { name:'食品中微生物衛生標準', category:'衛生標準', authority:'衛生福利部', amendDate:'2020-10-06', url:LAW_SEARCH('食品中微生物衛生標準'), scope:'成品', points:'確認本廠產品類別適用之微生物項目與限量（110年7月1日施行）', evidence:'本系統：品管COA（總生菌數、大腸桿菌群、大腸桿菌）' },
-  { name:'食品輻射照射處理標準', category:'衛生標準', authority:'衛生福利部', amendDate:'2024-01-19', url:'https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=L0040096', scope:'需照射滅菌之產品', points:'照射品項是否准許、吸收劑量上限、照射目的；委外照射廠之處理紀錄', evidence:'照射處理證明' },
-  { name:'經輻射處理之食品應顯著標示輻射照射處理標章（公告）', category:'公告', authority:'衛生福利部', amendDate:'', url:'https://www.fda.gov.tw/tc/newsContent.aspx?cid=3&id=10220', scope:'需照射滅菌之產品', points:'經照射之產品包裝是否顯著標示照射處理標章', evidence:'本系統：標籤印製「確認已印有照射滅菌標籤」紀錄' },
-  { name:'食品器具容器包裝衛生標準', category:'衛生標準', authority:'衛生福利部', amendDate:'2023-01-11', url:'https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=L0040019', scope:'包材', points:'與食品接觸之包材材質是否符合標準，供應商是否提供檢驗報告', evidence:'本系統：包材進貨紀錄；包材檢驗報告' },
-  { name:'食品過敏原標示規定', category:'公告', authority:'衛生福利部', amendDate:'', url:LAW_SEARCH('食品過敏原標示'), scope:'含過敏原之產品', points:'產品含應標示之過敏原（目前共 11 項）時，標示是否正確' },
-  { name:'包裝食品營養標示應遵行事項', category:'公告', authority:'衛生福利部', amendDate:'', url:LAW_SEARCH('包裝食品營養標示應遵行事項'), scope:'包裝成品', points:'營養標示格式、項目與數值是否正確' },
-  { name:'食品製造工廠衛生管理人員設置辦法', category:'法規命令', authority:'衛生福利部', amendDate:'2019-04-09', url:'https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=L0040005', scope:'人員', points:'是否設置衛生管理人員、資格證明、每年在職訓練時數', evidence:'衛生管理人員證書、訓練紀錄' },
-  { name:'應訂定食品安全監測計畫與應辦理檢驗之食品業者、最低檢驗週期及其他相關事項（公告）', category:'公告', authority:'衛生福利部', amendDate:'', url:'https://www.fda.gov.tw/TC/newsContent.aspx?cid=3&id=30270', scope:'全廠', points:'是否列管、食品安全監測計畫、檢驗項目與最低檢驗週期、紀錄保存（近年有擴大納管，請確認最新公告）' },
-  { name:'食品業者投保產品責任保險（公告）', category:'公告', authority:'衛生福利部', amendDate:'2021-09-28', url:LAW_SEARCH('食品業者投保產品責任保險'), scope:'全廠', points:'保單是否有效、保險金額是否符合規定', evidence:'產品責任保險保單' }
-];
-function rocDate(iso){ if(!iso) return ''; const [y,m,d] = iso.split('-'); return '民國' + (parseInt(y,10) - 1911) + '年' + m + '月' + d + '日'; }
-function lawNextReview(it){
-  if(!it.lastReviewDate) return '';
-  return addMonthsToDate(it.lastReviewDate, parseInt(it.reviewCycleMonths, 10) || 12);
-}
-function lawIsDue(it){ const n = lawNextReview(it); return !!n && n <= todayStr(); }
-function lawNeedsAttention(it){ return it.status === 'pending' || it.status === 'noncomply' || lawIsDue(it); }
-function loadLawData(){
-  onSnapshot(lawDataDocRef, (snap)=>{
-    lawItems = snap.exists() ? (snap.data().items || []) : [];
-    updateLawBadge();
-    if(document.getElementById('lawOverlay').classList.contains('show')) renderLawList();
-  }, (err)=> console.error(err));
-}
-async function saveLawData(){
-  try{ await setDoc(lawDataDocRef, { items: lawItems }); return true; }
-  catch(e){ console.error(e); showAlert('法規鑑別資料沒有存進雲端，請確認網路後再試一次。\n（' + (e.message || e) + '）', '❌ 儲存失敗'); return false; }
-}
-function updateLawBadge(){
-  const n = lawItems.filter(lawNeedsAttention).length;
-  const b = document.getElementById('lawAlertCount');
-  b.textContent = n; b.style.display = n ? '' : 'none';
-}
-let lawFilter = 'all';
-function renderLawList(){
-  const stats = { all: lawItems.length, pending: 0, noncomply: 0, due: 0, comply: 0 };
-  lawItems.forEach(it=>{ if(it.status==='pending') stats.pending++; if(it.status==='noncomply') stats.noncomply++; if(it.status==='comply') stats.comply++; if(lawIsDue(it)) stats.due++; });
-  const chip = (key, label, n, color)=> '<button type="button" data-law-filter="' + key + '" style="padding:6px 10px; border-radius:16px; font-size:14.5px; font-weight:700; cursor:pointer; border:1.5px solid ' + (lawFilter===key ? color : 'var(--line)') + '; background:' + (lawFilter===key ? 'rgba(242,183,5,0.10)' : 'none') + '; color:' + color + ';">' + label + ' ' + n + '</button>';
-  document.getElementById('lawStats').innerHTML = chip('all','全部',stats.all,'var(--ink)') + chip('pending','待鑑別',stats.pending,'var(--amber)') + chip('noncomply','不符合',stats.noncomply,'var(--red)') + chip('due','到期需複核',stats.due,'var(--red)') + chip('comply','符合',stats.comply,'var(--teal)');
-  document.querySelectorAll('[data-law-filter]').forEach(b=> b.onclick = ()=>{ lawFilter = b.dataset.lawFilter; renderLawList(); });
-  const kw = (document.getElementById('lawSearch').value || '').trim().toLowerCase();
-  let list = lawItems.filter(it=>{
-    if(lawFilter === 'pending' && it.status !== 'pending') return false;
-    if(lawFilter === 'noncomply' && it.status !== 'noncomply') return false;
-    if(lawFilter === 'comply' && it.status !== 'comply') return false;
-    if(lawFilter === 'due' && !lawIsDue(it)) return false;
-    if(kw && !((it.name||'') + ' ' + (it.authority||'') + ' ' + (it.points||'') + ' ' + (it.scope||'')).toLowerCase().includes(kw)) return false;
-    return true;
-  });
-  const order = { noncomply:0, pending:1, comply:2, na:3 };
-  list.sort((a,b)=> (lawIsDue(b) - lawIsDue(a)) || (order[a.status] - order[b.status]) || String(a.name).localeCompare(String(b.name), 'zh-Hant'));
-  const el = document.getElementById('lawList');
-  if(lawItems.length === 0){ el.innerHTML = '<div class="ship-list-empty">還沒有任何法規。可以按上方「📥 載入常用法規清單」快速建立，再逐項鑑別。</div>'; return; }
-  if(list.length === 0){ el.innerHTML = '<div class="ship-list-empty">沒有符合條件的法規</div>'; return; }
-  el.innerHTML = list.map(it=>{
-    const st = LAW_STATUS[it.status] || LAW_STATUS.pending;
-    const next = lawNextReview(it);
-    const due = lawIsDue(it);
-    return '<div class="material-item" data-law-id="' + it.id + '" style="cursor:pointer;">' +
-      '<div class="material-item-top"><div class="material-item-name" style="font-size:16.5px;">' + escapeHtml(it.name) + (it.needsReReview ? ' <span style="color:var(--amber); font-size:13px;">📢 法規已修正</span>' : '') + '</div>' +
-        '<span class="badge" style="color:' + st.color + '; border:1.5px solid ' + st.color + '; white-space:nowrap;">' + st.label + '</span></div>' +
-      '<div class="material-item-meta" style="line-height:1.6;">' + escapeHtml(it.category||'') + (it.authority ? '　' + escapeHtml(it.authority) : '') + (it.amendDate ? '　最新修正 ' + rocDate(it.amendDate) : '　<span style="color:var(--amber);">修正日期待確認</span>') +
-        '<br>' + (it.lastReviewDate ? '上次鑑別 ' + it.lastReviewDate + (it.reviewer ? '（' + escapeHtml(it.reviewer) + '）' : '') + '　' : '') +
-        (next ? '<span style="' + (due ? 'color:var(--red); font-weight:800;' : '') + '">下次複核 ' + next + (due ? '（已到期）' : '') + '</span>' : '<span style="color:var(--amber);">尚未鑑別</span>') +
-        (it.status === 'noncomply' && it.action ? '<br><span style="color:var(--red);">改善：' + escapeHtml(it.action) + (it.owner ? '／' + escapeHtml(it.owner) : '') + (it.actionDue ? '／期限 ' + it.actionDue : '') + '</span>' : '') +
-      '</div>' +
-      (it.url ? '<a href="' + escapeHtml(it.url) + '" target="_blank" rel="noopener" data-law-link="1" style="display:inline-block; margin-top:6px; font-size:14px; color:var(--teal);">🔗 查看法規原文</a>' : '') +
-    '</div>';
-  }).join('');
-  el.querySelectorAll('[data-law-link]').forEach(a=> a.addEventListener('click', e=> e.stopPropagation()));
-  el.querySelectorAll('[data-law-id]').forEach(card=> card.onclick = ()=> openLawForm(lawItems.find(x=>x.id===card.dataset.lawId)));
-}
-function syncLawNonComplyVisibility(){ document.getElementById('lfNonComply').style.display = document.getElementById('lfStatus').value === 'noncomply' ? '' : 'none'; }
-document.getElementById('lfStatus').addEventListener('change', syncLawNonComplyVisibility);
-function openLawForm(it){
-  editingLawId = it ? it.id : null;
-  document.getElementById('lawFormTitle').textContent = it ? '法規鑑別' : '新增法規';
-  const v = (id, val)=>{ document.getElementById(id).value = val || ''; };
-  v('lfName', it && it.name); v('lfCategory', (it && it.category) || '法規命令'); v('lfAuthority', it ? it.authority : '衛生福利部');
-  v('lfAmendDate', it && it.amendDate); v('lfCycle', it ? (it.reviewCycleMonths || 12) : 12); v('lfUrl', it && it.url);
-  v('lfScope', it && it.scope); v('lfPoints', it && it.points); v('lfEvidence', it && it.evidence);
-  v('lfStatus', (it && it.status) || 'pending'); v('lfReviewDate', todayStr());
-  v('lfAction', it && it.action); v('lfOwner', it && it.owner); v('lfDue', it && it.actionDue); v('lfNote', '');
-  v('lfNewAmendDate', ''); v('lfAmendSummary', '');
-  syncLawNonComplyVisibility();
-  const hist = [];
-  ((it && it.reviews) || []).slice().reverse().forEach(r=> hist.push('<div>' + r.date + '　' + escapeHtml((LAW_STATUS[r.status]||{}).label || r.status) + '　' + escapeHtml(r.by || '') + (r.note ? '：' + escapeHtml(r.note) : '') + '</div>'));
-  ((it && it.amendments) || []).slice().reverse().forEach(a=> hist.push('<div style="color:var(--amber);">📢 ' + (a.date || '') + ' 法規修正' + (a.summary ? '：' + escapeHtml(a.summary) : '') + '（' + escapeHtml(a.by || '') + ' 登記）</div>'));
-  document.getElementById('lfHistory').innerHTML = hist.length ? '<div class="section-label">鑑別與修正紀錄</div><div style="font-size:14px; color:var(--ink-dim); line-height:1.7;">' + hist.join('') + '</div>' : '';
-  document.getElementById('btnDeleteLaw').style.display = it ? 'block' : 'none';
-  document.getElementById('lawFormOverlay').classList.add('show');
-}
-document.getElementById('lawBtn').onclick = ()=>{ lawFilter = 'all'; document.getElementById('lawSearch').value = ''; renderLawList(); document.getElementById('lawOverlay').classList.add('show'); };
-document.getElementById('btnCloseLaw').onclick = ()=> document.getElementById('lawOverlay').classList.remove('show');
-document.getElementById('lawOverlay').onclick = (e)=>{ if(e.target.id === 'lawOverlay') e.target.classList.remove('show'); };
-document.getElementById('lawSearch').addEventListener('input', renderLawList);
-document.getElementById('btnAddLaw').onclick = ()=> openLawForm(null);
-document.getElementById('btnCancelLaw').onclick = ()=> document.getElementById('lawFormOverlay').classList.remove('show');
-document.getElementById('btnSaveLaw').onclick = async ()=>{
-  const g = (id)=> document.getElementById(id).value.trim();
-  if(!g('lfName')){ showToast('請填寫法規名稱'); return; }
-  const status = g('lfStatus');
-  if(status === 'noncomply' && !g('lfAction')){ showToast('判定「不符合」時，請填寫改善對策'); return; }
-  let it = editingLawId ? lawItems.find(x=>x.id===editingLawId) : null;
-  if(!it){ it = { id:'law_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), status:'pending', reviews:[], amendments:[] }; lawItems.push(it); }
-  const prevStatus = it.status;
-  Object.assign(it, { name:g('lfName'), category:g('lfCategory'), authority:g('lfAuthority'), amendDate:g('lfAmendDate'), reviewCycleMonths: parseInt(g('lfCycle'),10) || 12,
-    url:g('lfUrl'), scope:g('lfScope'), points:document.getElementById('lfPoints').value.trim(), evidence:g('lfEvidence'),
-    action: status === 'noncomply' ? g('lfAction') : '', owner: status === 'noncomply' ? g('lfOwner') : '', actionDue: status === 'noncomply' ? g('lfDue') : '' });
-  // 判定為符合／不符合／不適用 → 算一次鑑別，記錄日期與人員
-  if(status !== 'pending' && (status !== prevStatus || g('lfNote') || it.needsReReview || !it.lastReviewDate || lawIsDue(it))){
-    const date = g('lfReviewDate') || todayStr();
-    (it.reviews = it.reviews || []).push({ date, status, by: currentUserEmail || '', note: g('lfNote') });
-    it.lastReviewDate = date; it.reviewer = currentUserEmail || ''; it.needsReReview = false;
-  }
-  it.status = status;
-  if(await saveLawData()){ updateLawBadge(); renderLawList(); document.getElementById('lawFormOverlay').classList.remove('show'); showToast('已儲存'); }
-};
-document.getElementById('btnLawAmend').onclick = async ()=>{
-  const it = editingLawId ? lawItems.find(x=>x.id===editingLawId) : null;
-  if(!it){ showToast('請先儲存這筆法規'); return; }
-  const date = document.getElementById('lfNewAmendDate').value;
-  if(!date){ showToast('請填寫新修正日期'); return; }
-  (it.amendments = it.amendments || []).push({ date, summary: document.getElementById('lfAmendSummary').value.trim(), by: currentUserEmail || '', at: Date.now() });
-  it.amendDate = date; it.status = 'pending'; it.needsReReview = true;
-  if(await saveLawData()){ updateLawBadge(); renderLawList(); openLawForm(it); showToast('已登記法規修正，請重新鑑別'); }
-};
-document.getElementById('btnDeleteLaw').onclick = async ()=>{
-  const ok = await showConfirm('刪除後這筆法規的鑑別紀錄也會一起刪除。', '確定要刪除嗎？');
-  if(!ok) return;
-  lawItems = lawItems.filter(x=>x.id!==editingLawId);
-  if(await saveLawData()){ updateLawBadge(); renderLawList(); document.getElementById('lawFormOverlay').classList.remove('show'); }
-};
-document.getElementById('btnSeedLaw').onclick = async ()=>{
-  const existing = new Set(lawItems.map(x=>x.name));
-  const add = LAW_SEED.filter(x=>!existing.has(x.name));
-  if(!add.length){ showToast('常用法規都已經在清單裡了'); return; }
-  const ok = await showConfirm('會新增 ' + add.length + ' 筆常用法規（已存在的會略過），狀態都是「待鑑別」。\n修正日期是建檔時查到的資料，空白的請點連結確認最新版本；是否適用、是否符合，請由品保人員逐項判定。', '載入常用法規清單？');
-  if(!ok) return;
-  const stamp = Date.now();
-  add.forEach((x, i)=> lawItems.push(Object.assign({ id:'law_' + stamp + '_' + i, status:'pending', reviewCycleMonths:12, reviews:[], amendments:[], evidence:'' }, x)));
-  if(await saveLawData()){ updateLawBadge(); renderLawList(); showToast('已載入 ' + add.length + ' 筆，請逐項鑑別'); }
-};
-document.getElementById('btnExportLaw').onclick = ()=>{
-  if(typeof XLSX === 'undefined'){ showToast('Excel 元件載入失敗，請檢查網路後重新整理再試'); return; }
-  if(!lawItems.length){ showToast('還沒有任何法規'); return; }
-  const rows = lawItems.map((it, i)=>({
-    '項次': i+1, '法規名稱': it.name, '類別': it.category||'', '主管機關': it.authority||'', '最新修正日期': it.amendDate ? rocDate(it.amendDate) : '待確認',
-    '適用範圍／對應製程': it.scope||'', '鑑別要點': it.points||'', '鑑別結果': (LAW_STATUS[it.status]||{}).label || '',
-    '佐證資料': it.evidence||'', '改善對策': it.action||'', '負責人': it.owner||'', '完成期限': it.actionDue||'',
-    '最近鑑別日期': it.lastReviewDate||'', '鑑別人員': it.reviewer||'', '下次複核日期': lawNextReview(it), '法規連結': it.url||''
-  }));
-  const reviewRows = [];
-  lawItems.forEach(it=> (it.reviews||[]).forEach(r=> reviewRows.push({ '日期': r.date, '法規名稱': it.name, '鑑別結果': (LAW_STATUS[r.status]||{}).label || r.status, '鑑別人員': r.by||'', '說明': r.note||'' })));
-  const amendRows = [];
-  lawItems.forEach(it=> (it.amendments||[]).forEach(a=> amendRows.push({ '修正日期': a.date, '法規名稱': it.name, '修正重點': a.summary||'', '登記人員': a.by||'' })));
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(rows);
-  ws['!cols'] = [{wch:5},{wch:34},{wch:9},{wch:14},{wch:12},{wch:22},{wch:44},{wch:9},{wch:28},{wch:22},{wch:9},{wch:12},{wch:12},{wch:22},{wch:12},{wch:40}];
-  XLSX.utils.book_append_sheet(wb, ws, '法規鑑別表');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(reviewRows.length ? reviewRows.sort((a,b)=>String(b['日期']).localeCompare(String(a['日期']))) : [{'日期':'(尚無紀錄)'}]), '鑑別紀錄');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(amendRows.length ? amendRows : [{'修正日期':'(尚無紀錄)'}]), '法規修正紀錄');
-  const wbout = XLSX.write(wb, { bookType:'xlsx', type:'array' });
-  const url = URL.createObjectURL(new Blob([wbout], { type:'application/octet-stream' }));
-  const a = document.createElement('a'); a.href = url; a.download = '法規鑑別表_' + todayStr() + '.xlsx'; a.click();
-  URL.revokeObjectURL(url);
-  showToast('已匯出法規鑑別表');
-};
 
 // ================= ⚡ 快速多品項下單 =================
 // 一次輸入整張訂單：共用資料填一次，品項用表格逐列輸入；可一鍵複製這位客戶上一張訂單的品項
@@ -9369,7 +9115,6 @@ onAuthStateChanged(auth, async (user)=>{
     loadBomData();
     loadPermissions();
     loadClimateData();
-    loadLawData();
   }
 });
 </script>
