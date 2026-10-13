@@ -1583,7 +1583,7 @@
     <div id="qoRecent"></div>
     <div class="row2">
       <div class="field"><label>預計需求出貨日期 <span style="color:var(--red);">*</span></label><input type="date" id="qoDue"></div>
-      <div class="field"><label>填寫人員</label><select id="qoFilledBy"></select></div>
+      <div class="field"><label>填寫人員</label><select id="qoFilledBy"></select><input type="text" id="qoFilledByCustom" placeholder="輸入姓名" style="margin-top:8px; display:none;"></div>
     </div>
     <div class="row2">
       <div class="field"><label>COA</label><select id="qoCoa"></select></div>
@@ -3806,6 +3806,21 @@ function qoItemsOfOrder(o){
   });
   return out;
 }
+function qoGetFilledBy(){
+  const sel = document.getElementById('qoFilledBy');
+  return sel.value === '自訂' ? document.getElementById('qoFilledByCustom').value.trim() : sel.value;
+}
+function qoSetFilledBy(name){
+  const sel = document.getElementById('qoFilledBy');
+  const custom = document.getElementById('qoFilledByCustom');
+  if(Array.from(sel.options).some(o=>o.value===name && name!=='自訂')){ sel.value = name; custom.style.display = 'none'; }
+  else { sel.value = '自訂'; custom.value = name; custom.style.display = ''; }
+}
+document.getElementById('qoFilledBy').addEventListener('change', function(){
+  const custom = document.getElementById('qoFilledByCustom');
+  custom.style.display = this.value === '自訂' ? '' : 'none';
+  if(this.value === '自訂') custom.focus();
+});
 function openQuickOrder(){
   qoRows = [qoBlankRow(), qoBlankRow(), qoBlankRow()];
   const custs = [];
@@ -3813,7 +3828,16 @@ function openQuickOrder(){
   document.getElementById('qoCustomerList').innerHTML = custs.map(c=>'<option value="'+escapeHtml(c)+'">').join('');
   document.getElementById('qoCustomer').value = '';
   document.getElementById('qoDue').value = todayStr();
-  document.getElementById('qoFilledBy').innerHTML = Array.from(document.getElementById('fFilledBy').options).filter(o=>o.value!=='自訂').map(o=>'<option value="'+escapeHtml(o.value)+'">'+escapeHtml(o.textContent)+'</option>').join('');
+  // 填寫人員：固定名單 + 以前訂單用「自訂」填過的名字 + 「自訂」
+  {
+    const base = Array.from(document.getElementById('fFilledBy').options).map(o=>o.value).filter(v=>v && v!=='自訂');
+    const used = [];
+    orders.forEach(o=> (o.items||[]).forEach(it=>{ if(it.filledBy && !base.includes(it.filledBy) && !used.includes(it.filledBy)) used.push(it.filledBy); }));
+    document.getElementById('qoFilledBy').innerHTML = '<option value="">請選擇</option>' +
+      base.concat(used).map(v=>'<option value="'+escapeHtml(v)+'">'+escapeHtml(v)+'</option>').join('') + '<option value="自訂">自訂（輸入其他姓名）</option>';
+  }
+  document.getElementById('qoFilledByCustom').value = '';
+  document.getElementById('qoFilledByCustom').style.display = 'none';
   document.getElementById('qoCoa').innerHTML = document.getElementById('fCoa').innerHTML;
   document.getElementById('qoFilledBy').value = '';
   document.getElementById('qoCoa').value = '';
@@ -3859,7 +3883,7 @@ async function qoCopyOrder(orderId){
   qoRows.push(qoBlankRow());
   const first = items[0] || {};
   if(!document.getElementById('qoCoa').value && first.coa) document.getElementById('qoCoa').value = first.coa;
-  if(!document.getElementById('qoFilledBy').value && first.filledBy) document.getElementById('qoFilledBy').value = first.filledBy;
+  if(!qoGetFilledBy() && first.filledBy) qoSetFilledBy(first.filledBy);
   renderQoRows();
   qoSyncIrrAll();
   showToast('已帶入 ' + items.length + ' 個品項，請確認數量');
@@ -3951,7 +3975,8 @@ document.getElementById('qoSave').onclick = async ()=>{
     if(!(parseInt(r.qty, 10) > 0)) problems.push('第' + n + '列的數量');
   });
   if(problems.length){ showToast('請填寫：' + problems.join('、')); return; }
-  const filledBy = document.getElementById('qoFilledBy').value;
+  const filledBy = qoGetFilledBy();
+  if(document.getElementById('qoFilledBy').value === '自訂' && !filledBy){ showToast('請輸入填寫人員姓名'); document.getElementById('qoFilledByCustom').focus(); return; }
   const coa = document.getElementById('qoCoa').value;
   const note = document.getElementById('qoNote').value.trim();
   const priority = document.getElementById('qoUrgent').checked ? 'urgent' : 'normal';
@@ -9007,6 +9032,13 @@ getRedirectResult(auth).catch((e)=>{ console.error(e); handleAuthError(e); });
 
 document.getElementById('signOutBtn').onclick = ()=> signOut(auth);
 
+
+// ================= 防止滑鼠滾輪誤改數字 =================
+// 數字欄位在游標停留時，滾動滑鼠滾輪會讓數字加減。這裡改成：滾輪一動就先離開該欄位，數字不變、頁面照常捲動
+document.addEventListener('wheel', (e)=>{
+  const el = document.activeElement;
+  if(el && el.tagName === 'INPUT' && el.type === 'number' && (e.target === el || el.contains(e.target))) el.blur();
+}, { passive: true });
 
 // ================= 日期欄位：打字＋選擇兩用 =================
 // 每個 <input type="date"> 旁邊自動加一個可打字的欄位（YYYY/MM/DD，只打數字也行，例如 20261007；民國年 115/10/07 也可以）。
