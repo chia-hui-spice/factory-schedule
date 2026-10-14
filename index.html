@@ -1742,9 +1742,10 @@
           <div class="field"><label>許可證到期日 <span style="color:var(--red);">*</span></label><input type="date" id="mfPermitExp"></div>
         </div>
         <div class="field">
-          <label>許可證照片 <span style="color:var(--red);">*</span></label>
+          <label>許可證照片（正面、反面都要拍，可以多頁） <span style="color:var(--red);">*</span></label>
           <div id="mfPermitPhotoWrap" style="margin-bottom:6px;"></div>
-          <input type="file" id="mfPermitPhoto" accept="image/*">
+          <label for="mfPermitPhoto" class="split-btn" style="display:inline-block; cursor:pointer; padding:8px 14px;">📷 新增一頁（可一次選多張）</label>
+          <input type="file" id="mfPermitPhoto" accept="image/*" multiple style="display:none;">
         </div>
       </div>
     </div>
@@ -6088,6 +6089,7 @@ document.getElementById('btnMergeToProd').onclick = async ()=>{
     // 測試資料裡的照片存在測試區，合併到正式版時一併複製過去
     const photoIds = new Set();
     receipts.forEach(r=>{ if(r.photoId) photoIds.add(r.photoId); });
+    additives.forEach(a=> permitPhotoList(a).forEach(pid=> photoIds.add(pid)));
     [materials, additives, packagings].forEach(list=> list.forEach(m=> (m.batches||[]).forEach(b=>{ if(b.photoId) photoIds.add(b.photoId); })));
     for(const pid of photoIds){
       const ps = await getDoc(photoDocRef(pid));
@@ -6606,7 +6608,7 @@ function buildBulkImportPlan(wb){
           const cat = /單方/.test(catText) ? 'single' : /複方/.test(catText) ? 'compound' : /香料/.test(catText) ? 'flavor' : '';
           const pExp = bulkDate(bulkCell(row,'許可證到期日'));
           Object.assign(record, { additiveCategory: cat, regCode: String(bulkCell(row,'產品登錄碼')||''),
-            permitNo: cat === 'single' ? String(bulkCell(row,'許可證字號')||'') : '', permitExpDate: (cat === 'single' && pExp) ? pExp : '', permitPhotoId: '' });
+            permitNo: cat === 'single' ? String(bulkCell(row,'許可證字號')||'') : '', permitExpDate: (cat === 'single' && pExp) ? pExp : '', permitPhotoIds: [] });
         }
       }
       if(code) usedCodes.add(code); else pendingNoCode.push(record);
@@ -7145,15 +7147,32 @@ function suggestNextCode(kind){
 }
 // ---- 食品添加物分類：單方（許可證字號、到期日、照片、登錄碼）、複方（登錄碼）、食用香料（登錄碼）----
 const ADDITIVE_CATEGORY_LABEL = { single:'單方食品添加物', compound:'複方食品添加物', flavor:'食用香料' };
-let mfPermitPhotoId = '';
+let mfPermitPhotoIds = []; // 許可證照片可以多頁（正面、反面…）
+function permitPhotoList(m){ return (m && (m.permitPhotoIds && m.permitPhotoIds.length ? m.permitPhotoIds : (m.permitPhotoId ? [m.permitPhotoId] : []))) || []; }
 function syncAdditivePermitVisibility(){
   document.getElementById('mfPermitFields').style.display = document.getElementById('mfAddCategory').value === 'single' ? '' : 'none';
 }
 function renderPermitPhotoPreview(){
   const wrap = document.getElementById('mfPermitPhotoWrap');
-  if(!mfPermitPhotoId){ wrap.innerHTML = '<div style="font-size:13.5px; color:var(--ink-dim);">尚未上傳</div>'; return; }
-  wrap.innerHTML = '<img data-photo-id="' + escapeHtml(mfPermitPhotoId) + '" src="' + (photoCache[mfPermitPhotoId] || BLANK_IMG) + '" style="max-width:160px; max-height:160px; border-radius:8px; border:2px solid var(--orange); cursor:pointer;" title="點一下放大">';
-  wrap.querySelector('img').onclick = ()=> openPhotoById(mfPermitPhotoId);
+  if(!mfPermitPhotoIds.length){ wrap.innerHTML = '<div style="font-size:13.5px; color:var(--ink-dim);">尚未上傳</div>'; return; }
+  const pageName = (i)=> mfPermitPhotoIds.length >= 2 && i < 2 ? ['正面','反面'][i] : '第 ' + (i+1) + ' 頁';
+  wrap.innerHTML = '<div style="display:flex; gap:10px; flex-wrap:wrap;">' + mfPermitPhotoIds.map((pid, i)=>
+    '<div style="text-align:center; width:120px;">' +
+      '<img data-photo-id="' + escapeHtml(pid) + '" data-permit-view="' + i + '" src="' + (photoCache[pid] || BLANK_IMG) + '" style="width:120px; height:120px; object-fit:cover; border-radius:8px; border:2px solid var(--orange); cursor:pointer;" title="點一下放大">' +
+      '<div style="font-size:13px; color:var(--ink-dim); margin:3px 0;">' + pageName(i) + '</div>' +
+      '<div style="display:flex; gap:4px; justify-content:center;">' +
+        (i > 0 ? '<button type="button" class="qo-mini" data-permit-left="' + i + '" title="往前移" style="flex:0 0 34px; height:30px;">◀</button>' : '') +
+        '<button type="button" class="qo-mini" data-permit-del="' + i + '" title="刪除這頁" style="flex:0 0 34px; height:30px; color:var(--red);">✕</button>' +
+      '</div></div>').join('') + '</div>';
+  wrap.querySelectorAll('[data-permit-view]').forEach(img=> img.onclick = ()=> openPhotoById(mfPermitPhotoIds[+img.dataset.permitView]));
+  wrap.querySelectorAll('[data-permit-del]').forEach(b=> b.onclick = async ()=>{
+    const ok = await showConfirm('確定要刪除這一頁許可證照片嗎？', '刪除照片');
+    if(!ok) return;
+    mfPermitPhotoIds.splice(+b.dataset.permitDel, 1); renderPermitPhotoPreview();
+  });
+  wrap.querySelectorAll('[data-permit-left]').forEach(b=> b.onclick = ()=>{
+    const i = +b.dataset.permitLeft; [mfPermitPhotoIds[i-1], mfPermitPhotoIds[i]] = [mfPermitPhotoIds[i], mfPermitPhotoIds[i-1]]; renderPermitPhotoPreview();
+  });
   hydratePhotos(wrap);
 }
 function fillAdditiveFields(kind, m){
@@ -7164,28 +7183,30 @@ function fillAdditiveFields(kind, m){
   document.getElementById('mfPermitNo').value = (isAdd && m && m.permitNo) || '';
   document.getElementById('mfPermitExp').value = (isAdd && m && m.permitExpDate) || '';
   document.getElementById('mfPermitPhoto').value = '';
-  mfPermitPhotoId = (isAdd && m && m.permitPhotoId) || '';
+  mfPermitPhotoIds = isAdd ? permitPhotoList(m).slice() : [];
   ['mfAddCategory','mfRegCode','mfPermitNo','mfPermitExp'].forEach(id=>{ document.getElementById(id).style.borderColor = ''; });
   syncAdditivePermitVisibility();
   renderPermitPhotoPreview();
 }
 document.getElementById('mfAddCategory').addEventListener('change', function(){ this.style.borderColor = ''; syncAdditivePermitVisibility(); });
 document.getElementById('mfPermitPhoto').addEventListener('change', async function(){
-  const file = this.files[0];
-  if(!file) return;
-  if(!checkPhotoFileSize(file)){ this.value = ''; return; }
-  const wrap = document.getElementById('mfPermitPhotoWrap');
-  wrap.innerHTML = '<div style="font-size:13.5px; color:var(--ink-dim);">上傳照片中...</div>';
-  try{
-    const data = await compressImageToBase64(file, 900, 0.6); // 許可證文字要看得清楚，解析度比標籤照片高一些
-    mfPermitPhotoId = await savePhoto(data);
-    renderPermitPhotoPreview();
-  }catch(e){
-    console.error(e);
-    showToast('照片上傳失敗，請再試一次');
-    renderPermitPhotoPreview();
-  }
+  const files = Array.from(this.files || []);
   this.value = '';
+  if(!files.length) return;
+  const wrap = document.getElementById('mfPermitPhotoWrap');
+  let done = 0, failed = 0;
+  for(const file of files){
+    if(!checkPhotoFileSize(file)){ failed++; continue; }
+    wrap.insertAdjacentHTML('beforeend', '<div class="permit-uploading" style="font-size:13.5px; color:var(--ink-dim);">上傳第 ' + (done + failed + 1) + ' / ' + files.length + ' 張中...</div>');
+    try{
+      const data = await compressImageToBase64(file, 900, 0.6); // 許可證文字要看得清楚，解析度比標籤照片高一些
+      mfPermitPhotoIds.push(await savePhoto(data));
+      done++;
+    }catch(e){ console.error(e); failed++; }
+  }
+  renderPermitPhotoPreview();
+  if(failed) showToast('有 ' + failed + ' 張照片上傳失敗，請再試一次');
+  else showToast('已上傳 ' + done + ' 頁許可證照片');
 });
 // 回傳 null 代表通過；否則回傳缺少的欄位清單
 function collectAdditiveFields(){
@@ -7200,9 +7221,9 @@ function collectAdditiveFields(){
   if(cat === 'single'){
     mark('mfPermitNo', !permitNo); if(!permitNo) missing.push('許可證字號');
     mark('mfPermitExp', !permitExp); if(!permitExp) missing.push('許可證到期日');
-    if(!mfPermitPhotoId) missing.push('許可證照片');
+    if(!mfPermitPhotoIds.length) missing.push('許可證照片');
   }
-  return { missing, data: { additiveCategory: cat, regCode, permitNo: cat === 'single' ? permitNo : '', permitExpDate: cat === 'single' ? permitExp : '', permitPhotoId: cat === 'single' ? mfPermitPhotoId : '' } };
+  return { missing, data: { additiveCategory: cat, regCode, permitNo: cat === 'single' ? permitNo : '', permitExpDate: cat === 'single' ? permitExp : '', permitPhotoIds: cat === 'single' ? mfPermitPhotoIds.slice() : [], permitPhotoId: '' } };
 }
 function permitStatus(m){
   if(!m || m.additiveCategory !== 'single' || !m.permitExpDate) return null;
@@ -7259,6 +7280,7 @@ function _renderInventoryList(kind){
       const ps = permitStatus(m);
       const addInfo = (m.regCode ? '登錄碼 ' + escapeHtml(m.regCode) : '<span style="color:var(--amber);">未填產品登錄碼</span>') +
         (m.permitNo ? '　許可證 ' + escapeHtml(m.permitNo) : '') +
+        (m.additiveCategory === 'single' ? '　📄 照片 ' + permitPhotoList(m).length + ' 頁' : '') +
         (ps ? '　<span style="font-weight:800; color:' + (ps.level==='expired' ? 'var(--red)' : ps.level==='soon' ? 'var(--amber)' : 'var(--ink-dim)') + ';">' + (ps.level!=='ok' ? '⚠ ' : '') + ps.text + '</span>' : '');
       metaLine = addInfo + '<br>' + metaLine;
     }
