@@ -1281,10 +1281,24 @@
 
     <div class="report-tab-panel" id="bomPanelReceipts">
       <button type="button" class="i18n btn-primary" id="btnStartReceipt" style="margin-bottom:12px; width:100%;">📥 開始進貨（搜尋原料、食品添加物或包材）</button>
+      <div style="border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:10px;">
+        <div style="font-size:16px; font-weight:800; margin-bottom:8px;">🔍 搜尋進貨紀錄</div>
+        <input type="search" id="receiptSearch" placeholder="原料名稱、料號、批號、供應商、製造商、產地…" style="width:100%; padding:10px 12px; font-size:16px; border-radius:10px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); margin-bottom:8px;">
+        <div class="row2">
+          <div class="field" style="margin-bottom:6px;"><label>進貨日期 從</label><input type="date" id="receiptDateFrom"></div>
+          <div class="field" style="margin-bottom:6px;"><label>到</label><input type="date" id="receiptDateTo"></div>
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;" id="receiptKindFilter">
+          <button type="button" class="split-btn" data-rkind="" style="padding:6px 10px; width:auto; flex:0 0 auto; margin:0;">全部</button>
+          <button type="button" class="split-btn" data-rkind="material" style="padding:6px 10px; width:auto; flex:0 0 auto; margin:0;">📦 原料</button>
+          <button type="button" class="split-btn" data-rkind="additive" style="padding:6px 10px; width:auto; flex:0 0 auto; margin:0;">🧂 添加物</button>
+          <button type="button" class="split-btn" data-rkind="packaging" style="padding:6px 10px; width:auto; flex:0 0 auto; margin:0;">🛍 包材</button>
+          <button type="button" class="split-btn" id="receiptSearchClear" style="padding:6px 10px; width:auto; flex:0 0 auto; margin:0 0 0 auto;">清除</button>
+        </div>
+      </div>
       <details id="receiptHistory" style="border:1px solid var(--line); border-radius:12px; padding:10px 12px;">
         <summary id="receiptHistorySummary" style="font-size:17px; font-weight:800; cursor:pointer;">📋 進貨紀錄</summary>
         <div style="font-size:14px; color:var(--ink-dim); margin:8px 0;">以前每一次進貨的紀錄（含標籤照片）。要看照片、補照片或「✏️ 修正／作廢」打錯的進貨時，在這裡找。</div>
-        <input type="search" id="receiptSearch" placeholder="搜尋原料名稱、料號、批號、供應商" style="width:100%; padding:10px 12px; font-size:16px; border-radius:10px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); margin-bottom:10px;">
         <div id="receiptList"></div>
       </details>
     </div>
@@ -6267,6 +6281,12 @@ function renderReceiptPickerList(){
 }
 document.getElementById('btnStartReceipt').onclick = openReceiptPicker;
 document.getElementById('receiptSearch').addEventListener('input', ()=> renderReceiptList());
+['receiptDateFrom','receiptDateTo'].forEach(id=>{ const el = document.getElementById(id); el.addEventListener('change', ()=> renderReceiptList()); el.addEventListener('input', ()=> renderReceiptList()); });
+document.querySelectorAll('#receiptKindFilter [data-rkind]').forEach(b=> b.onclick = ()=>{ receiptKindFilter = b.dataset.rkind; renderReceiptList(); });
+document.getElementById('receiptSearchClear').onclick = ()=>{
+  document.getElementById('receiptSearch').value = ''; document.getElementById('receiptDateFrom').value = ''; document.getElementById('receiptDateTo').value = '';
+  receiptKindFilter = ''; document.getElementById('receiptHistory').open = false; renderReceiptList();
+};
 document.getElementById('receiptPickerSearchInput').addEventListener('input', renderReceiptPickerList);
 document.getElementById('btnCloseReceiptPicker').onclick = ()=> receiptPickerOverlay.classList.remove('show');
 receiptPickerOverlay.onclick = (e)=>{ if(e.target === receiptPickerOverlay) receiptPickerOverlay.classList.remove('show'); };
@@ -8438,20 +8458,39 @@ document.getElementById('btnSaveReceipt').onclick = async ()=>{
 };
 
 let receiptShowCount = 20; // 進貨紀錄預設只顯示最近 20 筆
+let receiptKindFilter = '';
 function renderReceiptList(){
   const listEl = document.getElementById('receiptList');
   if(!listEl) return;
-  document.getElementById('receiptHistorySummary').textContent = '📋 進貨紀錄（共 ' + receipts.length + ' 筆，點這裡展開／收合）';
+  const kw = (document.getElementById('receiptSearch').value || '').trim().toLowerCase();
+  const dFrom = document.getElementById('receiptDateFrom').value, dTo = document.getElementById('receiptDateTo').value;
+  const filtering = !!(kw || dFrom || dTo || receiptKindFilter);
+  document.querySelectorAll('#receiptKindFilter [data-rkind]').forEach(b=>{
+    const on = b.dataset.rkind === receiptKindFilter;
+    b.style.borderColor = on ? 'var(--amber)' : ''; b.style.color = on ? 'var(--amber)' : '';
+  });
   if(receipts.length === 0){
     listEl.innerHTML = '<div class="ship-list-empty">還沒有任何進貨紀錄</div>';
     return;
   }
-  const kw = (document.getElementById('receiptSearch').value || '').trim().toLowerCase();
   let sorted = [...receipts].sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
-  if(kw) sorted = sorted.filter(r=> [r.materialName, r.materialCode, r.batchNo, r.supplier, r.receivedDate].some(v=> String(v||'').toLowerCase().includes(kw)));
+  if(receiptKindFilter) sorted = sorted.filter(r=> (r.kind || 'material') === receiptKindFilter);
+  if(dFrom) sorted = sorted.filter(r=> (r.receivedDate || '') >= dFrom);
+  if(dTo) sorted = sorted.filter(r=> (r.receivedDate || '') && r.receivedDate <= dTo);
+  if(kw){
+    const words = kw.split(/\s+/).filter(Boolean);
+    sorted = sorted.filter(r=>{
+      const hay = [r.materialName, r.materialCode, r.batchNo, r.supplier, r.manufacturer, r.origin, r.receivedDate, r.mfgDate, r.expDate, r.operator].map(v=>String(v||'')).join(' ').toLowerCase();
+      return words.every(w=> hay.includes(w));
+    });
+  }
   const total = sorted.length;
-  if(!kw) sorted = sorted.slice(0, receiptShowCount);
-  if(total === 0){ listEl.innerHTML = '<div class="ship-list-empty">沒有符合「' + escapeHtml(kw) + '」的進貨紀錄</div>'; return; }
+  document.getElementById('receiptHistorySummary').textContent = filtering
+    ? '📋 搜尋結果：找到 ' + total + ' 筆（共 ' + receipts.length + ' 筆）'
+    : '📋 進貨紀錄（共 ' + receipts.length + ' 筆，點這裡展開／收合）';
+  if(filtering) document.getElementById('receiptHistory').open = true;
+  if(!filtering) sorted = sorted.slice(0, receiptShowCount);
+  if(total === 0){ listEl.innerHTML = '<div class="ship-list-empty">沒有符合條件的進貨紀錄</div>'; return; }
   listEl.innerHTML = sorted.map(r=>{
     const thumb = hasPhoto(r)
       ? photoImgTag(r, 'class="receipt-thumb" data-photo-rid="'+r.id+'"')
@@ -8476,7 +8515,7 @@ function renderReceiptList(){
   listEl.querySelectorAll('[data-fix-rid]').forEach(btn=>{
     btn.onclick = ()=> openReceiptFix(btn.dataset.fixRid);
   });
-  if(!kw && total > sorted.length){
+  if(!filtering && total > sorted.length){
     listEl.insertAdjacentHTML('beforeend', '<button type="button" class="split-btn" id="btnReceiptMore" style="width:100%; margin-top:6px;">顯示更早的紀錄（還有 ' + (total - sorted.length) + ' 筆）</button>');
     document.getElementById('btnReceiptMore').onclick = ()=>{ receiptShowCount += 20; renderReceiptList(); };
   }
