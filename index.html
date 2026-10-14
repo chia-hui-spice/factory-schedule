@@ -1281,7 +1281,12 @@
 
     <div class="report-tab-panel" id="bomPanelReceipts">
       <button type="button" class="i18n btn-primary" id="btnStartReceipt" style="margin-bottom:12px; width:100%;">📥 開始進貨（搜尋原料、食品添加物或包材）</button>
-      <div id="receiptList"></div>
+      <details id="receiptHistory" style="border:1px solid var(--line); border-radius:12px; padding:10px 12px;">
+        <summary id="receiptHistorySummary" style="font-size:17px; font-weight:800; cursor:pointer;">📋 進貨紀錄</summary>
+        <div style="font-size:14px; color:var(--ink-dim); margin:8px 0;">以前每一次進貨的紀錄（含標籤照片）。要看照片、補照片或「✏️ 修正／作廢」打錯的進貨時，在這裡找。</div>
+        <input type="search" id="receiptSearch" placeholder="搜尋原料名稱、料號、批號、供應商" style="width:100%; padding:10px 12px; font-size:16px; border-radius:10px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); margin-bottom:10px;">
+        <div id="receiptList"></div>
+      </details>
     </div>
 
     <div class="report-tab-panel" id="bomPanelMaterials" style="display:none;">
@@ -6261,6 +6266,7 @@ function renderReceiptPickerList(){
   });
 }
 document.getElementById('btnStartReceipt').onclick = openReceiptPicker;
+document.getElementById('receiptSearch').addEventListener('input', ()=> renderReceiptList());
 document.getElementById('receiptPickerSearchInput').addEventListener('input', renderReceiptPickerList);
 document.getElementById('btnCloseReceiptPicker').onclick = ()=> receiptPickerOverlay.classList.remove('show');
 receiptPickerOverlay.onclick = (e)=>{ if(e.target === receiptPickerOverlay) receiptPickerOverlay.classList.remove('show'); };
@@ -7054,15 +7060,18 @@ function renderMaterialBatchLotList(batches){
       : '';
     // 這一批的進貨照片（同料號、同批號的進貨紀錄，不含已作廢）
     const batchReceipts = editingMaterialId
-      ? receipts.filter(r=> r.materialId===editingMaterialId && (r.batchNo||'')===(b.batchNo||'') && !r.voided && hasPhoto(r))
+      ? receipts.filter(r=> r.materialId===editingMaterialId && (r.batchNo||'')===(b.batchNo||'') && !r.voided)
           .sort((a,c)=>(a.createdAt||0)-(c.createdAt||0))
       : [];
     const receiptPhotosHtml = batchReceipts.length
-      ? '<div class="field"><label style="color:var(--teal); font-weight:800;">📷 這批的進貨照片（' + batchReceipts.length + ' 張，點照片放大）</label>' +
+      ? '<div class="field"><label style="color:var(--teal); font-weight:800;">📷 這批的進貨紀錄（' + batchReceipts.length + ' 筆，點照片放大）</label>' +
           '<div style="display:flex; gap:8px; flex-wrap:wrap;">' +
-          batchReceipts.map(r=>'<div data-batch-photo-rid="'+r.id+'" style="cursor:pointer; text-align:center; width:96px;">' +
-            photoImgTag(r, 'style="width:96px; height:96px; object-fit:cover; border-radius:8px; border:2px solid var(--teal); display:block;"') +
-            '<div style="font-size:12.5px; color:var(--ink-dim); margin-top:3px; line-height:1.3;">' + escapeHtml(r.receivedDate||'') + '<br>+' + r.qty + ' ' + escapeHtml(r.unit||'') + '</div></div>').join('') +
+          batchReceipts.map(r=>'<div style="text-align:center; width:104px;">' +
+            (hasPhoto(r)
+              ? '<div data-batch-photo-rid="'+r.id+'" style="cursor:pointer;">' + photoImgTag(r, 'style="width:96px; height:96px; object-fit:cover; border-radius:8px; border:2px solid var(--teal); display:block; margin:0 auto;"') + '</div>'
+              : '<div style="width:96px; height:96px; margin:0 auto; border-radius:8px; border:2px dashed var(--line); display:flex; align-items:center; justify-content:center; font-size:12.5px; color:var(--ink-dim);">沒有照片</div>') +
+            '<div style="font-size:12.5px; color:var(--ink-dim); margin-top:3px; line-height:1.3;">' + escapeHtml(r.receivedDate||'') + '<br>+' + r.qty + ' ' + escapeHtml(r.unit||'') + (r.original ? '<br><span style="color:var(--amber);">已修正</span>' : '') + '</div>' +
+            '<button type="button" class="split-btn" data-batch-fix-rid="'+r.id+'" style="margin-top:4px; padding:4px 6px; font-size:13px; width:100%;">✏️ 修正／作廢</button></div>').join('') +
           '</div></div>'
       : '';
     return '<div class="material-batch-row" data-idx="'+idx+'">' +
@@ -7086,6 +7095,9 @@ function renderMaterialBatchLotList(batches){
   }).join('');
   container.querySelectorAll('[data-batch-photo-rid]').forEach(el=>{
     el.onclick = ()=> openPhotoView(el.dataset.batchPhotoRid);
+  });
+  container.querySelectorAll('[data-batch-fix-rid]').forEach(btn=>{
+    btn.onclick = ()=> openReceiptFix(btn.dataset.batchFixRid);
   });
   hydratePhotos(container);
   container.querySelectorAll('.material-batch-remove-btn').forEach(btn=>{
@@ -8425,14 +8437,21 @@ document.getElementById('btnSaveReceipt').onclick = async ()=>{
   if(saved) showToast('已記錄進貨，庫存已更新');
 };
 
+let receiptShowCount = 20; // 進貨紀錄預設只顯示最近 20 筆
 function renderReceiptList(){
   const listEl = document.getElementById('receiptList');
   if(!listEl) return;
+  document.getElementById('receiptHistorySummary').textContent = '📋 進貨紀錄（共 ' + receipts.length + ' 筆，點這裡展開／收合）';
   if(receipts.length === 0){
     listEl.innerHTML = '<div class="ship-list-empty">還沒有任何進貨紀錄</div>';
     return;
   }
-  const sorted = [...receipts].sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
+  const kw = (document.getElementById('receiptSearch').value || '').trim().toLowerCase();
+  let sorted = [...receipts].sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
+  if(kw) sorted = sorted.filter(r=> [r.materialName, r.materialCode, r.batchNo, r.supplier, r.receivedDate].some(v=> String(v||'').toLowerCase().includes(kw)));
+  const total = sorted.length;
+  if(!kw) sorted = sorted.slice(0, receiptShowCount);
+  if(total === 0){ listEl.innerHTML = '<div class="ship-list-empty">沒有符合「' + escapeHtml(kw) + '」的進貨紀錄</div>'; return; }
   listEl.innerHTML = sorted.map(r=>{
     const thumb = hasPhoto(r)
       ? photoImgTag(r, 'class="receipt-thumb" data-photo-rid="'+r.id+'"')
@@ -8457,6 +8476,10 @@ function renderReceiptList(){
   listEl.querySelectorAll('[data-fix-rid]').forEach(btn=>{
     btn.onclick = ()=> openReceiptFix(btn.dataset.fixRid);
   });
+  if(!kw && total > sorted.length){
+    listEl.insertAdjacentHTML('beforeend', '<button type="button" class="split-btn" id="btnReceiptMore" style="width:100%; margin-top:6px;">顯示更早的紀錄（還有 ' + (total - sorted.length) + ' 筆）</button>');
+    document.getElementById('btnReceiptMore').onclick = ()=>{ receiptShowCount += 20; renderReceiptList(); };
+  }
   hydratePhotos(listEl);
 }
 
@@ -8497,6 +8520,17 @@ function openReceiptFix(rid){
     : '';
   updateRfTotal();
   document.getElementById('receiptFixOverlay').classList.add('show');
+}
+// 從原料庫存的編輯畫面去修正進貨時，修正完要把編輯畫面裡的批次數字一起更新，
+// 否則之後在編輯畫面按「儲存」會用舊數字把修正蓋回去
+function refreshMaterialFormAfterReceiptFix(r){
+  if(!document.getElementById('materialFormOverlay').classList.contains('show')) return;
+  if(editingMaterialId !== r.materialId) return;
+  const m = receiptTarget(r);
+  if(!m) return;
+  editingMaterialOriginalBatches = JSON.parse(JSON.stringify(m.batches || []));
+  renderMaterialBatchLotList(m.batches || []);
+  updateMaterialStockTotalDisplay();
 }
 function closeReceiptFix(){ document.getElementById('receiptFixOverlay').classList.remove('show'); fixingReceiptId = null; }
 document.getElementById('btnCancelReceiptFix').onclick = closeReceiptFix;
@@ -8566,6 +8600,7 @@ document.getElementById('btnSaveReceiptFix').onclick = async ()=>{
   Object.assign(r, { pieces, spec, qty: newQty, batchNo: newBatchNo, mfgDate: newMfg, expDate: newExp, receivedDate: newDate });
   await saveBomData();
   closeReceiptFix();
+  refreshMaterialFormAfterReceiptFix(r);
   renderReceiptList();
   renderInventoryList(r.kind || 'material');
   showToast('✅ 已修正進貨紀錄，庫存已同步調整');
@@ -8593,6 +8628,7 @@ document.getElementById('btnVoidReceipt').onclick = async ()=>{
   r.voided = true; r.voidedAt = Date.now(); r.voidedBy = currentUserEmail || '';
   await saveBomData();
   closeReceiptFix();
+  refreshMaterialFormAfterReceiptFix(r);
   renderReceiptList();
   renderInventoryList(r.kind || 'material');
   showToast('已作廢這筆進貨，庫存已扣回');
