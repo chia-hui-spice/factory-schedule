@@ -182,7 +182,12 @@
 
   .overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:40; display:none; align-items:flex-end; justify-content:center; }
   .overlay.show{ display:flex; }
-  .sheet{ background:var(--panel); width:100%; max-width:680px; border-radius:18px 18px 0 0; padding:20px 18px calc(20px + env(safe-area-inset-bottom)) 18px; max-height:88vh; overflow-y:auto; border-top:2px solid var(--line); }
+  .sheet{ background:var(--panel); width:100%; max-width:680px; border-radius:18px 18px 0 0; padding:20px 18px calc(20px + env(safe-area-inset-bottom)) 18px; max-height:88vh; overflow-y:auto; border-top:2px solid var(--line);
+    -webkit-overflow-scrolling:touch; overscroll-behavior:contain; touch-action:pan-y; }
+  @supports (height:100dvh){ .sheet{ max-height:88dvh; } }
+  /* iPad／iPhone：彈出視窗開著時，鎖住後面的頁面，讓手指滑動只捲動最上層的視窗 */
+  html.modal-open, html.modal-open body{ overflow:hidden; overscroll-behavior:none; }
+  .overlay{ overscroll-behavior:contain; }
   .sheet-handle{ width:40px; height:4px; background:var(--line); border-radius:4px; margin:0 auto 16px auto; }
   .sheet h2{ font-size:25.5px; margin:0 0 4px 0; font-weight:800; }
   .sheet-sub{ font-size:18px; color:var(--ink-dim); margin-bottom:16px; }
@@ -1602,10 +1607,10 @@
     <div id="qoRecent"></div>
     <div class="row2">
       <div class="field"><label>預計需求出貨日期 <span style="color:var(--red);">*</span></label><input type="date" id="qoDue"></div>
-      <div class="field"><label>填寫人員</label><select id="qoFilledBy"></select><input type="text" id="qoFilledByCustom" placeholder="輸入姓名" style="margin-top:8px; display:none;"></div>
+      <div class="field"><label>填寫人員 <span style="color:var(--red);">*</span></label><select id="qoFilledBy"></select><input type="text" id="qoFilledByCustom" placeholder="輸入姓名" style="margin-top:8px; display:none;"></div>
     </div>
     <div class="row2">
-      <div class="field"><label>COA</label><select id="qoCoa"></select></div>
+      <div class="field"><label>COA <span style="color:var(--red);">*</span></label><select id="qoCoa"></select></div>
       <div class="field"><label>急件</label>
         <label style="display:flex; align-items:center; gap:8px; font-size:16px; padding:10px 0;"><input type="checkbox" id="qoUrgent" style="width:22px; height:22px;"> 這張是急件</label>
       </div>
@@ -3835,7 +3840,10 @@ function qoSetFilledBy(name){
   if(Array.from(sel.options).some(o=>o.value===name && name!=='自訂')){ sel.value = name; custom.style.display = 'none'; }
   else { sel.value = '自訂'; custom.value = name; custom.style.display = ''; }
 }
+document.getElementById('qoCoa').addEventListener('change', function(){ this.style.borderColor = ''; });
+document.getElementById('qoFilledByCustom').addEventListener('input', function(){ this.style.borderColor = ''; });
 document.getElementById('qoFilledBy').addEventListener('change', function(){
+  this.style.borderColor = '';
   const custom = document.getElementById('qoFilledByCustom');
   custom.style.display = this.value === '自訂' ? '' : 'none';
   if(this.value === '自訂') custom.focus();
@@ -3987,6 +3995,13 @@ document.getElementById('qoSave').onclick = async ()=>{
   const problems = [];
   if(!customer) problems.push('客戶名稱');
   if(!due) problems.push('出貨日期');
+  const filledByMissing = !qoGetFilledBy();
+  const coaMissing = !document.getElementById('qoCoa').value;
+  if(filledByMissing) problems.push(document.getElementById('qoFilledBy').value === '自訂' ? '填寫人員姓名' : '填寫人員');
+  if(coaMissing) problems.push('COA');
+  document.getElementById('qoFilledBy').style.borderColor = filledByMissing ? 'var(--red)' : '';
+  document.getElementById('qoFilledByCustom').style.borderColor = (filledByMissing && document.getElementById('qoFilledBy').value === '自訂') ? 'var(--red)' : '';
+  document.getElementById('qoCoa').style.borderColor = coaMissing ? 'var(--red)' : '';
   if(rows.length === 0) problems.push('至少一個品項');
   rows.forEach((r)=>{
     const n = qoRows.indexOf(r) + 1;
@@ -3995,12 +4010,11 @@ document.getElementById('qoSave').onclick = async ()=>{
   });
   if(problems.length){ showToast('請填寫：' + problems.join('、')); return; }
   const filledBy = qoGetFilledBy();
-  if(document.getElementById('qoFilledBy').value === '自訂' && !filledBy){ showToast('請輸入填寫人員姓名'); document.getElementById('qoFilledByCustom').focus(); return; }
   const coa = document.getElementById('qoCoa').value;
   const note = document.getElementById('qoNote').value.trim();
   const priority = document.getElementById('qoUrgent').checked ? 'urgent' : 'normal';
   const irrCount = rows.filter(r=>r.needsIrradiation).length;
-  const ok = await showConfirm('客戶「' + customer + '」，出貨日 ' + due + '，共 ' + rows.length + ' 個品項' + (irrCount ? '（其中 ' + irrCount + ' 項需要照射滅菌）' : '') + '。' + ((!filledBy || !coa) ? '\n（填寫人員或 COA 還沒選，之後進入庫存確認前要補上）' : ''), '建立這張訂單？');
+  const ok = await showConfirm('客戶「' + customer + '」，出貨日 ' + due + '，共 ' + rows.length + ' 個品項' + (irrCount ? '（其中 ' + irrCount + ' 項需要照射滅菌）' : '') + '。\n填寫人員：' + filledBy + '　COA：' + coa, '建立這張訂單？');
   if(!ok) return;
   const fillFormDate = todayStr(), fillFormTime = nowTimeStr();
   const stamp = Date.now();
@@ -9107,6 +9121,25 @@ getRedirectResult(auth).catch((e)=>{ console.error(e); handleAuthError(e); });
 
 document.getElementById('signOutBtn').onclick = ()=> signOut(auth);
 
+
+
+// ================= iPad／iPhone 彈出視窗捲動 =================
+// 有彈出視窗開著時鎖住背景頁面（iPad Safari 有時會把手指滑動交給背後的頁面，造成視窗滑不動）
+(function setupModalScrollLock(){
+  const update = ()=>{
+    const anyOpen = !!document.querySelector('.overlay.show');
+    document.documentElement.classList.toggle('modal-open', anyOpen);
+  };
+  new MutationObserver(update).observe(document.body, { attributes:true, subtree:true, attributeFilter:['class'] });
+  // 只有最上層的視窗可以被捲動；在它上面滑動時，不讓滑動穿透到下層
+  document.addEventListener('touchmove', (e)=>{
+    const open = Array.from(document.querySelectorAll('.overlay.show'));
+    if(!open.length) return;
+    const top = open.reduce((a, b)=> (parseInt(getComputedStyle(b).zIndex, 10) || 0) >= (parseInt(getComputedStyle(a).zIndex, 10) || 0) ? b : a);
+    const sheet = top.querySelector('.sheet');
+    if(sheet && !sheet.contains(e.target)) e.preventDefault(); // 在視窗外的暗色區域滑動，不要捲動背景
+  }, { passive:false });
+})();
 
 // ================= 防止滑鼠滾輪誤改數字 =================
 // 數字欄位在游標停留時，滾動滑鼠滾輪會讓數字加減。這裡改成：滾輪一動就先離開該欄位，數字不變、頁面照常捲動
