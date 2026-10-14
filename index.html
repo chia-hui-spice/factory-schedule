@@ -2528,7 +2528,7 @@ async function saveOrders(){
             '偵測到雲端有 ' + missingOrders.length + ' 張訂單，在目前這個畫面上看不到（可能是其他人在別的裝置上剛新增的，或這個分頁開太久資料沒跟上）。如果現在儲存，這些訂單會被蓋掉、消失不見。強烈建議先重新整理頁面再操作。真的要冒險繼續儲存嗎？',
             '⚠ 雲端有本機看不到的訂單'
           );
-          if(!ok){ showToast('已取消儲存，請重新整理頁面後再試一次'); return; }
+          if(!ok){ showToast('已取消儲存，請重新整理頁面後再試一次'); return false; }
         }
       }
     }catch(checkErr){
@@ -2541,18 +2541,20 @@ async function saveOrders(){
     const estimatedBytes = new Blob([JSON.stringify(payload)]).size;
     const FIRESTORE_DOC_LIMIT = 1048576; // 1MB
     if(estimatedBytes > FIRESTORE_DOC_LIMIT * 0.95){
-      showToast('⚠ 訂單資料量太大了（約 ' + (estimatedBytes/1024).toFixed(0) + 'KB，上限約 1024KB），無法儲存。請聯絡系統管理員處理，或先清空垃圾桶、刪除很久以前已出貨的舊訂單。');
-      return;
+      showAlert('這次的變更沒有存進雲端，畫面會回到上一次成功儲存的狀態。\n原因：訂單資料量太大了（約 ' + (estimatedBytes/1024).toFixed(0) + 'KB，上限約 1024KB）。\n請聯絡系統管理員處理，或先清空垃圾桶、刪除很久以前已出貨的舊訂單。', '❌ 儲存失敗');
+      return false;
     }
 
     await setDoc(ordersDocRef, { list: orders });
+    return true;
   }catch(e){
     console.error(e);
     if(e && (e.code === 'invalid-argument' || /longer than|exceeds|too large|maximum size/i.test(e.message||''))){
-      showToast('⚠ 訂單資料量太大，超過系統上限，無法儲存。請聯絡系統管理員處理。');
+      showAlert('這次的變更沒有存進雲端，畫面會回到上一次成功儲存的狀態。\n原因：訂單資料量太大，超過系統上限。請聯絡系統管理員處理。', '❌ 儲存失敗');
     }else{
-      showToast('儲存失敗，請檢查網路');
+      showAlert('這次的變更沒有存進雲端，畫面會回到上一次成功儲存的狀態。\n請確認網路連線後再操作一次。\n（' + (e && (e.message || e.code) || e) + '）', '❌ 儲存失敗');
     }
+    return false;
   }
 }
 
@@ -2838,27 +2840,27 @@ function renderList(){
         if(!item.filledBy) missing.push('填寫人員');
         if(!item.coa) missing.push('COA');
         showToast('請先填寫「' + missing.join('、') + '」才能進入庫存確認');
-        openSheet(order, item);
+        pendingAdvanceItemId = item.id; openSheet(order, item);
         return;
       }
       if(item.status === 'inprogress' && (!item.productionZones || item.productionZones.length === 0)){
         showToast('請先選擇至少一個「生產線」才能進入排程生產');
-        openSheet(order, item);
+        pendingAdvanceItemId = item.id; openSheet(order, item);
         return;
       }
       if(item.status === 'labeling' && !item.productMfgDate){
         showToast('請先填寫「產品製造日期(調配、研磨日期)」才能進入標籤印製');
-        openSheet(order, item);
+        pendingAdvanceItemId = item.id; openSheet(order, item);
         return;
       }
       if(item.status === 'done' && item.needsIrradiation && !item.irradiationLabelConfirm){
         showToast('這張訂單需要照射滅菌，請先確認已印有「照射滅菌」標籤才能進入充填包裝');
-        openSheet(order, item);
+        pendingAdvanceItemId = item.id; openSheet(order, item);
         return;
       }
       if(item.status === 'refill' && !item.packagingStaff){
         showToast('請先填寫「包裝人員」才能進入裝箱確認');
-        openSheet(order, item);
+        pendingAdvanceItemId = item.id; openSheet(order, item);
         return;
       }
       if(item.status === 'boxing' && (!item.releaseBy || !isChecklistComplete(item))){
@@ -2866,7 +2868,7 @@ function renderList(){
         if(!isChecklistComplete(item)) missing.push('出貨前檢查項目');
         if(!item.releaseBy) missing.push('裝箱確認及放行人員');
         showToast('請先完成「' + missing.join('、') + '」才能進入出貨確認');
-        openSheet(order, item);
+        pendingAdvanceItemId = item.id; openSheet(order, item);
         return;
       }
       if(item.status === 'shipped'){
@@ -2884,10 +2886,18 @@ function renderList(){
       const wasInprogress = item.status === 'inprogress';
       const wasLabeling = item.status === 'labeling';
       const wasBoxing = item.status === 'boxing';
+      const prevStatus = item.status, prevCompletedAt = item.completedAt, prevShippedAt = item.shippedAt;
       item.status = nextStatus;
       if(item.status === 'done') item.completedAt = Date.now();
       if(item.status === 'shipped') item.shippedAt = Date.now();
-      saveOrders(); render();
+      render();
+      const savedOk = await saveOrders();
+      if(!savedOk){
+        // 沒存進雲端：畫面退回原本的階段，避免看起來成功、過一下又跳回去
+        item.status = prevStatus; item.completedAt = prevCompletedAt; item.shippedAt = prevShippedAt;
+        render();
+        return;
+      }
       showToast('已移至「' + STATUS_LABEL[item.status] + '」');
       if(wasInprogress && item.status === 'labeling'){
         await deductStockForItem(item, order);
@@ -3794,6 +3804,7 @@ function applyStageContentLock(item){
 
 function closeSheet(){
   overlay.classList.remove('show');
+  pendingAdvanceItemId = null;
   form.reset();
   editingOrderId = null; editingItemId = null;
   checklistState = {c1:false,c2:false,c3:false,c4:false};
@@ -4043,6 +4054,8 @@ document.getElementById('btnCancel').onclick = closeSheet;
 // 移除點擊外部背景關閉表單的行為，避免手機誤觸導致輸入內容遺失
 // 只能透過「取消」或「儲存」按鈕關閉
 
+// 按「XX完成」時因為缺資料被帶去填表單，填完儲存後自動幫你繼續往下一個階段
+let pendingAdvanceItemId = null;
 async function handleSaveOrder(){
   const customer = document.getElementById('fCustomer').value.trim();
   const product = document.getElementById('fProduct').value.trim();
@@ -4127,9 +4140,15 @@ async function handleSaveOrder(){
       showToast('已更新品項');
     }
   }
-  await saveOrders();
+  const advanceId = (pendingAdvanceItemId && pendingAdvanceItemId === editingItemId) ? pendingAdvanceItemId : null;
+  const saved = await saveOrders();
   closeSheet();
+  pendingAdvanceItemId = null;
   render();
+  if(saved && advanceId){
+    const btn = document.querySelector('[data-act="forward"][data-iid="' + advanceId + '"]');
+    if(btn) setTimeout(()=> btn.click(), 300); // 重新檢查一次必填欄位，齊全就移到下一個階段
+  }
 }
 document.getElementById('btnSave').addEventListener('click', handleSaveOrder);
 form.addEventListener('submit', function(e){ e.preventDefault(); });
