@@ -1319,7 +1319,7 @@
     <div class="report-tab-panel" id="bomPanelAdditives" style="display:none;">
       <button type="button" class="i18n add-item-btn" id="btnAddAdditive" style="margin-bottom:12px;">+ 新增食品添加物</button>
       <div class="field" style="margin-bottom:10px;">
-        <input type="text" id="additiveSearchInput" placeholder="搜尋添加物名稱或料號">
+        <input type="text" id="additiveSearchInput" placeholder="搜尋添加物名稱、料號、登錄碼、許可證字號">
       </div>
       <div id="additiveList"></div>
     </div>
@@ -1722,12 +1722,38 @@
   <div class="sheet">
     <div class="sheet-handle"></div>
     <h2 id="materialFormTitle">新增原料</h2>
+    <div id="mfAdditiveSection" style="display:none; border:2px solid var(--orange); border-radius:12px; padding:10px 12px; margin-bottom:12px; background:rgba(232,135,60,0.07);">
+      <div class="field">
+        <label>食品添加物分類 <span style="color:var(--red);">*</span></label>
+        <select id="mfAddCategory">
+          <option value="">請選擇</option>
+          <option value="single">單方食品添加物</option>
+          <option value="compound">複方食品添加物</option>
+          <option value="flavor">食用香料</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>產品登錄碼 <span style="color:var(--red);">*</span></label>
+        <input type="text" id="mfRegCode" placeholder="食品添加物登錄平台的產品登錄碼">
+      </div>
+      <div id="mfPermitFields" style="display:none;">
+        <div class="row2">
+          <div class="field"><label>許可證字號 <span style="color:var(--red);">*</span></label><input type="text" id="mfPermitNo" placeholder="例如 衛部食添製字第XXXXXX號"></div>
+          <div class="field"><label>許可證到期日 <span style="color:var(--red);">*</span></label><input type="date" id="mfPermitExp"></div>
+        </div>
+        <div class="field">
+          <label>許可證照片 <span style="color:var(--red);">*</span></label>
+          <div id="mfPermitPhotoWrap" style="margin-bottom:6px;"></div>
+          <input type="file" id="mfPermitPhoto" accept="image/*">
+        </div>
+      </div>
+    </div>
     <div class="field">
-      <label class="i18n">原料料號</label>
+      <label class="i18n" id="mfCodeLabel">原料料號</label>
       <input type="text" id="mfCode" placeholder="例如 R-001">
     </div>
     <div class="field">
-      <label class="i18n">原料名稱</label>
+      <label class="i18n" id="mfNameLabel">原料名稱</label>
       <input type="text" id="mfName" placeholder="例如 白胡椒粉">
     </div>
     <div class="row2">
@@ -6406,8 +6432,8 @@ const BULK_SHEETS = [
     cols:['料號','名稱','單位','產地','製造商','供應商','預設規格','期初批號','期初數量','製造日期','有效日期'],
     example:{'料號':'','名稱':'（範例）黑胡椒粒','單位':'kg','產地':'印度','製造商':'XX香料廠','供應商':'XX貿易','預設規格':25,'期初批號':'BP20260901','期初數量':100,'製造日期':'2026/09/01','有效日期':'2028/08/31'} },
   { sheet:'食品添加物', kind:'additive', label:'食品添加物', prefix:'A-',
-    cols:['料號','名稱','單位','產地','製造商','供應商','預設規格','期初批號','期初數量','製造日期','有效日期'],
-    example:{'料號':'','名稱':'（範例）檸檬酸','單位':'kg','產地':'中國','製造商':'','供應商':'XX化工','預設規格':25,'期初批號':'','期初數量':'','製造日期':'','有效日期':''} },
+    cols:['料號','名稱','分類(單方/複方/香料)','產品登錄碼','許可證字號','許可證到期日','單位','產地','製造商','供應商','預設規格','期初批號','期初數量','製造日期','有效日期'],
+    example:{'料號':'','名稱':'（範例）檸檬酸','分類(單方/複方/香料)':'單方','產品登錄碼':'A-123456789-00000-0','許可證字號':'衛部食添製字第000000號','許可證到期日':'2030/12/31','單位':'kg','產地':'中國','製造商':'','供應商':'XX化工','預設規格':25,'期初批號':'','期初數量':'','製造日期':'','有效日期':''} },
   { sheet:'包材', kind:'packaging', label:'包材', prefix:'P-',
     cols:['料號','名稱','單位','產地','製造商','供應商','預設規格','期初批號','期初數量','製造日期','有效日期'],
     example:{'料號':'','名稱':'（範例）鋁箔夾鏈袋1kg','單位':'個','產地':'台灣','製造商':'XX包裝','供應商':'XX包裝','預設規格':1000,'期初批號':'PK2026A','期初數量':3000,'製造日期':'','有效日期':''} },
@@ -6575,6 +6601,13 @@ function buildBulkImportPlan(wb){
         record = { code, name, unit: String(bulkCell(row,'單位')||''), origin, manufacturer, supplier: String(bulkCell(row,'供應商')||''),
           defaultSpec: (spec === null || Number.isNaN(spec)) ? null : spec,
           batches: batch ? [Object.assign({ origin:'', supplier:'', manufacturer:'' }, batch)] : [] };
+        if(cfg.kind === 'additive'){
+          const catText = String(bulkCell(row,'分類(單方/複方/香料)') || bulkCell(row,'分類') || '');
+          const cat = /單方/.test(catText) ? 'single' : /複方/.test(catText) ? 'compound' : /香料/.test(catText) ? 'flavor' : '';
+          const pExp = bulkDate(bulkCell(row,'許可證到期日'));
+          Object.assign(record, { additiveCategory: cat, regCode: String(bulkCell(row,'產品登錄碼')||''),
+            permitNo: cat === 'single' ? String(bulkCell(row,'許可證字號')||'') : '', permitExpDate: (cat === 'single' && pExp) ? pExp : '', permitPhotoId: '' });
+        }
       }
       if(code) usedCodes.add(code); else pendingNoCode.push(record);
       sec.adds.push({ rowNo, record });
@@ -7110,15 +7143,97 @@ function suggestNextCode(kind){
   });
   return cfg.codePrefix + String(max + 1).padStart(3, '0');
 }
+// ---- 食品添加物分類：單方（許可證字號、到期日、照片、登錄碼）、複方（登錄碼）、食用香料（登錄碼）----
+const ADDITIVE_CATEGORY_LABEL = { single:'單方食品添加物', compound:'複方食品添加物', flavor:'食用香料' };
+let mfPermitPhotoId = '';
+function syncAdditivePermitVisibility(){
+  document.getElementById('mfPermitFields').style.display = document.getElementById('mfAddCategory').value === 'single' ? '' : 'none';
+}
+function renderPermitPhotoPreview(){
+  const wrap = document.getElementById('mfPermitPhotoWrap');
+  if(!mfPermitPhotoId){ wrap.innerHTML = '<div style="font-size:13.5px; color:var(--ink-dim);">尚未上傳</div>'; return; }
+  wrap.innerHTML = '<img data-photo-id="' + escapeHtml(mfPermitPhotoId) + '" src="' + (photoCache[mfPermitPhotoId] || BLANK_IMG) + '" style="max-width:160px; max-height:160px; border-radius:8px; border:2px solid var(--orange); cursor:pointer;" title="點一下放大">';
+  wrap.querySelector('img').onclick = ()=> openPhotoById(mfPermitPhotoId);
+  hydratePhotos(wrap);
+}
+function fillAdditiveFields(kind, m){
+  const isAdd = kind === 'additive';
+  document.getElementById('mfAdditiveSection').style.display = isAdd ? '' : 'none';
+  document.getElementById('mfAddCategory').value = (isAdd && m && m.additiveCategory) || '';
+  document.getElementById('mfRegCode').value = (isAdd && m && m.regCode) || '';
+  document.getElementById('mfPermitNo').value = (isAdd && m && m.permitNo) || '';
+  document.getElementById('mfPermitExp').value = (isAdd && m && m.permitExpDate) || '';
+  document.getElementById('mfPermitPhoto').value = '';
+  mfPermitPhotoId = (isAdd && m && m.permitPhotoId) || '';
+  ['mfAddCategory','mfRegCode','mfPermitNo','mfPermitExp'].forEach(id=>{ document.getElementById(id).style.borderColor = ''; });
+  syncAdditivePermitVisibility();
+  renderPermitPhotoPreview();
+}
+document.getElementById('mfAddCategory').addEventListener('change', function(){ this.style.borderColor = ''; syncAdditivePermitVisibility(); });
+document.getElementById('mfPermitPhoto').addEventListener('change', async function(){
+  const file = this.files[0];
+  if(!file) return;
+  if(!checkPhotoFileSize(file)){ this.value = ''; return; }
+  const wrap = document.getElementById('mfPermitPhotoWrap');
+  wrap.innerHTML = '<div style="font-size:13.5px; color:var(--ink-dim);">上傳照片中...</div>';
+  try{
+    const data = await compressImageToBase64(file, 900, 0.6); // 許可證文字要看得清楚，解析度比標籤照片高一些
+    mfPermitPhotoId = await savePhoto(data);
+    renderPermitPhotoPreview();
+  }catch(e){
+    console.error(e);
+    showToast('照片上傳失敗，請再試一次');
+    renderPermitPhotoPreview();
+  }
+  this.value = '';
+});
+// 回傳 null 代表通過；否則回傳缺少的欄位清單
+function collectAdditiveFields(){
+  const cat = document.getElementById('mfAddCategory').value;
+  const regCode = document.getElementById('mfRegCode').value.trim();
+  const permitNo = document.getElementById('mfPermitNo').value.trim();
+  const permitExp = document.getElementById('mfPermitExp').value;
+  const missing = [];
+  const mark = (id, bad)=>{ document.getElementById(id).style.borderColor = bad ? 'var(--red)' : ''; };
+  mark('mfAddCategory', !cat); if(!cat) missing.push('食品添加物分類');
+  mark('mfRegCode', !regCode); if(!regCode) missing.push('產品登錄碼');
+  if(cat === 'single'){
+    mark('mfPermitNo', !permitNo); if(!permitNo) missing.push('許可證字號');
+    mark('mfPermitExp', !permitExp); if(!permitExp) missing.push('許可證到期日');
+    if(!mfPermitPhotoId) missing.push('許可證照片');
+  }
+  return { missing, data: { additiveCategory: cat, regCode, permitNo: cat === 'single' ? permitNo : '', permitExpDate: cat === 'single' ? permitExp : '', permitPhotoId: cat === 'single' ? mfPermitPhotoId : '' } };
+}
+function permitStatus(m){
+  if(!m || m.additiveCategory !== 'single' || !m.permitExpDate) return null;
+  const days = Math.round((new Date(m.permitExpDate + 'T00:00:00') - new Date(todayStr() + 'T00:00:00')) / 86400000);
+  if(days < 0) return { level:'expired', days, text:'許可證已過期 ' + (-days) + ' 天' };
+  if(days <= 60) return { level:'soon', days, text:'許可證 ' + days + ' 天後到期' };
+  return { level:'ok', days, text:'許可證到期 ' + m.permitExpDate };
+}
+// 用照片編號直接開啟大圖（許可證照片用；不顯示「更換照片」）
+function openPhotoById(photoId){
+  currentViewingReceiptId = null;
+  const img = document.getElementById('photoViewImg');
+  img.style.display = '';
+  img.src = photoCache[photoId] || BLANK_IMG;
+  if(!photoCache[photoId]) loadPhoto(photoId).then(d=>{ if(d) img.src = d; });
+  document.getElementById('btnReplacePhotoView').style.display = 'none';
+  document.getElementById('photoViewOverlay').classList.add('show');
+}
 function suggestNextMaterialCode(){ return suggestNextCode('material'); }
 
 function renderInventoryList(kind){
+  _renderInventoryList(kind);
+  if(kind === 'additive') addAdditiveAlertBanner();
+}
+function _renderInventoryList(kind){
   const cfg = INVENTORY_KIND_CONFIG[kind];
   const list = cfg.getList();
   const listEl = document.getElementById(cfg.listElId);
   const keyword = (document.getElementById(cfg.searchElId).value || '').trim().toLowerCase();
   const filtered = keyword
-    ? list.filter(m => (m.name||'').toLowerCase().includes(keyword) || (m.code||'').toLowerCase().includes(keyword))
+    ? list.filter(m => [m.name, m.code, m.regCode, m.permitNo].some(v=> String(v||'').toLowerCase().includes(keyword)))
     : list;
   if(list.length === 0){
     listEl.innerHTML = '<div class="ship-list-empty">還沒有任何' + cfg.label + '，點上面「+ 新增' + cfg.label + '」開始建立</div>';
@@ -7135,9 +7250,20 @@ function renderInventoryList(kind){
     const batchSummary = activeBatches.length === 0 ? '目前沒有庫存批次'
       : activeBatches.length === 1 ? ('批號 ' + escapeHtml(activeBatches[0].batchNo||'－') + '　有效期限 ' + (activeBatches[0].expDate||'－'))
       : (activeBatches.length + ' 個批次：' + activeBatches.map(b=>escapeHtml(b.batchNo||'未命名')+' x'+b.stock).join('、'));
-    const metaLine = fixedInfo ? (fixedInfo + '<br>' + batchSummary) : batchSummary;
+    let metaLine = fixedInfo ? (fixedInfo + '<br>' + batchSummary) : batchSummary;
+    let catTag = '';
+    if(kind === 'additive'){
+      catTag = m.additiveCategory
+        ? '<span style="font-size:13px; color:var(--orange); border:1px solid var(--orange); border-radius:6px; padding:1px 5px; margin-right:6px;">' + ADDITIVE_CATEGORY_LABEL[m.additiveCategory] + '</span>'
+        : '<span style="font-size:13px; color:var(--amber); border:1px solid var(--amber); border-radius:6px; padding:1px 5px; margin-right:6px;">未分類</span>';
+      const ps = permitStatus(m);
+      const addInfo = (m.regCode ? '登錄碼 ' + escapeHtml(m.regCode) : '<span style="color:var(--amber);">未填產品登錄碼</span>') +
+        (m.permitNo ? '　許可證 ' + escapeHtml(m.permitNo) : '') +
+        (ps ? '　<span style="font-weight:800; color:' + (ps.level==='expired' ? 'var(--red)' : ps.level==='soon' ? 'var(--amber)' : 'var(--ink-dim)') + ';">' + (ps.level!=='ok' ? '⚠ ' : '') + ps.text + '</span>' : '');
+      metaLine = addInfo + '<br>' + metaLine;
+    }
     return '<div class="material-item">' +
-      '<div class="material-item-top" data-mid="'+m.id+'" style="cursor:pointer;"><div class="material-item-name">'+materialLabel(m)+'</div><div class="material-item-stock">'+ total +' '+escapeHtml(m.unit||'')+'</div></div>' +
+      '<div class="material-item-top" data-mid="'+m.id+'" style="cursor:pointer;"><div class="material-item-name">'+catTag+materialLabel(m)+'</div><div class="material-item-stock">'+ total +' '+escapeHtml(m.unit||'')+'</div></div>' +
       '<div class="material-item-meta" data-mid="'+m.id+'" style="cursor:pointer;">'+metaLine+'</div>' +
       '<div style="display:flex; gap:8px; margin-top:8px;">' +
       '<button type="button" class="split-btn" data-receipt-mid="'+m.id+'" style="flex:1;">📥 進貨</button>' +
@@ -7167,6 +7293,16 @@ function renderInventoryList(kind){
 }
 function renderMaterialList(){ renderInventoryList('material'); }
 function renderAdditiveList(){ renderInventoryList('additive'); }
+function addAdditiveAlertBanner(){
+  const listEl = document.getElementById('additiveList');
+  if(!listEl) return;
+  const alerts = additives.map(a=>({ a, ps: permitStatus(a) })).filter(x=>x.ps && x.ps.level !== 'ok');
+  const uncategorized = additives.filter(a=>!a.additiveCategory).length;
+  let banner = '';
+  if(alerts.length) banner += '<div class="coa-notice-row" style="border-color:var(--red); margin-bottom:8px; line-height:1.6;">⚠ 許可證需要注意：' + alerts.map(x=> escapeHtml(x.a.name) + '（' + x.ps.text + '）').join('、') + '</div>';
+  if(uncategorized) banner += '<div class="coa-notice-row" style="margin-bottom:8px;">還有 ' + uncategorized + ' 項食品添加物沒有分類，點開補上分類與產品登錄碼。</div>';
+  if(banner) listEl.insertAdjacentHTML('afterbegin', banner);
+}
 function renderPackagingList(){ renderInventoryList('packaging'); }
 
 let editingMaterialId = null;
@@ -7306,6 +7442,9 @@ function openMaterialForm(m, kind){
   populateSupplierManufacturerSuggestions();
   document.getElementById('materialFormTitle').textContent = m ? ('編輯' + cfg.label) : ('新增' + cfg.label);
   document.getElementById('mfCode').value = m ? (m.code || '') : suggestNextCode(kind);
+  document.getElementById('mfCodeLabel').textContent = cfg.label + '料號';
+  document.getElementById('mfNameLabel').textContent = cfg.label + '名稱';
+  fillAdditiveFields(kind, m);
   document.getElementById('mfName').value = m ? m.name : '';
   document.getElementById('mfUnit').value = m ? (m.unit||'') : '';
   document.getElementById('mfOrigin').value = m ? (m.origin || '') : '';
@@ -7364,17 +7503,23 @@ document.getElementById('btnSaveMaterial').onclick = async ()=>{
   const defaultSpec = parseFloat(document.getElementById('mfDefaultSpec').value);
   const batches = getMaterialBatchLotsFromForm().filter(b=> b.batchNo || b.mfgDate || b.expDate || b.stock || b.photoData || b.photoId).map(b=>{ if(!b.photoData) delete b.photoData; if(!b.photoId) delete b.photoId; return b; });
   if(!name){ showToast('請填寫' + cfg.label + '名稱'); return; }
+  let additiveData = {};
+  if(editingInventoryKind === 'additive'){
+    const r = collectAdditiveFields();
+    if(r.missing.length){ showToast('請填寫：' + r.missing.join('、')); document.getElementById('mfAdditiveSection').scrollIntoView({ behavior:'smooth', block:'start' }); return; }
+    additiveData = r.data;
+  }
   const list = cfg.getList();
   let targetId;
   if(editingMaterialId){
     const m = list.find(x=>x.id===editingMaterialId);
-    if(m) Object.assign(m, { code, name, unit, origin, manufacturer, supplier, defaultSpec: isNaN(defaultSpec)?null:defaultSpec, batches });
+    if(m) Object.assign(m, { code, name, unit, origin, manufacturer, supplier, defaultSpec: isNaN(defaultSpec)?null:defaultSpec, batches }, additiveData);
     targetId = editingMaterialId;
     logManualBatchChanges(editingInventoryKind, editingMaterialId, name, editingMaterialOriginalBatches, batches);
     showToast('已更新' + cfg.label);
   }else{
     const newId = 'm_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
-    list.push({ id:newId, code, name, unit, origin, manufacturer, supplier, defaultSpec: isNaN(defaultSpec)?null:defaultSpec, batches });
+    list.push(Object.assign({ id:newId, code, name, unit, origin, manufacturer, supplier, defaultSpec: isNaN(defaultSpec)?null:defaultSpec, batches }, additiveData));
     targetId = newId;
     logManualBatchChanges(editingInventoryKind, newId, name, [], batches);
     showToast('已新增' + cfg.label);
@@ -8784,6 +8929,7 @@ document.getElementById('btnVoidReceipt').onclick = async ()=>{
 let currentViewingReceiptId = null;
 function openPhotoView(receiptId){
   currentViewingReceiptId = receiptId;
+  document.getElementById('btnReplacePhotoView').style.display = '';
   const r = receipts.find(x=>x.id===receiptId);
   const img = document.getElementById('photoViewImg');
   img.style.display = hasPhoto(r) ? '' : 'none';
