@@ -1324,7 +1324,8 @@
     </div>
 
     <div class="report-tab-panel" id="bomPanelAdditives" style="display:none;">
-      <button type="button" class="i18n add-item-btn" id="btnAddAdditive" style="margin-bottom:12px;">+ 新增食品添加物</button>
+      <button type="button" class="i18n add-item-btn" id="btnAddAdditive" style="margin-bottom:8px;">+ 新增食品添加物</button>
+      <button type="button" class="split-btn" id="btnPermitOverview" style="width:100%; margin-bottom:12px; padding:11px; font-size:16px; font-weight:800; color:var(--orange); border-color:var(--orange);">📄 許可證／登錄碼總覽（可依供應商查）</button>
       <div class="field" style="margin-bottom:10px;">
         <input type="text" id="additiveSearchInput" placeholder="搜尋添加物名稱、料號、登錄碼、許可證字號">
       </div>
@@ -1659,6 +1660,26 @@
       <button type="button" class="btn-primary" id="btnSaveReceiptFix">儲存修正</button>
     </div>
     <button type="button" class="btn-delete" id="btnVoidReceipt">🚫 作廢這筆進貨（整筆輸入錯誤時使用）</button>
+  </div>
+</div>
+
+<div class="overlay" id="permitOverviewOverlay" style="z-index:46;">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>📄 許可證／登錄碼總覽</h2>
+    <div class="report-updated">選供應商就能看到他所有食品添加物的許可證狀況。點一列可以打開編輯補資料。</div>
+    <div class="field" style="margin-bottom:8px;">
+      <label>供應商</label>
+      <select id="poSupplier" style="width:100%; padding:10px 12px; font-size:16px; border-radius:10px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink);"></select>
+    </div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;" id="poStatusFilter"></div>
+    <div id="poSummary" style="margin-bottom:10px;"></div>
+    <div id="poList"></div>
+    <div class="sheet-actions" style="margin-top:16px; flex-wrap:wrap;">
+      <button type="button" class="btn-secondary" id="btnPoPrint" style="flex:1;">🖨 列印</button>
+      <button type="button" class="btn-secondary" id="btnPoExport" style="flex:1;">⬇️ 匯出 Excel</button>
+      <button type="button" class="btn-primary" id="btnPoClose" style="flex:1;">關閉</button>
+    </div>
   </div>
 </div>
 
@@ -7418,6 +7439,164 @@ function addAdditiveAlertBanner(){
   if(banner) listEl.insertAdjacentHTML('afterbegin', banner);
 }
 function renderPackagingList(){ renderInventoryList('packaging'); }
+
+// ---- 許可證／登錄碼總覽（依供應商）----
+const PO_NO_SUPPLIER = '__none__';
+let poStatus = 'all';
+const PO_STATUS = {
+  expired:{ label:'已過期', color:'var(--red)', order:0 },
+  soon:{ label:'60天內到期', color:'var(--amber)', order:1 },
+  missing:{ label:'資料不完整', color:'var(--orange)', order:2 },
+  ok:{ label:'有效', color:'var(--green)', order:3 },
+  na:{ label:'不需許可證', color:'var(--ink-dim)', order:4 }
+};
+// 一個添加物的供應商：品項設定的供應商 + 各批次、進貨紀錄裡出現過的供應商
+function additiveSuppliers(a){
+  const set = new Set();
+  if(a.supplier) set.add(a.supplier.trim());
+  (a.batches||[]).forEach(b=>{ if(b.supplier) set.add(String(b.supplier).trim()); });
+  receipts.forEach(r=>{ if(r.kind === 'additive' && r.materialId === a.id && !r.voided && r.supplier) set.add(String(r.supplier).trim()); });
+  set.delete('');
+  return [...set];
+}
+function permitOverviewRow(a){
+  const ps = permitStatus(a);
+  const missing = [];
+  if(!a.additiveCategory) missing.push('分類');
+  if(!a.regCode) missing.push('產品登錄碼');
+  if(a.additiveCategory === 'single'){
+    if(!a.permitNo) missing.push('許可證字號');
+    if(!a.permitExpDate) missing.push('到期日');
+    if(!permitPhotoList(a).length) missing.push('許可證照片');
+  }
+  let status;
+  if(ps && ps.level === 'expired') status = 'expired';
+  else if(ps && ps.level === 'soon') status = 'soon';
+  else if(missing.length) status = 'missing';
+  else if(a.additiveCategory === 'single') status = 'ok';
+  else status = 'na';
+  return { a, ps, missing, status, suppliers: additiveSuppliers(a) };
+}
+function poRows(){
+  const sup = document.getElementById('poSupplier').value;
+  let rows = additives.map(permitOverviewRow);
+  if(sup === PO_NO_SUPPLIER) rows = rows.filter(r=>!r.suppliers.length);
+  else if(sup) rows = rows.filter(r=>r.suppliers.includes(sup));
+  return rows.sort((x,y)=> PO_STATUS[x.status].order - PO_STATUS[y.status].order || (x.ps && y.ps ? x.ps.days - y.ps.days : 0) || String(x.a.name).localeCompare(String(y.a.name), 'zh-Hant'));
+}
+function openPermitOverview(){
+  const sel = document.getElementById('poSupplier');
+  const prev = sel.value;
+  const count = {};
+  let none = 0;
+  additives.forEach(a=>{ const ss = additiveSuppliers(a); if(!ss.length) none++; ss.forEach(x=> count[x] = (count[x]||0) + 1); });
+  const names = Object.keys(count).sort((a,b)=>a.localeCompare(b, 'zh-Hant'));
+  sel.innerHTML = '<option value="">全部供應商（' + additives.length + ' 項）</option>' +
+    names.map(n=>'<option value="'+escapeHtml(n)+'">'+escapeHtml(n)+'（'+count[n]+' 項）</option>').join('') +
+    (none ? '<option value="'+PO_NO_SUPPLIER+'">（沒填供應商）（'+none+' 項）</option>' : '');
+  if([...sel.options].some(o=>o.value === prev)) sel.value = prev;
+  renderPermitOverview();
+  document.getElementById('permitOverviewOverlay').classList.add('show');
+}
+function renderPermitOverview(){
+  const all = poRows();
+  const cnt = {}; Object.keys(PO_STATUS).forEach(k=> cnt[k] = all.filter(r=>r.status===k).length);
+  document.getElementById('poStatusFilter').innerHTML = [['all','全部 ' + all.length]].concat(Object.keys(PO_STATUS).map(k=>[k, PO_STATUS[k].label + ' ' + cnt[k]]))
+    .map(([k,t])=>'<button type="button" class="split-btn" data-po-status="'+k+'" style="width:auto; flex:0 0 auto; padding:6px 10px; font-size:14px;' + (poStatus===k ? ' border-color:var(--teal); color:var(--teal); font-weight:800; background:rgba(63,184,175,.15);' : '') + '">'+t+'</button>').join('');
+  document.querySelectorAll('[data-po-status]').forEach(b=> b.onclick = ()=>{ poStatus = b.dataset.poStatus; renderPermitOverview(); });
+  const sup = document.getElementById('poSupplier');
+  const supName = sup.value ? sup.options[sup.selectedIndex].textContent.replace(/（\d+ 項）$/, '') : '全部供應商';
+  const bad = cnt.expired + cnt.soon + cnt.missing;
+  document.getElementById('poSummary').innerHTML = '<div class="coa-notice-row" style="line-height:1.6; ' + (bad ? 'border-color:var(--red);' : 'border-color:var(--green);') + '">' +
+    '<b>' + escapeHtml(supName) + '</b>　共 ' + all.length + ' 項：' +
+    Object.keys(PO_STATUS).filter(k=>cnt[k]).map(k=>'<span style="color:'+PO_STATUS[k].color+'; font-weight:800;">'+PO_STATUS[k].label+' '+cnt[k]+'</span>').join('　') +
+    (bad ? '' : '　✅ 都沒問題') + '</div>';
+  const rows = poStatus === 'all' ? all : all.filter(r=>r.status===poStatus);
+  const listEl = document.getElementById('poList');
+  if(!rows.length){ listEl.innerHTML = '<div class="ship-list-empty">沒有符合的食品添加物</div>'; return; }
+  listEl.innerHTML = rows.map(r=>{
+    const a = r.a, st = PO_STATUS[r.status], photos = permitPhotoList(a);
+    return '<div class="material-item" data-po-id="'+a.id+'" style="cursor:pointer; border-left:5px solid '+st.color+';">' +
+      '<div class="material-item-top"><div class="material-item-name">' + materialLabel(a) + '</div>' +
+      '<div style="font-weight:800; color:'+st.color+'; white-space:nowrap;">' + st.label + '</div></div>' +
+      '<div class="material-item-meta" style="line-height:1.7;">' +
+        (a.additiveCategory ? ADDITIVE_CATEGORY_LABEL[a.additiveCategory] : '<span style="color:var(--amber);">未分類</span>') +
+        '　登錄碼 ' + (a.regCode ? escapeHtml(a.regCode) : '<span style="color:var(--amber);">未填</span>') +
+        (a.additiveCategory === 'single'
+          ? '<br>許可證 ' + (a.permitNo ? escapeHtml(a.permitNo) : '<span style="color:var(--amber);">未填</span>') +
+            '　到期日 ' + (a.permitExpDate ? escapeHtml(a.permitExpDate) : '<span style="color:var(--amber);">未填</span>') +
+            (r.ps ? '　<b style="color:'+st.color+';">' + (r.ps.days < 0 ? '已過期 ' + (-r.ps.days) + ' 天' : '剩 ' + r.ps.days + ' 天') + '</b>' : '') +
+            '　' + (photos.length ? '<button type="button" class="split-btn" data-po-photo="'+a.id+'" style="width:auto; padding:2px 8px; font-size:13px;">📄 照片 '+photos.length+' 頁</button>' : '<span style="color:var(--amber);">沒有照片</span>')
+          : '') +
+        '<br>供應商：' + (r.suppliers.length ? escapeHtml(r.suppliers.join('、')) : '<span style="color:var(--ink-dim);">未填</span>') +
+        (r.missing.length ? '<br><span style="color:var(--orange);">缺：' + r.missing.join('、') + '</span>' : '') +
+      '</div></div>';
+  }).join('');
+  listEl.querySelectorAll('[data-po-photo]').forEach(b=> b.onclick = (e)=>{
+    e.stopPropagation();
+    const a = additives.find(x=>x.id===b.dataset.poPhoto);
+    const ids = permitPhotoList(a);
+    if(ids.length) openPhotoById(ids[0]);
+  });
+  listEl.querySelectorAll('[data-po-id]').forEach(el=> el.onclick = ()=>{
+    const a = additives.find(x=>x.id===el.dataset.poId);
+    if(!a) return;
+    document.getElementById('permitOverviewOverlay').classList.remove('show');
+    openMaterialForm(a, 'additive');
+  });
+}
+function poExportRows(){
+  return poRows().filter(r=> poStatus === 'all' || r.status === poStatus).map(r=>({
+    '狀態': PO_STATUS[r.status].label,
+    '料號': r.a.code||'', '名稱': r.a.name||'',
+    '分類': r.a.additiveCategory ? ADDITIVE_CATEGORY_LABEL[r.a.additiveCategory] : '未分類',
+    '產品登錄碼': r.a.regCode||'',
+    '許可證字號': r.a.permitNo||'',
+    '許可證到期日': r.a.permitExpDate||'',
+    '剩餘天數': r.ps ? r.ps.days : '',
+    '許可證照片頁數': r.a.additiveCategory === 'single' ? permitPhotoList(r.a).length : '',
+    '供應商': r.suppliers.join('、'),
+    '製造商': r.a.manufacturer||'',
+    '缺少資料': r.missing.join('、')
+  }));
+}
+function poTitle(){
+  const sup = document.getElementById('poSupplier');
+  return (sup.value ? sup.options[sup.selectedIndex].textContent.replace(/（\d+ 項）$/, '') : '全部供應商') + '　食品添加物許可證總覽';
+}
+document.getElementById('btnPermitOverview').onclick = openPermitOverview;
+document.getElementById('poSupplier').onchange = ()=>{ poStatus = 'all'; renderPermitOverview(); };
+document.getElementById('btnPoClose').onclick = ()=> document.getElementById('permitOverviewOverlay').classList.remove('show');
+document.getElementById('btnPoExport').onclick = ()=>{
+  if(typeof XLSX === 'undefined'){ showToast('Excel 元件載入失敗，請檢查網路後重新整理再試'); return; }
+  const rows = poExportRows();
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows.length ? rows : [{'狀態':'(沒有資料)'}]), '許可證總覽');
+  const wbout = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+  const url = URL.createObjectURL(new Blob([wbout], { type:'application/octet-stream' }));
+  const a = document.createElement('a'); a.href = url; a.download = poTitle().replace(/\s+/g,'_').replace(/[\\/?*[\]:]/g,'') + '_' + todayStr() + '.xlsx'; a.click();
+  setTimeout(()=> URL.revokeObjectURL(url), 2000);
+  showToast('已匯出 Excel');
+};
+document.getElementById('btnPoPrint').onclick = ()=>{
+  const rows = poExportRows();
+  const esc = escapeHtml;
+  const cols = ['狀態','料號','名稱','分類','產品登錄碼','許可證字號','許可證到期日','剩餘天數','供應商','缺少資料'];
+  const html = '<!doctype html><html><head><meta charset="utf-8"><title>' + esc(poTitle()) + '</title><style>' +
+    '@page{ size:A4 landscape; margin:10mm; } body{ font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif; color:#000; margin:0; }' +
+    'h1{ font-size:18px; margin:0 0 6px; } .info{ font-size:13px; margin-bottom:8px; }' +
+    'table{ width:calc(100% - 2px); border-collapse:collapse; font-size:12.5px; } th,td{ border:1px solid #000; padding:5px; } th{ background:#e8e8e8; }' +
+    'thead{ display:table-header-group; } tr{ page-break-inside:avoid; } .bad{ font-weight:bold; }' +
+    '.btn{ margin:10px 0; padding:8px 16px; font-size:15px; } @media print{ .btn{ display:none; } }' +
+    '</style></head><body><button class="btn" onclick="window.print()">🖨 列印</button>' +
+    '<h1>' + esc(poTitle()) + '</h1><div class="info">列印日期：' + todayStr() + '　共 ' + rows.length + ' 項</div>' +
+    '<table><thead><tr>' + cols.map(c=>'<th>'+c+'</th>').join('') + '</tr></thead><tbody>' +
+    (rows.length ? rows.map(r=>'<tr>' + cols.map(c=>'<td' + (c==='狀態' && /過期|到期|不完整/.test(r[c]) ? ' class="bad"' : '') + '>' + esc(String(r[c] ?? '')) + '</td>').join('') + '</tr>').join('') : '<tr><td colspan="'+cols.length+'">沒有資料</td></tr>') +
+    '</tbody></table><script>window.onload=function(){ setTimeout(function(){ window.print(); }, 300); };<\/script></body></html>';
+  const w = window.open('', '_blank');
+  if(!w){ showToast('瀏覽器擋住了列印視窗，請允許彈出視窗後再試一次'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+};
 
 let editingMaterialId = null;
 let editingInventoryKind = 'material';
