@@ -456,6 +456,9 @@
 .origin-opt{ padding:11px 14px; font-size:16px; cursor:pointer; border-bottom:1px solid var(--line); }
 .origin-opt:last-child{ border-bottom:none; }
 .origin-opt:hover, .origin-opt.active{ background:rgba(20,184,166,.18); }
+.unit-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.unit-chip{ padding:7px 13px; font-size:15.5px; border-radius:999px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); cursor:pointer; min-width:44px; }
+.unit-chip.active{ border-color:var(--teal); background:rgba(63,184,175,.2); color:var(--teal); font-weight:800; }
 </style>
 </head>
 <body>
@@ -1397,7 +1400,7 @@
     <div class="row2">
       <div class="field">
         <label class="i18n">單位</label>
-        <input type="text" id="sgUnit" placeholder="例如 kg">
+        <input type="text" id="sgUnit" data-unit-chips="semi" autocomplete="off" placeholder="例如 kg">
       </div>
       <div class="field">
         <label class="i18n">目前庫存總量（自動加總所有批次）</label>
@@ -1581,7 +1584,7 @@
     <div class="row2">
       <div class="field">
         <label class="i18n">單位</label>
-        <input type="text" id="fgUnit" placeholder="例如 箱、包">
+        <input type="text" id="fgUnit" data-unit-chips="fg" autocomplete="off" placeholder="例如 箱、包">
       </div>
       <div class="field">
         <label class="i18n">目前庫存總量（自動加總所有批次）</label>
@@ -1674,6 +1677,10 @@
         <input type="number" id="mrSpec" placeholder="例如 25" step="any">
       </div>
     </div>
+    <div class="field">
+      <label>單位（點選或自己打）</label>
+      <input type="text" id="mrUnit" data-unit-chips="material" placeholder="例如 kg" autocomplete="off">
+    </div>
     <div class="backup-info" id="mrTotalDisplay" style="margin-bottom:14px;">總重量：0</div>
     <div class="field">
       <label class="i18n">進貨日期</label>
@@ -1765,7 +1772,7 @@
     <div class="row2">
       <div class="field">
         <label class="i18n">單位</label>
-        <input type="text" id="mfUnit" placeholder="例如 kg、g、包">
+        <input type="text" id="mfUnit" data-unit-chips="material" autocomplete="off" placeholder="例如 kg、g、包">
       </div>
       <div class="field">
         <label class="i18n">目前庫存總量（自動加總所有批次）</label>
@@ -8608,6 +8615,50 @@ document.getElementById('btnDeleteSemiBom').onclick = async ()=>{
   showToast('已刪除配方');
 };
 
+// ---- 單位快速點選（電腦、iPad 都能直接點，也可以自己打） ----
+const UNIT_CHOICES = {
+  material: ['kg','g','包','袋','箱','桶','罐','瓶','個','捲','張','L'],
+  semi: ['kg','g','包','袋','桶'],
+  fg: ['包','箱','罐','瓶','袋','盒','kg','g','個']
+};
+function refreshUnitChips(inp){
+  const box = inp && inp._unitChips;
+  if(!box) return;
+  const v = inp.value.trim();
+  box.querySelectorAll('.unit-chip').forEach(c=> c.classList.toggle('active', c.dataset.unit === v));
+}
+function setupUnitChips(){
+  document.querySelectorAll('input[data-unit-chips]').forEach(inp=>{
+    if(inp._unitChips) return;
+    const box = document.createElement('div');
+    box.className = 'unit-chips';
+    box.innerHTML = (UNIT_CHOICES[inp.dataset.unitChips] || UNIT_CHOICES.material)
+      .map(u=>'<button type="button" class="unit-chip" data-unit="'+escapeHtml(u)+'">'+escapeHtml(u)+'</button>').join('');
+    inp.insertAdjacentElement('afterend', box);
+    inp._unitChips = box;
+    box.addEventListener('click', (e)=>{
+      const c = e.target.closest('.unit-chip');
+      if(!c) return;
+      inp.value = c.dataset.unit;
+      inp.dispatchEvent(new Event('input', { bubbles:true }));
+      inp.dispatchEvent(new Event('change', { bubbles:true }));
+    });
+    inp.addEventListener('input', ()=> refreshUnitChips(inp));
+    // 程式直接設定 value 時也要更新選取狀態
+    const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    const own = Object.getOwnPropertyDescriptor(inp, 'value');
+    if(!own){
+      Object.defineProperty(inp, 'value', {
+        configurable: true,
+        get(){ return desc.get.call(this); },
+        set(v){ desc.set.call(this, v); refreshUnitChips(this); }
+      });
+    }
+    refreshUnitChips(inp);
+  });
+}
+setupUnitChips();
+
 // ---- 原料進貨 ----
 let receivingMaterialId = null;
 let receivingKind = 'material';
@@ -8617,7 +8668,8 @@ function updateReceiptTotal(){
   const spec = parseFloat(document.getElementById('mrSpec').value) || 0;
   const total = Math.round(pieces * spec * 1000) / 1000;
   const m = INVENTORY_KIND_CONFIG[receivingKind].getList().find(x=>x.id===receivingMaterialId);
-  document.getElementById('mrTotalDisplay').textContent = '總重量：' + total + ' ' + (m ? (m.unit||'') : '');
+  const unit = (document.getElementById('mrUnit').value || '').trim() || (m ? (m.unit||'') : '');
+  document.getElementById('mrTotalDisplay').textContent = '總量：' + total + ' ' + unit;
   return total;
 }
 function openReceiptForm(m, kind){
@@ -8627,6 +8679,7 @@ function openReceiptForm(m, kind){
   const fixedInfo = (m.origin ? '　產地：'+m.origin : '') + (m.manufacturer ? '　製造商：'+m.manufacturer : '') + (m.supplier ? '　供應商：'+m.supplier : '');
   document.getElementById('receiptMaterialName').textContent = materialLabelPlain(m) + '　目前庫存 ' + materialTotalStock(m) + ' ' + (m.unit||'') + fixedInfo;
   document.getElementById('mrPieces').value = '';
+  document.getElementById('mrUnit').value = m.unit || '';
   document.getElementById('mrSpec').value = (m.defaultSpec ?? '') === null ? '' : (m.defaultSpec ?? '');
   document.getElementById('mrDate').value = todayStr();
   document.getElementById('mrBatchNo').value = '';
@@ -8666,6 +8719,7 @@ document.getElementById('mrDate').addEventListener('change', syncReceiptBatchNoF
 document.getElementById('mrDate').addEventListener('input', syncReceiptBatchNoFromDate);
 document.getElementById('mrBatchNo').addEventListener('input', updateReceiptBatchHint);
 document.getElementById('mrSpec').addEventListener('input', updateReceiptTotal);
+document.getElementById('mrUnit').addEventListener('input', updateReceiptTotal);
 document.getElementById('btnCancelReceipt').onclick = ()=> materialReceiptOverlay.classList.remove('show');
 // materialReceiptOverlay：點表單外面不會關閉，避免誤觸讓輸入到一半的資料消失（請用「取消」或「儲存」）
 
@@ -8802,6 +8856,16 @@ document.getElementById('btnSaveReceipt').onclick = async ()=>{
   if(!pieces || pieces <= 0){ showToast('請填寫正確的進貨件數'); return; }
   if(!spec || spec <= 0){ showToast('請填寫正確的規格（每件重量/數量）'); return; }
   if(!photoFile){ showToast('請上傳標籤照片'); return; }
+  const recvUnit = document.getElementById('mrUnit').value.trim();
+  if(!recvUnit){ showToast('請選擇單位'); return; }
+  if(recvUnit !== (m.unit || '')){
+    const stockNow = materialTotalStock(m);
+    if(m.unit && stockNow > 0){
+      const ok = await showConfirm('「' + m.name + '」原本的單位是「' + m.unit + '」，目前庫存 ' + stockNow + ' ' + m.unit + '。\n改成「' + recvUnit + '」後，舊庫存的數字不會自動換算，之後整個品項都會以「' + recvUnit + '」計算。', '要把單位改成「' + recvUnit + '」嗎？');
+      if(!ok) return;
+    }
+    m.unit = recvUnit;
+  }
 
   const saveBtn = document.getElementById('btnSaveReceipt');
   const originalLabel = saveBtn.textContent;
