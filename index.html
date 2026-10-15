@@ -452,6 +452,10 @@
     border:1.5px solid var(--line); border-radius:8px; }
   .dual-date input.dual-date-native::-webkit-calendar-picker-indicator{ position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
   .dual-date input.dual-date-native::-webkit-datetime-edit{ display:none; }
+.origin-drop{ position:absolute; z-index:80; background:var(--panel-raised); color:var(--ink); border:1px solid var(--line); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.35); max-height:260px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+.origin-opt{ padding:11px 14px; font-size:16px; cursor:pointer; border-bottom:1px solid var(--line); }
+.origin-opt:last-child{ border-bottom:none; }
+.origin-opt:hover, .origin-opt.active{ background:rgba(20,184,166,.18); }
 </style>
 </head>
 <body>
@@ -1403,7 +1407,7 @@
     <div class="row2">
       <div class="field">
         <label class="i18n">產地（此料號固定，所有批次共用）</label>
-        <input type="text" id="sgOrigin" placeholder="例如 台灣-TW（只打台灣也會自動補上）" list="originSuggestions">
+        <input type="text" id="sgOrigin" placeholder="例如 台灣-TW（打台灣或 TW 都可以）" data-origin-input autocomplete="off">
       </div>
       <div class="field">
         <label class="i18n">製造商（此料號固定，所有批次共用）</label>
@@ -1713,6 +1717,7 @@
     <input type="file" id="photoViewReplaceInput" accept="image/*" style="display:none;">
     <div class="sheet-actions" style="margin-top:16px;">
       <button type="button" class="i18n btn-secondary" id="btnReplacePhotoView" style="flex:1;">🔄 更換照片</button>
+      <button type="button" class="i18n btn-secondary" id="btnDeletePhotoView" style="flex:1; color:var(--red, #c0392b);">🗑 刪除照片</button>
       <button type="button" class="i18n btn-primary" id="btnClosePhotoView" style="flex:1;">關閉</button>
     </div>
   </div>
@@ -1770,7 +1775,7 @@
     <div class="row2">
       <div class="field">
         <label class="i18n">產地（此料號固定，所有批次共用）</label>
-        <input type="text" id="mfOrigin" placeholder="例如 印度-IN（只打印度也會自動補上）" list="originSuggestions">
+        <input type="text" id="mfOrigin" placeholder="例如 印度-IN（打印度或 IN 都可以）" data-origin-input autocomplete="off">
       </div>
       <div class="field">
         <label class="i18n">製造商（此料號固定，所有批次共用）</label>
@@ -2204,12 +2209,91 @@ const ORIGIN_CODES = {
 function normalizeOrigin(v){
   const raw = String(v || '').trim();
   if(!raw) return '';
+  // 只打國碼（CN、cn）也認得
+  if(/^[A-Za-z]{2}$/.test(raw) && ORIGIN_NAME_BY_CODE[raw.toUpperCase()]) return ORIGIN_NAME_BY_CODE[raw.toUpperCase()] + '-' + raw.toUpperCase();
   // 拿掉後面已經有的國碼（台灣TW、台灣 TW、台灣-TW、台灣(TW)都視為台灣）
   const name = raw.replace(/[\s\-－_()（）]*[A-Za-z]{2}[)）]?$/, '').trim();
   const key = name === '臺灣' ? '台灣' : name;
   const code = ORIGIN_CODES[key] || ORIGIN_CODES[name];
   return code ? key + '-' + code : raw;
 }
+const ORIGIN_NAME_BY_CODE = {};
+Object.keys(ORIGIN_CODES).forEach(n=>{ if(n !== '臺灣' && !ORIGIN_NAME_BY_CODE[ORIGIN_CODES[n]]) ORIGIN_NAME_BY_CODE[ORIGIN_CODES[n]] = n; });
+// ---- 產地輸入提示：打國名或國碼（CN）都會跳出「國名-國碼」，電腦和 iPad 都一樣 ----
+function originSuggestionList(q){
+  const all = Object.keys(ORIGIN_NAME_BY_CODE).map(c=> ORIGIN_NAME_BY_CODE[c] + '-' + c);
+  // 資料裡已經用過、但不在清單中的產地也列進來
+  try{ [materials, additives, packagings, semiGoods].forEach(list=> (list||[]).forEach(x=>{ if(x.origin && !all.includes(x.origin)) all.push(x.origin); })); }catch(e){}
+  const query = String(q||'').trim().toUpperCase();
+  if(!query) return all.slice(0, 12);
+  const starts = [], codeHit = [], contains = [];
+  all.forEach(o=>{
+    const u = o.toUpperCase();
+    const code = (u.match(/-([A-Z]{2})$/)||[])[1] || '';
+    if(code && code.startsWith(query)) codeHit.push(o);
+    else if(u.startsWith(query)) starts.push(o);
+    else if(u.includes(query)) contains.push(o);
+  });
+  return codeHit.concat(starts, contains).slice(0, 12);
+}
+let originDrop = null, originDropInput = null, originDropIdx = -1;
+function hideOriginDrop(){ if(originDrop){ originDrop.remove(); originDrop = null; } originDropInput = null; originDropIdx = -1; }
+function pickOrigin(val){
+  const inp = originDropInput;
+  if(!inp) return;
+  inp.value = val;
+  inp.dispatchEvent(new Event('input', { bubbles:true }));
+  inp.dispatchEvent(new Event('change', { bubbles:true }));
+  hideOriginDrop();
+}
+function showOriginDrop(inp){
+  const items = originSuggestionList(inp.value);
+  if(!items.length || (items.length === 1 && items[0] === inp.value)){ hideOriginDrop(); return; }
+  if(!originDrop || originDropInput !== inp){
+    hideOriginDrop();
+    originDrop = document.createElement('div');
+    originDrop.className = 'origin-drop';
+    const host = inp.parentElement;
+    if(getComputedStyle(host).position === 'static') host.style.position = 'relative';
+    host.appendChild(originDrop);
+    originDropInput = inp;
+    // 用 pointerdown 選取，避免輸入框先失焦把清單關掉
+    originDrop.addEventListener('pointerdown', (e)=>{
+      const it = e.target.closest('[data-origin-opt]');
+      if(!it) return;
+      e.preventDefault();
+      pickOrigin(it.dataset.originOpt);
+    });
+  }
+  originDropIdx = -1;
+  originDrop.style.top = (inp.offsetTop + inp.offsetHeight + 2) + 'px';
+  originDrop.style.left = inp.offsetLeft + 'px';
+  originDrop.style.width = inp.offsetWidth + 'px';
+  originDrop.innerHTML = items.map((o,i)=>'<div class="origin-opt" data-origin-opt="'+escapeHtml(o)+'" data-i="'+i+'">'+escapeHtml(o)+'</div>').join('');
+}
+document.addEventListener('focusin', (e)=>{
+  const inp = e.target;
+  if(inp && inp.matches && inp.matches('input[data-origin-input]')) showOriginDrop(inp);
+});
+document.addEventListener('input', (e)=>{
+  const inp = e.target;
+  if(inp && inp.matches && inp.matches('input[data-origin-input]')) showOriginDrop(inp);
+});
+document.addEventListener('focusout', (e)=>{
+  if(e.target === originDropInput) setTimeout(()=>{ if(document.activeElement !== originDropInput) hideOriginDrop(); }, 150);
+});
+document.addEventListener('keydown', (e)=>{
+  if(!originDrop || e.target !== originDropInput) return;
+  const opts = originDrop.querySelectorAll('.origin-opt');
+  if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+    e.preventDefault();
+    originDropIdx = (originDropIdx + (e.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length;
+    opts.forEach((o,i)=> o.classList.toggle('active', i === originDropIdx));
+  } else if(e.key === 'Enter'){
+    const o = opts[originDropIdx >= 0 ? originDropIdx : 0];
+    if(o){ e.preventDefault(); pickOrigin(o.dataset.originOpt); }
+  } else if(e.key === 'Escape'){ hideOriginDrop(); }
+});
 function sameOrigin(a, b){ return normalizeOrigin(a) === normalizeOrigin(b); }
 ['mfOrigin','sgOrigin'].forEach(id=>{
   const el = document.getElementById(id);
@@ -7240,6 +7324,7 @@ function openPhotoById(photoId){
   img.src = photoCache[photoId] || BLANK_IMG;
   if(!photoCache[photoId]) loadPhoto(photoId).then(d=>{ if(d) img.src = d; });
   document.getElementById('btnReplacePhotoView').style.display = 'none';
+  document.getElementById('btnDeletePhotoView').style.display = 'none';
   document.getElementById('photoViewOverlay').classList.add('show');
 }
 function suggestNextMaterialCode(){ return suggestNextCode('material'); }
@@ -7342,7 +7427,7 @@ function renderMaterialBatchLotList(batches){
   }
   container.innerHTML = list.map((b, idx)=>{
     const photoPreview = currentBatchPhotoData[idx]
-      ? photoImgTag(currentBatchPhotoData[idx], 'style="max-width:120px; max-height:120px; border-radius:8px; border:1px solid var(--line); display:block; margin-bottom:6px;"')
+      ? photoImgTag(currentBatchPhotoData[idx], 'style="max-width:120px; max-height:120px; border-radius:8px; border:1px solid var(--line); display:block; margin-bottom:6px;"') + '<button type="button" class="split-btn mbPhotoDel" style="padding:4px 8px; font-size:13px; margin-bottom:6px;">🗑 刪除這張照片</button>'
       : '';
     // 這一批的進貨照片（同料號、同批號的進貨紀錄，不含已作廢）
     const batchReceipts = editingMaterialId
@@ -7355,7 +7440,7 @@ function renderMaterialBatchLotList(batches){
           batchReceipts.map(r=>'<div style="text-align:center; width:104px;">' +
             (hasPhoto(r)
               ? '<div data-batch-photo-rid="'+r.id+'" style="cursor:pointer;">' + photoImgTag(r, 'style="width:96px; height:96px; object-fit:cover; border-radius:8px; border:2px solid var(--teal); display:block; margin:0 auto;"') + '</div>'
-              : '<div style="width:96px; height:96px; margin:0 auto; border-radius:8px; border:2px dashed var(--line); display:flex; align-items:center; justify-content:center; font-size:12.5px; color:var(--ink-dim);">沒有照片</div>') +
+              : '<div data-batch-photo-rid="'+r.id+'" style="cursor:pointer; width:96px; height:96px; margin:0 auto; border-radius:8px; border:2px dashed var(--line); display:flex; align-items:center; justify-content:center; text-align:center; font-size:12.5px; color:var(--ink-dim); line-height:1.4;">沒有照片<br>點擊補照片</div>') +
             '<div style="font-size:12.5px; color:var(--ink-dim); margin-top:3px; line-height:1.3;">' + escapeHtml(r.receivedDate||'') + '<br>+' + r.qty + ' ' + escapeHtml(r.unit||'') + (r.original ? '<br><span style="color:var(--amber);">已修正</span>' : '') + '</div>' +
             '<button type="button" class="split-btn" data-batch-fix-rid="'+r.id+'" style="margin-top:4px; padding:4px 6px; font-size:13px; width:100%;">✏️ 修正／作廢</button></div>').join('') +
           '</div></div>'
@@ -7410,6 +7495,16 @@ function renderMaterialBatchLotList(batches){
       }
     });
   });
+  container.querySelectorAll('.mbPhotoPreviewWrap').forEach(wrap=>{
+    wrap.addEventListener('click', async (e)=>{
+      if(!e.target.closest('.mbPhotoDel')) return;
+      const ok = await showConfirm('按下「儲存」後才會真正刪除。', '刪除這張標籤照片？');
+      if(!ok) return;
+      const idx = Number(wrap.closest('.material-batch-row').dataset.idx);
+      delete currentBatchPhotoData[idx];
+      wrap.innerHTML = '';
+    });
+  });
   container.querySelectorAll('.mbPhoto').forEach(el=>{
     el.addEventListener('change', async function(){
       const file = this.files[0];
@@ -7421,7 +7516,7 @@ function renderMaterialBatchLotList(batches){
         const wrap = this.closest('.material-batch-row').querySelector('.mbPhotoPreviewWrap');
         wrap.innerHTML = '<div style="font-size:13.5px; color:var(--ink-dim);">上傳照片中...</div>';
         currentBatchPhotoData[idx] = { photoId: await savePhoto(compressed) };
-        wrap.innerHTML = '<img src="'+compressed+'" style="max-width:120px; max-height:120px; border-radius:8px; border:1px solid var(--line); display:block; margin-bottom:6px;">';
+        wrap.innerHTML = '<img src="'+compressed+'" style="max-width:120px; max-height:120px; border-radius:8px; border:1px solid var(--line); display:block; margin-bottom:6px;">' + '<button type="button" class="split-btn mbPhotoDel" style="padding:4px 8px; font-size:13px; margin-bottom:6px;">🗑 刪除這張照片</button>';
       }catch(e){
         showToast('照片處理失敗，請換一張再試');
       }
@@ -8600,15 +8695,40 @@ document.getElementById('photoViewReplaceInput').addEventListener('change', asyn
     await saveBomData();
     document.getElementById('photoViewImg').src = newPhotoData;
     document.getElementById('photoViewImg').style.display = '';
+    document.getElementById('btnDeletePhotoView').style.display = '';
     renderReceiptList();
+    refreshMaterialFormAfterReceiptFix(r);
     showToast('已更換照片');
   }catch(err){
     console.error(err);
     showToast('照片處理失敗，請換一張照片再試一次');
   }
   btn.disabled = false;
-  btn.textContent = originalLabel;
+  btn.textContent = hasPhoto(r) ? '🔄 更換照片' : originalLabel;
 });
+document.getElementById('btnDeletePhotoView').onclick = async ()=>{
+  const r = receipts.find(x=>x.id===currentViewingReceiptId);
+  if(!r || !hasPhoto(r)) return;
+  const ok = await showConfirm('刪除後這筆進貨紀錄就沒有照片了（數量、批號不受影響），之後可以再補上。', '確定要刪除這張照片嗎？');
+  if(!ok) return;
+  const before = { photoId: r.photoId, photoData: r.photoData };
+  delete r.photoId;
+  delete r.photoData;
+  if(!r.corrections) r.corrections = [];
+  r.corrections.push({ at: Date.now(), by: (typeof currentUserEmail !== 'undefined' ? currentUserEmail : '') || '', summary: '刪除標籤照片' });
+  const saved = await saveBomData();
+  if(saved === false){
+    if(before.photoId) r.photoId = before.photoId;
+    if(before.photoData) r.photoData = before.photoData;
+    r.corrections.pop();
+    return;
+  }
+  photoViewOverlay.classList.remove('show');
+  currentViewingReceiptId = null;
+  renderReceiptList();
+  refreshMaterialFormAfterReceiptFix(r);
+  showToast('已刪除照片');
+};
 
 function compressImageToBase64(file, maxWidth, quality){
   return new Promise((resolve, reject)=>{
@@ -8951,8 +9071,11 @@ document.getElementById('btnVoidReceipt').onclick = async ()=>{
 let currentViewingReceiptId = null;
 function openPhotoView(receiptId){
   currentViewingReceiptId = receiptId;
-  document.getElementById('btnReplacePhotoView').style.display = '';
   const r = receipts.find(x=>x.id===receiptId);
+  const rb = document.getElementById('btnReplacePhotoView');
+  rb.style.display = '';
+  rb.textContent = hasPhoto(r) ? '🔄 更換照片' : '📷 加上照片';
+  document.getElementById('btnDeletePhotoView').style.display = hasPhoto(r) ? '' : 'none';
   const img = document.getElementById('photoViewImg');
   img.style.display = hasPhoto(r) ? '' : 'none';
   img.src = (r && r.photoData) ? r.photoData : ((r && photoCache[r.photoId]) || BLANK_IMG);
@@ -9011,7 +9134,7 @@ function renderBomRows(){
     const options = list.map(x=>'<option value="'+x.id+'"'+(x.id===refId?' selected':'')+'>'+materialLabel(x)+'</option>').join('');
     const originRow = type !== 'semi'
       ? '<div class="row2" style="margin-top:6px;">' +
-          '<div class="field"><label style="font-size:12.4px; color:var(--ink-dim);">限定產地（選填）</label><input type="text" class="bomRowOrigin" placeholder="例如 印度-IN" list="originSuggestions" value="'+escapeHtml(row.requiredOrigin||'')+'"></div>' +
+          '<div class="field"><label style="font-size:12.4px; color:var(--ink-dim);">限定產地（選填）</label><input type="text" class="bomRowOrigin" placeholder="例如 印度-IN" data-origin-input autocomplete="off" value="'+escapeHtml(row.requiredOrigin||'')+'"></div>' +
           '<div class="field"><label style="font-size:12.4px; color:var(--ink-dim);">限定製造商（選填）</label><input type="text" class="bomRowManufacturer" placeholder="例如 XX食品廠" list="manufacturerSuggestions" value="'+escapeHtml(row.requiredManufacturer||'')+'"></div>' +
         '</div>'
       : '';
