@@ -1430,6 +1430,7 @@ input.halal-locked{ opacity:0.7; background:rgba(76,168,114,0.10) !important; bo
     <div class="halal-box">
       <label class="halal-toggle"><input type="checkbox" id="sgHalal"> 🕌 清真</label>
       <div id="sgHalalFields" style="display:none; margin-top:8px;">
+        <div class="field"><label>清真料號（跟上面的一般料號是同一個品項、同一份庫存）</label><input type="text" id="sgHalalCode" placeholder="例如 HTBR-001" autocomplete="off"></div>
         <div id="sgHalalTriad" class="halal-triad">清真三要素（綁定）：<b>品名、製造商、產地</b> 三個都要填，存檔後會鎖定。<br>同一種原料換了製造商或產地，就要另建一個清真料號。</div>
         <label class="halal-sub"><input type="checkbox" id="sgHalalHasCert"> 這個品項有清真證書（要追蹤到期日）</label>
         <div id="sgHalalCertFields" style="display:none; margin-top:8px;">
@@ -1618,6 +1619,7 @@ input.halal-locked{ opacity:0.7; background:rgba(76,168,114,0.10) !important; bo
     <div class="halal-box">
       <label class="halal-toggle"><input type="checkbox" id="fgHalal"> 🕌 清真產品（配方只能用清真材料）</label>
       <div id="fgHalalFields" style="display:none; margin-top:8px;">
+        <div class="field"><label>清真料號（跟上面的一般料號是同一個品項、同一份庫存）</label><input type="text" id="fgHalalCode" placeholder="例如 HTBR-001" autocomplete="off"></div>
         <label class="halal-sub"><input type="checkbox" id="fgHalalHasCert"> 這個品項有清真證書（要追蹤到期日）</label>
         <div id="fgHalalCertFields" style="display:none; margin-top:8px;">
         <div class="row2">
@@ -1866,6 +1868,7 @@ input.halal-locked{ opacity:0.7; background:rgba(76,168,114,0.10) !important; bo
     <div class="halal-box">
       <label class="halal-toggle"><input type="checkbox" id="mfHalal"> 🕌 清真</label>
       <div id="mfHalalFields" style="display:none; margin-top:8px;">
+        <div class="field"><label>清真料號（跟上面的一般料號是同一個品項、同一份庫存）</label><input type="text" id="mfHalalCode" placeholder="例如 HTBR-001" autocomplete="off"></div>
         <div id="mfHalalTriad" class="halal-triad">清真三要素（綁定）：<b>品名、製造商、產地</b> 三個都要填，存檔後會鎖定。<br>同一種原料換了製造商或產地，就要另建一個清真料號。</div>
         <label class="halal-sub"><input type="checkbox" id="mfHalalHasCert"> 這個品項有清真證書（要追蹤到期日）（農產品例如胡椒粒、花椒粒不需要證書，不用勾）</label>
         <div id="mfHalalCertFields" style="display:none; margin-top:8px;">
@@ -6437,6 +6440,7 @@ function loadBomData(){
     setTimeout(migrateInlinePhotos, 1500);
     // 舊資料的產地（例如「台灣」「台灣TW」）一律以「台灣-TW」格式顯示，下次儲存時會一起寫回
     [materials, additives, packagings, semiGoods].forEach(list=> list.forEach(x=>{ if(x.origin) x.origin = normalizeOrigin(x.origin); }));
+    migrateHalalMainCodes();
     [boms, semiBoms].forEach(list=> list.forEach(b=> (b.rows||[]).forEach(r=>{ if(r.requiredOrigin) r.requiredOrigin = normalizeOrigin(r.requiredOrigin); })));
     renderMaterialList();
     renderAdditiveList();
@@ -6571,7 +6575,7 @@ function renderReceiptPickerList(){
   const keyword = document.getElementById('receiptPickerSearchInput').value.trim().toLowerCase();
   const combined = materials.map(m=>({ item:m, kind:'material' })).concat(additives.map(a=>({ item:a, kind:'additive' })), packagings.map(p=>({ item:p, kind:'packaging' })));
   const filtered = keyword
-    ? combined.filter(x=> (x.item.name||'').toLowerCase().includes(keyword) || (x.item.code||'').toLowerCase().includes(keyword))
+    ? combined.filter(x=> (x.item.name||'').toLowerCase().includes(keyword) || (x.item.code||'').toLowerCase().includes(keyword) || (x.item.halalCode||'').toLowerCase().includes(keyword))
     : combined;
   const listEl = document.getElementById('receiptPickerList');
   if(combined.length === 0){
@@ -6620,19 +6624,19 @@ receiptPickerOverlay.onclick = (e)=>{ if(e.target === receiptPickerOverlay) rece
 // ================= Excel 批次建檔 =================
 const BULK_SHEETS = [
   { sheet:'原料', kind:'material', label:'原料', prefix:'R-',
-    cols:['料號','名稱','單位','產地','製造商','供應商','預設規格','期初批號','期初數量','製造日期','有效日期','清真(是/否)','清真認證機構','清真證書到期日'],
+    cols:['料號','名稱','單位','產地','製造商','供應商','預設規格','期初批號','期初數量','製造日期','有效日期','清真(是/否)','清真料號','清真認證機構','清真證書到期日'],
     example:{'料號':'','名稱':'（範例）黑胡椒粒','單位':'kg','產地':'印度','製造商':'XX香料廠','供應商':'XX貿易','預設規格':25,'期初批號':'BP20260901','期初數量':100,'製造日期':'2026/09/01','有效日期':'2028/08/31'} },
   { sheet:'食品添加物', kind:'additive', label:'食品添加物', prefix:'A-',
-    cols:['料號','名稱','分類(單方/複方/香料)','產品登錄碼','許可證字號','許可證到期日','單位','產地','製造商','供應商','預設規格','期初批號','期初數量','製造日期','有效日期','清真(是/否)','清真認證機構','清真證書到期日'],
+    cols:['料號','名稱','分類(單方/複方/香料)','產品登錄碼','許可證字號','許可證到期日','單位','產地','製造商','供應商','預設規格','期初批號','期初數量','製造日期','有效日期','清真(是/否)','清真料號','清真認證機構','清真證書到期日'],
     example:{'料號':'','名稱':'（範例）檸檬酸','分類(單方/複方/香料)':'單方','產品登錄碼':'A-123456789-00000-0','許可證字號':'衛部食添製字第000000號','許可證到期日':'2030/12/31','單位':'kg','產地':'中國','製造商':'','供應商':'XX化工','預設規格':25,'期初批號':'','期初數量':'','製造日期':'','有效日期':''} },
   { sheet:'包材', kind:'packaging', label:'包材', prefix:'P-',
-    cols:['料號','名稱','單位','產地','製造商','供應商','預設規格','期初批號','期初數量','製造日期','有效日期','清真(是/否)','清真認證機構','清真證書到期日'],
+    cols:['料號','名稱','單位','產地','製造商','供應商','預設規格','期初批號','期初數量','製造日期','有效日期','清真(是/否)','清真料號','清真認證機構','清真證書到期日'],
     example:{'料號':'','名稱':'（範例）鋁箔夾鏈袋1kg','單位':'個','產地':'台灣','製造商':'XX包裝','供應商':'XX包裝','預設規格':1000,'期初批號':'PK2026A','期初數量':3000,'製造日期':'','有效日期':''} },
   { sheet:'半成品', kind:'semi', label:'半成品',
-    cols:['類別(SR或SA)','料號','名稱','單位','產地','製造商','期初批號','期初數量','製造日期','有效日期','清真(是/否)','清真認證機構','清真證書到期日'],
+    cols:['類別(SR或SA)','料號','名稱','單位','產地','製造商','期初批號','期初數量','製造日期','有效日期','清真(是/否)','清真料號','清真認證機構','清真證書到期日'],
     example:{'類別(SR或SA)':'SR','料號':'','名稱':'（範例）孜然粉30目','單位':'kg','產地':'台灣','製造商':'','期初批號':'','期初數量':'','製造日期':'','有效日期':''} },
   { sheet:'成品', kind:'finished', label:'成品',
-    cols:['料號','產品名稱','規格','單位','期初批號','期初數量','製造日期','有效日期','清真(是/否)','清真認證機構','清真證書到期日'],
+    cols:['料號','產品名稱','規格','單位','期初批號','期初數量','製造日期','有效日期','清真(是/否)','清真料號','清真認證機構','清真證書到期日'],
     example:{'料號':'','產品名稱':'（範例）黑胡椒粉','規格':'1公斤/包','單位':'包','期初批號':'','期初數量':'','製造日期':'','有效日期':''} }
 ];
 let bulkImportPlan = null;
@@ -6732,15 +6736,15 @@ function buildBulkImportPlan(wb){
     let existing, usedCodes, seenKeys = new Set();
     if(cfg.kind === 'finished'){
       existing = finishedGoods;
-      usedCodes = new Set(existing.map(x=>x.code).filter(Boolean));
+      usedCodes = new Set(existing.flatMap(x=>[x.code, x.halal ? x.halalCode : '']).filter(Boolean));
       existing.forEach(f=> seenKeys.add('fg|' + (f.product||'') + '|' + (f.spec||'')));
     }else if(cfg.kind === 'semi'){
       existing = semiGoods;
-      usedCodes = new Set(existing.map(x=>x.code).filter(Boolean));
+      usedCodes = new Set(existing.flatMap(x=>[x.code, x.halal ? x.halalCode : '']).filter(Boolean));
       existing.forEach(x=> seenKeys.add('name|' + (x.name||'')));
     }else{
       existing = INVENTORY_KIND_CONFIG[cfg.kind].getList();
-      usedCodes = new Set(existing.map(x=>x.code).filter(Boolean));
+      usedCodes = new Set(existing.flatMap(x=>[x.code, x.halal ? x.halalCode : '']).filter(Boolean));
       existing.forEach(x=> seenKeys.add('nom|' + (x.name||'') + '|' + normalizeOrigin(x.origin) + '|' + (x.manufacturer||'')));
     }
     const pendingNoCode = [];
@@ -6807,11 +6811,19 @@ function buildBulkImportPlan(wb){
     // 沒填料號的，等全部有料號的都登記完再依序自動編號，避免撞號
     pendingNoCode.forEach(r=>{
       const add = sec.adds.find(a=>a.record === r);
-      const halalRow = add && add.srcRow && bulkRowIsHalal(add.srcRow);
-      const prefix = (halalRow ? HALAL_CODE_PREFIX : '') + (cfg.kind === 'semi' ? (r.category === 'SA' ? 'SA-' : 'SR-') : (cfg.kind === 'finished' ? 'F-' : cfg.prefix));
+      const prefix = cfg.kind === 'semi' ? (r.category === 'SA' ? 'SA-' : 'SR-') : (cfg.kind === 'finished' ? 'F-' : cfg.prefix);
       r.code = bulkNextCode(prefix, usedCodes);
     });
-    sec.adds.forEach(a=>{ if(!a.display) a.display = (a.record.code ? a.record.code + ' ・ ' : '') + (a.fgDisplay || (a.record.name + (a.record.origin ? '（' + a.record.origin + '）' : ''))); });
+    // 清真列：清真料號沒填就自動編 HTB 開頭（跟一般料號同一個品項）
+    sec.adds.forEach(a=>{
+      if(!a.srcRow || !bulkRowIsHalal(a.srcRow)) return;
+      const r = a.record;
+      const prefix = HALAL_CODE_PREFIX + (cfg.kind === 'semi' ? (r.category === 'SA' ? 'SA-' : 'SR-') : (cfg.kind === 'finished' ? 'F-' : cfg.prefix));
+      let hc = String(bulkCell(a.srcRow,'清真料號') || '').trim();
+      if(!hc || usedCodes.has(hc)) hc = bulkNextCode(prefix, usedCodes); else usedCodes.add(hc);
+      r.halalCode = hc;
+    });
+    sec.adds.forEach(a=>{ if(!a.display) a.display = (a.record.code ? a.record.code + (a.record.halalCode ? '／' + a.record.halalCode : '') + ' ・ ' : '') + (a.fgDisplay || (a.record.name + (a.record.origin ? '（' + a.record.origin + '）' : ''))); });
     plan.totalNew += sec.adds.length;
   });
   // 清真欄位（每個工作表都有）
@@ -7341,10 +7353,10 @@ function exportStocktakeReport(id){
 
 // ---- 原料庫存 ----
 function materialLabel(m){
-  return (m.code ? escapeHtml(m.code) + ' ・ ' : '') + escapeHtml(m.name) + (m.halal ? ' 🕌清真' : '');
+  return (m.code ? escapeHtml(m.code) : '') + (m.halal && m.halalCode ? (m.code ? '／' : '') + escapeHtml(m.halalCode) : '') + ((m.code || (m.halal && m.halalCode)) ? ' ・ ' : '') + escapeHtml(m.name) + (m.halal ? ' 🕌清真' : '');
 }
 function materialLabelPlain(m){
-  return (m.code ? m.code + ' ・ ' : '') + m.name + (m.halal ? ' 🕌清真' : '');
+  return (m.code || '') + (m.halal && m.halalCode ? (m.code ? '／' : '') + m.halalCode : '') + ((m.code || (m.halal && m.halalCode)) ? ' ・ ' : '') + m.name + (m.halal ? ' 🕌清真' : '');
 }
 
 // 清真料號：一般料號前面加 HTB（例如 HTBR-001、HTBA-001、HTBP-001、HTBSR-001、HTBF-001），流水號跟一般分開算
@@ -7352,7 +7364,7 @@ const HALAL_CODE_PREFIX = 'HTB';
 function nextCodeFor(list, prefix){
   let max = 0;
   const re = new RegExp('^' + prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\d+)$', 'i');
-  list.forEach(m=>{ const match = re.exec(m.code || ''); if(match) max = Math.max(max, parseInt(match[1], 10)); });
+  list.forEach(m=>{ [m.code, m.halalCode].forEach(c=>{ const match = re.exec(c || ''); if(match) max = Math.max(max, parseInt(match[1], 10)); }); });
   return prefix + String(max + 1).padStart(3, '0');
 }
 function suggestNextCode(kind, halal){
@@ -7540,6 +7552,7 @@ function fillHalalBox(p, x, allowClone){
   document.getElementById(p + 'HalalCertFields').style.display = hasCert ? '' : 'none';
   document.getElementById(p + 'HalalBody').value = (x && x.halalBody) || '';
   document.getElementById(p + 'HalalExp').value = (x && x.halalExpDate) || '';
+  document.getElementById(p + 'HalalCode').value = (x && x.halalCode) || '';
   const c = document.getElementById(p + 'HalalClone');
   if(c){
     c.dataset.allow = (allowClone && x && x.id) ? '1' : '';
@@ -7563,23 +7576,32 @@ function halalCodeSuggest(p, halal){
   if(p === 'sg') return suggestNextSemiGoodCode(document.getElementById('sgCategory').value, halal);
   return suggestNextFgCode(halal);
 }
-// 新增時勾／取消清真：料號如果還是系統建議的，就自動換成 HTB 開頭（或換回一般）
+// 勾清真時，清真料號空白就自動帶入下一個 HTB 號碼（一般料號不變，兩個料號是同一個品項、同一份庫存）
+// 之前把 HTB 料號放在一般料號欄位的品項：改放到「清真料號」，一般料號補上下一個一般號碼
+function migrateHalalMainCodes(){
+  const re = new RegExp('^' + HALAL_CODE_PREFIX, 'i');
+  const fix = (list, nextPlain)=> list.forEach(x=>{
+    if(x.halal && !x.halalCode && re.test(x.code || '')){ x.halalCode = x.code; x.code = ''; x.code = nextPlain(x); }
+  });
+  Object.keys(INVENTORY_KIND_CONFIG).forEach(k=> fix(INVENTORY_KIND_CONFIG[k].getList(), ()=> suggestNextCode(k)));
+  fix(semiGoods, x=> suggestNextSemiGoodCode(x.category || 'SR'));
+  fix(finishedGoods, ()=> suggestNextFgCode());
+}
 function syncHalalCode(p){
-  const isNew = p === 'mf' ? !editingMaterialId : p === 'sg' ? !editingSgId : !editingFgId;
-  if(!isNew) return;
-  const el = document.getElementById(p + 'Code');
-  const cur = el.value.trim();
-  const plain = halalCodeSuggest(p, false), halalCode = halalCodeSuggest(p, true);
-  if(!cur || cur === plain || cur === halalCode) el.value = document.getElementById(p + 'Halal').checked ? halalCode : plain;
+  const el = document.getElementById(p + 'HalalCode');
+  if(document.getElementById(p + 'Halal').checked && !el.value.trim()) el.value = halalCodeSuggest(p, true);
 }
 ['mf','sg','fg'].forEach(p=> document.getElementById(p + 'Halal').addEventListener('change', ()=> syncHalalCode(p)));
-// 存檔時：清真品項的料號不是 HTB 開頭，問要不要改
-async function askHalalCode(p, code, halal){
-  if(!halal || new RegExp('^' + HALAL_CODE_PREFIX, 'i').test(code)) return code;
-  const sug = halalCodeSuggest(p, true);
-  const ok = await showConfirm('清真料號要用「' + HALAL_CODE_PREFIX + '」開頭。\n要把料號「' + (code || '（空白）') + '」改成「' + sug + '」嗎？\n\n按「取消」會保留原本的料號繼續存檔。', '改成清真料號？');
-  if(ok){ document.getElementById(p + 'Code').value = sug; return sug; }
-  return code;
+// 存檔時檢查清真料號：必填（空白自動帶入）、不能跟一般料號一樣、不能跟別的品項重複
+function checkHalalCode(p, list, selfId, code, halal){
+  if(!halal) return { ok:true, halalCode:'' };
+  const el = document.getElementById(p + 'HalalCode');
+  let hc = el.value.trim();
+  if(!hc){ hc = halalCodeSuggest(p, true); el.value = hc; }
+  if(code && hc.toLowerCase() === code.toLowerCase()){ showAlert('清真料號不能跟一般料號一樣，例如一般 R-001、清真 HTBR-001。', '清真料號重複'); return { ok:false }; }
+  const dup = findDuplicateCode(list, hc, selfId);
+  if(dup){ showAlert('清真料號「' + hc + '」已經用在：\n' + materialLabelPlain(dup.name ? dup : { code: dup.code, name: dup.product || '' }) + '\n請換一個。', '清真料號重複'); return { ok:false }; }
+  return { ok:true, halalCode: hc };
 }
 const HALAL_KIND_LABEL = { material:'原料', additive:'食品添加物', packaging:'包材', semi:'半成品' };
 // 成品是否為清真：成品配方勾了清真，或成品庫存裡同名產品勾了清真
@@ -7626,7 +7648,7 @@ function _renderInventoryList(kind){
   const listEl = document.getElementById(cfg.listElId);
   const keyword = (document.getElementById(cfg.searchElId).value || '').trim().toLowerCase();
   const filtered = keyword
-    ? list.filter(m => [m.name, m.code, m.regCode, m.permitNo, m.halal ? '清真 halal' : '', m.halalBody].some(v=> String(v||'').toLowerCase().includes(keyword)))
+    ? list.filter(m => [m.name, m.code, m.halalCode, m.regCode, m.permitNo, m.halal ? '清真 halal' : '', m.halalBody].some(v=> String(v||'').toLowerCase().includes(keyword)))
     : list;
   if(list.length === 0){
     listEl.innerHTML = '<div class="ship-list-empty">還沒有任何' + cfg.label + '，點上面「+ 新增' + cfg.label + '」開始建立</div>';
@@ -7726,7 +7748,7 @@ function halalOverviewData(){
 function openHalalOverview(){ renderHalalOverview(); document.getElementById('halalOverviewOverlay').classList.add('show'); }
 function renderHalalOverview(){
   const d = halalOverviewData();
-  const nameOf = (g, x)=> g.kind === 'finished' ? escapeHtml(x.product) + (x.spec ? ' ・ ' + escapeHtml(x.spec) : '') : materialLabel(x).replace(' 🕌清真','');
+  const nameOf = (g, x)=> g.kind === 'finished' ? [x.code, x.halalCode].filter(Boolean).map(escapeHtml).join('／') + (x.code || x.halalCode ? ' ・ ' : '') + escapeHtml(x.product) + (x.spec ? ' ・ ' + escapeHtml(x.spec) : '') : materialLabel(x).replace(' 🕌清真','');
   const badRecipes = d.recipeChecks.filter(r=>r.bad.length);
   let html = '<div class="coa-notice-row" style="line-height:1.7; border-color:' + (d.certAlerts.length || badRecipes.length ? 'var(--red)' : 'var(--green)') + ';">' +
     '清真品項：' + d.groups.map(g=> g.label.replace(/^\S+ /,'') + ' ' + g.items.length).join('　') +
@@ -7777,7 +7799,7 @@ document.getElementById('btnHoPrint').onclick = ()=>{
   const d = halalOverviewData();
   const esc = escapeHtml;
   const rows = [];
-  d.groups.forEach(g=> g.items.forEach(x=>{ const hs = halalStatus(x); rows.push([g.label.replace(/^\S+ /,''), x.code||'', g.kind === 'finished' ? (x.product + (x.spec ? ' ' + x.spec : '')) : x.name, g.kind === 'finished' ? '' : (x.manufacturer||''), g.kind === 'finished' ? '' : (x.origin||''), x.halalBody||'', x.halalExpDate||'', hs.level === 'ok' ? '證書有效' : hs.text]); }));
+  d.groups.forEach(g=> g.items.forEach(x=>{ const hs = halalStatus(x); rows.push([g.label.replace(/^\S+ /,''), [x.code, x.halalCode].filter(Boolean).join('／'), g.kind === 'finished' ? (x.product + (x.spec ? ' ' + x.spec : '')) : x.name, g.kind === 'finished' ? '' : (x.manufacturer||''), g.kind === 'finished' ? '' : (x.origin||''), x.halalBody||'', x.halalExpDate||'', hs.level === 'ok' ? '證書有效' : hs.text]); }));
   const html = '<!doctype html><html><head><meta charset="utf-8"><title>清真品項清單</title><style>' +
     '@page{ size:A4 landscape; margin:10mm; } body{ font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif; color:#000; margin:0; }' +
     'h1{ font-size:18px; margin:0 0 6px; } h2{ font-size:15px; margin:14px 0 6px; } .info{ font-size:13px; margin-bottom:8px; }' +
@@ -7786,7 +7808,7 @@ document.getElementById('btnHoPrint').onclick = ()=>{
     '.btn{ margin:10px 0; padding:8px 16px; font-size:15px; } @media print{ .btn{ display:none; } }' +
     '</style></head><body><button class="btn" onclick="window.print()">🖨 列印</button>' +
     '<h1>清真品項清單</h1><div class="info">清真三要素（品名／製造商／產地）綁定管理　列印日期：' + todayStr() + '　共 ' + rows.length + ' 項</div>' +
-    '<table><thead><tr><th>類別</th><th>料號</th><th>品名</th><th>製造商</th><th>產地</th><th>認證機構</th><th>證書到期日</th><th>狀態</th></tr></thead><tbody>' +
+    '<table><thead><tr><th>類別</th><th>一般／清真料號</th><th>品名</th><th>製造商</th><th>產地</th><th>認證機構</th><th>證書到期日</th><th>狀態</th></tr></thead><tbody>' +
     (rows.length ? rows.map(r=>'<tr>' + r.map((c,i)=>'<td' + (i===7 && /過期|到期日|天後/.test(c) ? ' class="bad"' : '') + '>' + esc(String(c)) + '</td>').join('') + '</tr>').join('') : '<tr><td colspan="8">沒有資料</td></tr>') +
     '</tbody></table>' +
     '<h2>清真配方檢查</h2><table><thead><tr><th>配方</th><th>名稱</th><th>結果</th></tr></thead><tbody>' +
@@ -8190,7 +8212,9 @@ document.getElementById('btnSaveMaterial').onclick = async ()=>{
   const hr = readHalalBox('mf');
   if(hr.missing.length){ showToast('請填寫：' + hr.missing.join('、')); return; }
   if(!checkHalalTriad('mf', cfg.getList(), editingMaterialId, name, manufacturer, origin, hr.data.halal)) return;
-  code = await askHalalCode('mf', code, hr.data.halal);
+  const hcr = checkHalalCode('mf', cfg.getList(), editingMaterialId, code, hr.data.halal);
+  if(!hcr.ok) return;
+  hr.data.halalCode = hcr.halalCode;
   if(editingMaterialId){
     const before = cfg.getList().find(x=>x.id===editingMaterialId);
     if(isHalal(before) && !hr.data.halal){
@@ -8307,7 +8331,7 @@ document.getElementById('btnAutoCodeFg').onclick = async ()=>{
   if(!list.length) return;
   const ok = await showConfirm('會依建立順序給 ' + list.length + ' 個成品編上料號，例如 ' + suggestNextFgCode() + '。之後還是可以點進去個別修改。', '自動編號成品料號？');
   if(!ok) return;
-  list.forEach(f=>{ f.code = suggestNextFgCode(isHalal(f)); });
+  list.forEach(f=>{ f.code = suggestNextFgCode(); });
   await saveBomData(); renderFinishedGoodList(); showToast('已幫 ' + list.length + ' 個成品編上料號');
 };
 document.getElementById('btnAutoCodeSg').onclick = async ()=>{
@@ -8315,7 +8339,7 @@ document.getElementById('btnAutoCodeSg').onclick = async ()=>{
   if(!list.length) return;
   const ok = await showConfirm('會依類別給 ' + list.length + ' 個半成品編上料號（原料類 SR-、添加物類 SA-）。之後還是可以點進去個別修改。', '自動編號半成品料號？');
   if(!ok) return;
-  list.forEach(x=>{ x.code = suggestNextSemiGoodCode(x.category || 'SR', isHalal(x)); });
+  list.forEach(x=>{ x.code = suggestNextSemiGoodCode(x.category || 'SR'); });
   await saveBomData(); renderSemiGoodList(); showToast('已幫 ' + list.length + ' 個半成品編上料號');
 };
 function renderFinishedGoodList(){
@@ -8324,7 +8348,7 @@ function renderFinishedGoodList(){
   if(!listEl) return;
   const keyword = (document.getElementById('finishedGoodSearchInput').value || '').trim().toLowerCase();
   const filtered = keyword
-    ? finishedGoods.filter(f => (f.product||'').toLowerCase().includes(keyword) || (f.spec||'').toLowerCase().includes(keyword) || (f.code||'').toLowerCase().includes(keyword) || (f.halal && ('清真 halal').includes(keyword)))
+    ? finishedGoods.filter(f => (f.product||'').toLowerCase().includes(keyword) || (f.spec||'').toLowerCase().includes(keyword) || (f.code||'').toLowerCase().includes(keyword) || (f.halalCode||'').toLowerCase().includes(keyword) || (f.halal && ('清真 halal').includes(keyword)))
     : finishedGoods;
   if(finishedGoods.length === 0){
     listEl.innerHTML = '<div class="ship-list-empty">還沒有任何成品，生產完成後系統會自動建立，也可以先手動新增</div>';
@@ -8342,7 +8366,7 @@ function renderFinishedGoodList(){
           ? ('批號 ' + escapeHtml(activeBatches[0].batchNo||'－') + '　有效期限 ' + (activeBatches[0].expDate||'－'))
           : (activeBatches.length + ' 個批次：' + activeBatches.map(b=>escapeHtml(b.batchNo||'未命名')+'('+b.stock+')').join('、'))) + '</div>';
     return '<div class="material-item" data-fgid="'+f.id+'">' +
-      '<div class="material-item-top"><div class="material-item-name">'+(f.code ? escapeHtml(f.code)+' ・ ' : '<span style="color:var(--amber); font-size:13px; border:1px solid var(--amber); border-radius:6px; padding:1px 5px; margin-right:6px;">未設料號</span>')+escapeHtml(f.product)+(f.spec ? '<span class="item-spec"> ・ '+escapeHtml(f.spec)+'</span>' : '')+(f.halal ? ' 🕌清真' : '')+'</div><div class="material-item-stock">'+ total +' '+escapeHtml(f.unit||'')+'</div></div>' +
+      '<div class="material-item-top"><div class="material-item-name">'+(f.code ? escapeHtml(f.code)+(f.halal && f.halalCode ? '／'+escapeHtml(f.halalCode) : '')+' ・ ' : '<span style="color:var(--amber); font-size:13px; border:1px solid var(--amber); border-radius:6px; padding:1px 5px; margin-right:6px;">未設料號</span>')+escapeHtml(f.product)+(f.spec ? '<span class="item-spec"> ・ '+escapeHtml(f.spec)+'</span>' : '')+(f.halal ? ' 🕌清真' : '')+'</div><div class="material-item-stock">'+ total +' '+escapeHtml(f.unit||'')+'</div></div>' +
       metaLine +
       '<button type="button" class="split-btn" data-log-kind="finishedGood" data-log-id="'+f.id+'" style="margin-top:8px; width:100%;">📋 出入庫紀錄</button>' +
     '</div>';
@@ -8430,7 +8454,8 @@ function suggestNextFgCode(halal){
 // 料號重複檢查（同一類清單裡，排除自己）
 function findDuplicateCode(list, code, selfId){
   if(!code) return null;
-  return list.find(x=> x.id !== selfId && (x.code||'').trim().toLowerCase() === code.trim().toLowerCase()) || null;
+  const c = code.trim().toLowerCase();
+  return list.find(x=> x.id !== selfId && ((x.code||'').trim().toLowerCase() === c || (x.halal && (x.halalCode||'').trim().toLowerCase() === c))) || null;
 }
 function openFgForm(f){
   editingFgId = f ? f.id : null;
@@ -8467,7 +8492,9 @@ document.getElementById('btnSaveFg').onclick = async ()=>{
   if(dupFg){ showToast('料號 ' + code + ' 已經用在「' + dupFg.product + (dupFg.spec ? '（' + dupFg.spec + '）' : '') + '」，請換一個'); return; }
   const hr = readHalalBox('fg');
   if(hr.missing.length){ showToast('請填寫：' + hr.missing.join('、')); return; }
-  code = await askHalalCode('fg', code, hr.data.halal);
+  const hcr = checkHalalCode('fg', finishedGoods, editingFgId, code, hr.data.halal);
+  if(!hcr.ok) return;
+  hr.data.halalCode = hcr.halalCode;
   if(hr.data.halal){
     const bom = boms.find(b=>b.product === product);
     const bad = bom ? nonHalalRecipeItems(bom.rows, false) : [];
@@ -8505,7 +8532,7 @@ function renderSemiGoodList(){
   if(!listEl) return;
   const keyword = (document.getElementById('semiGoodSearchInput').value || '').trim().toLowerCase();
   const filtered = keyword
-    ? semiGoods.filter(s => (s.name||'').toLowerCase().includes(keyword) || (s.code||'').toLowerCase().includes(keyword) || (s.halal && ('清真 halal').includes(keyword)))
+    ? semiGoods.filter(s => (s.name||'').toLowerCase().includes(keyword) || (s.code||'').toLowerCase().includes(keyword) || (s.halalCode||'').toLowerCase().includes(keyword) || (s.halal && ('清真 halal').includes(keyword)))
     : semiGoods;
   if(semiGoods.length === 0){
     listEl.innerHTML = '<div class="ship-list-empty">還沒有任何半成品，點上面「+ 新增半成品」開始建立</div>';
@@ -8669,7 +8696,7 @@ function openSgForm(s){
 document.getElementById('sgCategory').addEventListener('change', function(){
   if(!editingSgId){
     // 只在新增(還沒有editingSgId)時才自動依類別切換更新料號建議，避免誤改既有半成品的料號
-    document.getElementById('sgCode').value = suggestNextSemiGoodCode(this.value, document.getElementById('sgHalal').checked);
+    document.getElementById('sgCode').value = suggestNextSemiGoodCode(this.value);
   }
 });
 document.getElementById('semiGoodSearchInput').addEventListener('input', renderSemiGoodList);
@@ -8683,7 +8710,7 @@ document.getElementById('sgHalalClone').onclick = async ()=>{
   if(!ok) return;
   openSgForm(null);
   document.getElementById('sgCategory').value = src.category || 'SR';
-  document.getElementById('sgCode').value = suggestNextSemiGoodCode(src.category || 'SR', true);
+  document.getElementById('sgCode').value = suggestNextSemiGoodCode(src.category || 'SR');
   document.getElementById('sgName').value = newName;
   document.getElementById('sgUnit').value = src.unit || '';
   document.getElementById('sgOrigin').value = src.origin || '';
@@ -8707,7 +8734,9 @@ document.getElementById('btnSaveSg').onclick = async ()=>{
   const hr = readHalalBox('sg');
   if(hr.missing.length){ showToast('請填寫：' + hr.missing.join('、')); return; }
   if(!checkHalalTriad('sg', semiGoods, editingSgId, name, manufacturer, origin, hr.data.halal)) return;
-  code = await askHalalCode('sg', code, hr.data.halal);
+  const hcr = checkHalalCode('sg', semiGoods, editingSgId, code, hr.data.halal);
+  if(!hcr.ok) return;
+  hr.data.halalCode = hcr.halalCode;
   if(editingSgId){
     const before = semiGoods.find(x=>x.id===editingSgId);
     if(hr.data.halal){
