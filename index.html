@@ -1277,6 +1277,18 @@ input.halal-locked{ opacity:0.7; background:rgba(76,168,114,0.10) !important; bo
       <button type="button" class="btn-secondary" id="btnCancelBulkImport">取消</button>
       <button type="button" class="btn-primary" id="btnConfirmBulkImport" disabled style="opacity:0.5;">確認匯入</button>
     </div>
+    <div class="halal-box" style="margin-top:22px;">
+      <div style="font-size:17px; font-weight:800; color:var(--green); margin-bottom:6px;">🕌 批次補清真資料（已經建檔的品項）</div>
+      <div style="font-size:14.5px; color:var(--ink-dim); line-height:1.6; margin-bottom:10px;">
+        <b style="color:var(--ink);">步驟 1</b>　下載目前所有品項的清單（原料、添加物、包材、半成品、成品）。<br>
+        <b style="color:var(--ink);">步驟 2</b>　要設成清真的，在「清真(是/否)」填「是」，補上製造商、產地；清真料號可以自己填，<b style="color:var(--ink);">留空會自動編 HTB 開頭</b>。<br>
+        <b style="color:var(--ink);">步驟 3</b>　選擇填好的檔案，看過預覽後按「確認更新」。只會更新清真相關欄位，不會動到庫存。
+      </div>
+      <button type="button" class="split-btn" id="btnDownloadHalalList" style="width:100%; margin-bottom:10px; padding:11px; font-size:16px; font-weight:700;">⬇️ 下載目前品項清單（補清真用）</button>
+      <div class="field"><label>選擇填好的清單（.xlsx）</label><input type="file" id="halalBulkFile" accept=".xlsx,.xls"></div>
+      <div id="halalBulkPreview" style="margin-top:8px;"></div>
+      <button type="button" class="btn-primary" id="btnConfirmHalalBulk" disabled style="opacity:0.5; width:100%; margin-top:10px;">確認更新清真資料</button>
+    </div>
   </div>
 </div>
 
@@ -6684,6 +6696,7 @@ document.getElementById('btnOpenBulkImport').onclick = ()=>{
   document.getElementById('bulkImportFile').value = '';
   document.getElementById('bulkImportPreview').innerHTML = isTestMode ? '' : '<div class="coa-notice-row">💡 建議先在網址後面加 <b>?test=1</b> 用測試模式匯入一次，確認沒問題再到正式版匯入。</div>';
   setBulkConfirmEnabled(false);
+  halalBulkPlan = null; document.getElementById('halalBulkFile').value = ''; document.getElementById('halalBulkPreview').innerHTML = ''; setHalalBulkEnabled(false);
   document.getElementById('bulkImportOverlay').classList.add('show');
 };
 function setBulkConfirmEnabled(on){
@@ -6705,7 +6718,9 @@ document.getElementById('btnDownloadImportTemplate').onclick = ()=>{
     ['5. 有現有庫存的話，填「期初批號、期初數量」（數量要填數字），會建立一筆批次庫存；製造日期、有效日期格式例如 2026/09/01。'],
     ['6. 名稱開頭是「（範例）」的那一列不會被匯入，可以直接刪掉或留著。'],
     ['7. 跟系統裡現有資料重複的列會自動略過：有料號時比對料號；沒料號時，原料/添加物/包材比對「名稱＋產地＋製造商」，半成品比對名稱，成品比對「產品名稱＋規格」。'],
-    ['8. 同一種原料如果有多個期初批號，請先匯入一筆，其他批號到系統裡用「進貨」或編輯補上。']
+    ['8. 同一種原料如果有多個期初批號，請先匯入一筆，其他批號到系統裡用「進貨」或編輯補上。'],
+    ['9. 清真品項：「清真(是/否)」填「是」，並填製造商、產地（清真三要素）。清真料號留空會自動編 HTB 開頭。證書兩欄沒有可以留空。'],
+    ['10. 已經建檔的品項要補清真資料，請用匯入畫面下方的「🕌 批次補清真資料」，不要用這個範本。']
   ];
   const wsGuide = XLSX.utils.aoa_to_sheet(guide);
   wsGuide['!cols'] = [{ wch: 110 }];
@@ -6891,6 +6906,151 @@ document.getElementById('bulkImportFile').addEventListener('change', async (e)=>
     document.getElementById('bulkImportPreview').innerHTML = '<div class="coa-notice-row" style="border-color:var(--red);">⚠ 讀取檔案失敗，請確認是 Excel（.xlsx）檔</div>';
   }
 });
+
+// ---- 批次補清真資料（更新已建檔品項）----
+const HALAL_BULK_KINDS = [
+  { kind:'material', label:'原料' }, { kind:'additive', label:'食品添加物' }, { kind:'packaging', label:'包材' },
+  { kind:'semi', label:'半成品' }, { kind:'finished', label:'成品' }
+];
+const HALAL_BULK_COLS = ['類別','一般料號','名稱','製造商','產地','清真(是/否)','清真料號','清真認證機構','清真證書到期日','系統代碼(請勿修改)'];
+function halalBulkList(kind){ return kind === 'semi' ? semiGoods : kind === 'finished' ? finishedGoods : INVENTORY_KIND_CONFIG[kind].getList(); }
+function halalBulkPrefix(kind, x){
+  if(kind === 'semi') return x.category === 'SA' ? 'SA-' : 'SR-';
+  if(kind === 'finished') return 'F-';
+  return INVENTORY_KIND_CONFIG[kind].codePrefix;
+}
+let halalBulkPlan = null;
+function setHalalBulkEnabled(on){ const b = document.getElementById('btnConfirmHalalBulk'); b.disabled = !on; b.style.opacity = on ? '1' : '0.5'; }
+document.getElementById('btnDownloadHalalList').onclick = ()=>{
+  if(typeof XLSX === 'undefined'){ showToast('Excel 元件載入失敗，請檢查網路後重新整理再試'); return; }
+  const rows = [];
+  HALAL_BULK_KINDS.forEach(k=> halalBulkList(k.kind).forEach(x=> rows.push({
+    '類別': k.label, '一般料號': x.code || '',
+    '名稱': k.kind === 'finished' ? (x.product || '') + (x.spec ? '（' + x.spec + '）' : '') : (x.name || ''),
+    '製造商': k.kind === 'finished' ? '（成品不用填）' : (x.manufacturer || ''), '產地': k.kind === 'finished' ? '（成品不用填）' : (x.origin || ''),
+    '清真(是/否)': isHalal(x) ? '是' : '', '清真料號': isHalal(x) ? (x.halalCode || '') : '',
+    '清真認證機構': x.halalBody || '', '清真證書到期日': x.halalExpDate ? x.halalExpDate.replace(/-/g,'/') : '',
+    '系統代碼(請勿修改)': k.kind + ':' + x.id
+  })));
+  const wb = XLSX.utils.book_new();
+  const guide = XLSX.utils.aoa_to_sheet([
+    ['填寫說明'],
+    ['1. 要設成清真的品項：「清真(是/否)」填「是」。不是清真的留空。'],
+    ['2. 清真三要素：清真的原料、添加物、包材、半成品一定要有「製造商」和「產地」；已經是清真的品項，三要素已綁定不能在這裡修改。'],
+    ['3. 清真料號可以自己填（例如 HTBR-001）；留空會自動編下一個 HTB 號碼。不能跟一般料號或別的品項重複。'],
+    ['4. 有清真證書的才填「清真認證機構、清真證書到期日」（兩欄要一起填）；農產品沒有證書就留空。'],
+    ['5. 「名稱」「一般料號」「系統代碼」不會被更新，請不要改「系統代碼」，也不要刪列以外的欄位。']
+  ]);
+  guide['!cols'] = [{ wch: 100 }];
+  XLSX.utils.book_append_sheet(wb, guide, '填寫說明');
+  const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ '類別':'（目前沒有品項）' }], { header: HALAL_BULK_COLS });
+  ws['!cols'] = HALAL_BULK_COLS.map(c=>({ wch: c === '名稱' ? 28 : c === '系統代碼(請勿修改)' ? 30 : 16 }));
+  XLSX.utils.book_append_sheet(wb, ws, '清真資料');
+  const wbout = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+  const url = URL.createObjectURL(new Blob([wbout], { type:'application/octet-stream' }));
+  const a = document.createElement('a'); a.href = url; a.download = '補清真資料_' + todayStr() + '.xlsx'; a.click();
+  setTimeout(()=> URL.revokeObjectURL(url), 2000);
+  showToast('已下載品項清單');
+};
+function buildHalalBulkPlan(wb){
+  const ws = wb.Sheets['清真資料'] || wb.Sheets[wb.SheetNames.find(n=>n !== '填寫說明')];
+  const rows = ws ? XLSX.utils.sheet_to_json(ws, { defval:'' }) : [];
+  const plan = { updates: [], errors: [], unchanged: 0 };
+  const used = {}; // 每一類目前已用的料號（一般＋清真），用來檢查重複與自動編號
+  HALAL_BULK_KINDS.forEach(k=>{ used[k.kind] = new Set(halalBulkList(k.kind).flatMap(x=>[x.code, isHalal(x) ? x.halalCode : '']).filter(Boolean).map(c=>c.toLowerCase())); });
+  const triadSeen = {};
+  rows.forEach((row, i)=>{
+    const rowNo = i + 2;
+    const sys = String(bulkCell(row,'系統代碼(請勿修改)') || '');
+    const m = /^(material|additive|packaging|semi|finished):(.+)$/.exec(sys);
+    if(!m) return;
+    const kind = m[1], list = halalBulkList(kind), x = list.find(it=>it.id === m[2]);
+    const label = x ? (kind === 'finished' ? x.product : x.name) : String(bulkCell(row,'名稱')||'');
+    const err = (why)=> plan.errors.push({ rowNo, name: (x && x.code ? x.code + ' ・ ' : '') + label, why });
+    if(!x){ err('系統裡找不到這個品項（可能已刪除）'); return; }
+    const wantHalal = bulkRowIsHalal(row);
+    const cleanCell = (k)=>{ const v = String(bulkCell(row,k) || '').trim(); return v.startsWith('（') ? '' : v; };
+    let manufacturer = kind === 'finished' ? '' : (cleanCell('製造商') || x.manufacturer || '');
+    let origin = kind === 'finished' ? '' : normalizeOrigin(cleanCell('產地') || x.origin || '');
+    let hc = String(bulkCell(row,'清真料號') || '').trim();
+    const body = String(bulkCell(row,'清真認證機構') || '').trim();
+    const expRaw = bulkCell(row,'清真證書到期日');
+    const exp = bulkDate(expRaw);
+    if(!wantHalal){
+      if(!isHalal(x)){ plan.unchanged++; return; }
+      const usedBy = halalRecipesUsing(kind === 'finished' ? 'finished' : kind, x.id);
+      if(kind !== 'finished' && usedBy.length){ err('不能取消清真：' + usedBy.join('、') + ' 正在使用'); return; }
+      plan.updates.push({ kind, x, rowNo, change: { halal:false, halalCode:'', halalHasCert:false, halalBody:'', halalExpDate:'' }, desc: '取消清真' });
+      return;
+    }
+    if(exp === null){ err('清真證書到期日看不懂'); return; }
+    if((body && !exp) || (!body && exp)){ err('清真認證機構和到期日要一起填（沒有證書就兩欄都留空）'); return; }
+    if(kind !== 'finished'){
+      if(!manufacturer || !origin){ err('清真要有「製造商」和「產地」（清真三要素）'); return; }
+      if(isHalal(x) && ((x.manufacturer||'') !== manufacturer || normalizeOrigin(x.origin) !== origin)){ err('已經是清真，三要素（品名／製造商／產地）已綁定不能改：' + halalTriadText(x)); return; }
+      const key = kind + '|' + x.name + '|' + manufacturer + '|' + origin;
+      const other = list.find(o=> o.id !== x.id && isHalal(o) && o.name === x.name && (o.manufacturer||'') === manufacturer && normalizeOrigin(o.origin) === origin);
+      if(other || (triadSeen[key] && triadSeen[key] !== x.id)){ err('已經有一樣三要素的清真品項' + (other ? '：' + materialLabelPlain(other) : '（同一個檔案裡重複）')); return; }
+      triadSeen[key] = x.id;
+    }
+    // 清真料號
+    const own = (isHalal(x) && x.halalCode) ? x.halalCode.toLowerCase() : '';
+    if(hc){
+      if(x.code && hc.toLowerCase() === x.code.toLowerCase()){ err('清真料號不能跟一般料號一樣'); return; }
+      if(hc.toLowerCase() !== own && used[kind].has(hc.toLowerCase())){ err('清真料號「' + hc + '」已經被用掉了'); return; }
+    }else if(own){
+      hc = x.halalCode;
+    }else{
+      const prefix = HALAL_CODE_PREFIX + halalBulkPrefix(kind, x);
+      let max = 0; const re = new RegExp('^' + prefix + '(\\d+)$', 'i');
+      used[kind].forEach(c=>{ const mm = re.exec(c); if(mm) max = Math.max(max, parseInt(mm[1],10)); });
+      hc = prefix + String(max + 1).padStart(3, '0');
+    }
+    used[kind].add(hc.toLowerCase());
+    const change = { halal:true, halalCode: hc, halalHasCert: !!body, halalBody: body, halalExpDate: exp || '' };
+    if(kind !== 'finished'){ change.manufacturer = manufacturer; change.origin = origin; }
+    const same = isHalal(x) && (x.halalCode||'') === hc && (x.halalBody||'') === body && (x.halalExpDate||'') === (exp||'') && (kind === 'finished' || ((x.manufacturer||'') === manufacturer && (x.origin||'') === origin));
+    if(same){ plan.unchanged++; return; }
+    plan.updates.push({ kind, x, rowNo, change, desc: (isHalal(x) ? '更新清真資料' : '設為清真') + '　清真料號 ' + hc + (kind !== 'finished' ? '　' + manufacturer + '／' + origin : '') + (body ? '　證書到期 ' + (exp||'') : '　不需證書') });
+  });
+  return plan;
+}
+function renderHalalBulkPreview(plan){
+  const el = document.getElementById('halalBulkPreview');
+  const kl = {}; HALAL_BULK_KINDS.forEach(k=> kl[k.kind] = k.label);
+  el.innerHTML = '<div class="coa-notice-row" style="line-height:1.7;">要更新 <b style="color:var(--green);">' + plan.updates.length + '</b> 筆　有問題 <b style="color:' + (plan.errors.length ? 'var(--red)' : 'var(--ink)') + ';">' + plan.errors.length + '</b> 筆　沒變動 ' + plan.unchanged + ' 筆</div>' +
+    (plan.updates.length ? '<details open><summary style="font-weight:800; cursor:pointer;">✅ 會更新的品項</summary>' + plan.updates.map(u=>'<div style="font-size:14px; line-height:1.6; padding:3px 0; border-bottom:1px solid var(--line);">第' + u.rowNo + '列　[' + kl[u.kind] + '] ' + escapeHtml((u.x.code ? u.x.code + ' ・ ' : '') + (u.kind === 'finished' ? u.x.product : u.x.name)) + '<br><span style="color:var(--ink-dim);">' + escapeHtml(u.desc) + '</span></div>').join('') + '</details>' : '') +
+    (plan.errors.length ? '<details open><summary style="font-weight:800; cursor:pointer; color:var(--red);">⚠ 有問題、不會更新的列</summary>' + plan.errors.map(e=>'<div style="font-size:14px; line-height:1.6; padding:3px 0; border-bottom:1px solid var(--line);">第' + e.rowNo + '列　' + escapeHtml(e.name) + '<br><span style="color:var(--red);">' + escapeHtml(e.why) + '</span></div>').join('') + '</details>' : '');
+  setHalalBulkEnabled(plan.updates.length > 0);
+}
+document.getElementById('halalBulkFile').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  halalBulkPlan = null; setHalalBulkEnabled(false);
+  if(!file) return;
+  if(typeof XLSX === 'undefined'){ showToast('Excel 元件載入失敗，請檢查網路後重新整理再試'); return; }
+  try{
+    const wb = XLSX.read(await file.arrayBuffer(), { type:'array', cellDates:true });
+    halalBulkPlan = buildHalalBulkPlan(wb);
+    renderHalalBulkPreview(halalBulkPlan);
+  }catch(err){
+    console.error(err);
+    document.getElementById('halalBulkPreview').innerHTML = '<div class="coa-notice-row" style="border-color:var(--red);">讀不到這個檔案，請確認是從「下載目前品項清單」下載、填好後存成 .xlsx 的檔案。</div>';
+  }
+});
+document.getElementById('btnConfirmHalalBulk').onclick = async ()=>{
+  if(!halalBulkPlan || !halalBulkPlan.updates.length) return;
+  const ok = await showConfirm('確定要更新 ' + halalBulkPlan.updates.length + ' 個品項的清真資料嗎？（不會動到庫存）', '確認更新清真資料');
+  if(!ok) return;
+  setHalalBulkEnabled(false);
+  halalBulkPlan.updates.forEach(u=> Object.assign(u.x, u.change));
+  const n = halalBulkPlan.updates.length;
+  halalBulkPlan = null;
+  await saveBomData();
+  renderMaterialList(); renderAdditiveList(); renderPackagingList(); renderSemiGoodList(); renderFinishedGoodList(); renderBomList();
+  document.getElementById('halalBulkFile').value = '';
+  document.getElementById('halalBulkPreview').innerHTML = '<div class="coa-notice-row" style="border-color:var(--green);">✅ 已更新 ' + n + ' 個品項的清真資料</div>';
+  showToast('已更新 ' + n + ' 個品項的清真資料');
+};
 
 document.getElementById('btnConfirmBulkImport').onclick = async ()=>{
   if(!bulkImportPlan || bulkImportPlan.totalNew === 0) return;
