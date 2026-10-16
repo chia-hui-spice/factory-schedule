@@ -1741,7 +1741,8 @@
 <div class="overlay" id="photoViewOverlay" style="z-index:55;">
   <div class="sheet" style="text-align:center;">
     <div class="sheet-handle"></div>
-    <img id="photoViewImg" style="max-width:100%; border-radius:10px;">
+    <img id="photoViewImg" style="max-width:100%; border-radius:10px; cursor:zoom-in;">
+    <div style="font-size:13.5px; color:var(--ink-dim); margin-top:4px;">點照片可以開新視窗放大看（iPad 可以用兩指放大）</div>
     <input type="file" id="photoViewReplaceInput" accept="image/*" style="display:none;">
     <div class="sheet-actions" style="margin-top:16px;">
       <button type="button" class="i18n btn-secondary" id="btnReplacePhotoView" style="flex:1;">🔄 更換照片</button>
@@ -7311,7 +7312,7 @@ document.getElementById('mfPermitPhoto').addEventListener('change', async functi
     if(!checkPhotoFileSize(file)){ failed++; continue; }
     wrap.insertAdjacentHTML('beforeend', '<div class="permit-uploading" style="font-size:13.5px; color:var(--ink-dim);">上傳第 ' + (done + failed + 1) + ' / ' + files.length + ' 張中...</div>');
     try{
-      const data = await compressImageToBase64(file, 900, 0.6); // 許可證文字要看得清楚，解析度比標籤照片高一些
+      const data = await compressImageToBase64(file, PHOTO_PERMIT_SIDE, PHOTO_PERMIT_Q); // 許可證文字要看得清楚，解析度比標籤照片高一些
       mfPermitPhotoIds.push(await savePhoto(data));
       done++;
     }catch(e){ console.error(e); failed++; }
@@ -7698,7 +7699,7 @@ function renderMaterialBatchLotList(batches){
       if(!checkPhotoFileSize(file)){ this.value = ''; return; }
       const idx = Number(this.closest('.material-batch-row').dataset.idx);
       try{
-        const compressed = await compressImageToBase64(file, 480, 0.5);
+        const compressed = await compressImageToBase64(file, PHOTO_LABEL_SIDE, PHOTO_LABEL_Q);
         const wrap = this.closest('.material-batch-row').querySelector('.mbPhotoPreviewWrap');
         wrap.innerHTML = '<div style="font-size:13.5px; color:var(--ink-dim);">上傳照片中...</div>';
         currentBatchPhotoData[idx] = { photoId: await savePhoto(compressed) };
@@ -8904,6 +8905,15 @@ document.getElementById('btnCancelReceipt').onclick = ()=> materialReceiptOverla
 
 const photoViewOverlay = document.getElementById('photoViewOverlay');
 document.getElementById('btnClosePhotoView').onclick = ()=> photoViewOverlay.classList.remove('show');
+document.getElementById('photoViewImg').onclick = ()=>{
+  const src = document.getElementById('photoViewImg').src;
+  if(!src || src === BLANK_IMG) return;
+  const w = window.open('', '_blank');
+  if(!w){ showToast('瀏覽器擋住了新視窗，請允許彈出視窗後再試一次'); return; }
+  w.document.open();
+  w.document.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=10, user-scalable=yes"><title>照片</title></head><body style="margin:0; background:#111;"><img src="' + src + '" style="display:block; width:100%; height:auto;"></body></html>');
+  w.document.close();
+};
 photoViewOverlay.onclick = (e)=>{ if(e.target === photoViewOverlay) photoViewOverlay.classList.remove('show'); };
 
 document.getElementById('btnReplacePhotoView').onclick = ()=>{
@@ -8922,7 +8932,7 @@ document.getElementById('photoViewReplaceInput').addEventListener('change', asyn
   btn.disabled = true;
   btn.textContent = '處理照片中...';
   try{
-    const newPhotoData = await compressImageToBase64(file, 480, 0.5);
+    const newPhotoData = await compressImageToBase64(file, PHOTO_LABEL_SIDE, PHOTO_LABEL_Q);
     r.photoId = await savePhoto(newPhotoData);
     delete r.photoData;
     await saveBomData();
@@ -8963,23 +8973,15 @@ document.getElementById('btnDeletePhotoView').onclick = async ()=>{
   showToast('已刪除照片');
 };
 
-function compressImageToBase64(file, maxWidth, quality){
+// 照片壓縮：以「長邊」為準縮小，保持清楚；存檔前檢查大小，太大就自動降一點畫質，
+// 確保每張照片都放得進雲端單一文件（上限 1MB）
+const PHOTO_MAX_CHARS = 800000;
+function loadImageFromFile(file){
   return new Promise((resolve, reject)=>{
-    const img = new Image();
     const reader = new FileReader();
     reader.onload = ()=>{
-      img.onload = ()=>{
-        let w = img.width, h = img.height;
-        if(w > maxWidth){
-          h = Math.round(h * (maxWidth / w));
-          w = maxWidth;
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
+      const img = new Image();
+      img.onload = ()=> resolve(img);
       img.onerror = reject;
       img.src = reader.result;
     };
@@ -8987,6 +8989,41 @@ function compressImageToBase64(file, maxWidth, quality){
     reader.readAsDataURL(file);
   });
 }
+function drawScaled(img, maxSide){
+  let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+  const scale = Math.min(1, maxSide / Math.max(w, h));
+  const tw = Math.max(1, Math.round(w * scale)), th = Math.max(1, Math.round(h * scale));
+  // 大幅縮小時分段縮，文字邊緣比較銳利
+  let src = img, sw = w, sh = h;
+  while(sw / 2 > tw && sh / 2 > th){
+    const c = document.createElement('canvas');
+    c.width = Math.round(sw / 2); c.height = Math.round(sh / 2);
+    const cx = c.getContext('2d'); cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
+    cx.drawImage(src, 0, 0, c.width, c.height);
+    src = c; sw = c.width; sh = c.height;
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = tw; canvas.height = th;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, tw, th);
+  ctx.drawImage(src, 0, 0, tw, th);
+  return canvas;
+}
+async function compressImageToBase64(file, maxSide, quality){
+  const img = await loadImageFromFile(file);
+  let side = maxSide, q = quality;
+  for(let i = 0; i < 8; i++){
+    const data = drawScaled(img, side).toDataURL('image/jpeg', q);
+    if(data.length <= PHOTO_MAX_CHARS) return data;
+    if(q > 0.6) q = Math.round((q - 0.1) * 100) / 100;
+    else side = Math.round(side * 0.8);
+  }
+  return drawScaled(img, 1000).toDataURL('image/jpeg', 0.6);
+}
+// 標籤／進貨照片、許可證照片的畫質設定
+const PHOTO_LABEL_SIDE = 1600, PHOTO_LABEL_Q = 0.85;
+const PHOTO_PERMIT_SIDE = 2000, PHOTO_PERMIT_Q = 0.85;
 
 const MAX_PHOTO_FILE_SIZE = 20 * 1024 * 1024; // 20MB，避免手機高畫質原始照片讓瀏覽器處理不動
 function checkPhotoFileSize(file){
@@ -9054,7 +9091,7 @@ document.getElementById('btnSaveReceipt').onclick = async ()=>{
   const receiptId = 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
   let photoId = '';
   try{
-    const photoData = await compressImageToBase64(photoFile, 480, 0.5);
+    const photoData = await compressImageToBase64(photoFile, PHOTO_LABEL_SIDE, PHOTO_LABEL_Q);
     saveBtn.textContent = '上傳照片中...';
     photoId = await savePhoto(photoData);
   }catch(e){
