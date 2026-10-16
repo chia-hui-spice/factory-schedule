@@ -6665,6 +6665,7 @@ function bulkNum(v){
   const n = parseFloat(String(v).replace(/,/g,''));
   return isNaN(n) ? NaN : n;
 }
+function bulkRowIsHalal(row){ return /^(是|y|yes|v|✓|o|清真|1)$/i.test(String(bulkCell(row,'清真(是/否)') || bulkCell(row,'清真') || '').trim()); }
 function bulkNextCode(prefix, usedCodes){
   let max = 0;
   const re = new RegExp('^' + prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\d+)$');
@@ -6805,7 +6806,9 @@ function buildBulkImportPlan(wb){
     });
     // 沒填料號的，等全部有料號的都登記完再依序自動編號，避免撞號
     pendingNoCode.forEach(r=>{
-      const prefix = cfg.kind === 'semi' ? (r.category === 'SA' ? 'SA-' : 'SR-') : (cfg.kind === 'finished' ? 'F-' : cfg.prefix);
+      const add = sec.adds.find(a=>a.record === r);
+      const halalRow = add && add.srcRow && bulkRowIsHalal(add.srcRow);
+      const prefix = (halalRow ? HALAL_CODE_PREFIX : '') + (cfg.kind === 'semi' ? (r.category === 'SA' ? 'SA-' : 'SR-') : (cfg.kind === 'finished' ? 'F-' : cfg.prefix));
       r.code = bulkNextCode(prefix, usedCodes);
     });
     sec.adds.forEach(a=>{ if(!a.display) a.display = (a.record.code ? a.record.code + ' ・ ' : '') + (a.fgDisplay || (a.record.name + (a.record.origin ? '（' + a.record.origin + '）' : ''))); });
@@ -6814,7 +6817,7 @@ function buildBulkImportPlan(wb){
   // 清真欄位（每個工作表都有）
   plan.sections.forEach(sec=> sec.adds.forEach(a=>{
     const row = a.srcRow; if(!row) return;
-    const halal = /^(是|y|yes|v|✓|o|清真|1)$/i.test(String(bulkCell(row,'清真(是/否)') || bulkCell(row,'清真') || '').trim());
+    const halal = bulkRowIsHalal(row);
     if(!halal) return;
     const exp = bulkDate(bulkCell(row,'清真證書到期日'));
     const body = String(bulkCell(row,'清真認證機構')||'');
@@ -7344,15 +7347,17 @@ function materialLabelPlain(m){
   return (m.code ? m.code + ' ・ ' : '') + m.name + (m.halal ? ' 🕌清真' : '');
 }
 
-function suggestNextCode(kind){
-  const cfg = INVENTORY_KIND_CONFIG[kind];
+// 清真料號：一般料號前面加 HTB（例如 HTBR-001、HTBA-001、HTBP-001、HTBSR-001、HTBF-001），流水號跟一般分開算
+const HALAL_CODE_PREFIX = 'HTB';
+function nextCodeFor(list, prefix){
   let max = 0;
-  const re = new RegExp('^' + cfg.codePrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\d+)$');
-  cfg.getList().forEach(m=>{
-    const match = re.exec(m.code || '');
-    if(match) max = Math.max(max, parseInt(match[1], 10));
-  });
-  return cfg.codePrefix + String(max + 1).padStart(3, '0');
+  const re = new RegExp('^' + prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\d+)$', 'i');
+  list.forEach(m=>{ const match = re.exec(m.code || ''); if(match) max = Math.max(max, parseInt(match[1], 10)); });
+  return prefix + String(max + 1).padStart(3, '0');
+}
+function suggestNextCode(kind, halal){
+  const cfg = INVENTORY_KIND_CONFIG[kind];
+  return nextCodeFor(cfg.getList(), (halal ? HALAL_CODE_PREFIX : '') + cfg.codePrefix);
 }
 // ---- 食品添加物分類：單方（許可證字號、到期日、照片、登錄碼）、複方（登錄碼）、食用香料（登錄碼）----
 const ADDITIVE_CATEGORY_LABEL = { single:'單方食品添加物', compound:'複方食品添加物', flavor:'食用香料' };
@@ -7552,6 +7557,29 @@ function readHalalBox(p){
   if(hasCert && !body) missing.push('清真認證機構');
   if(hasCert && !exp) missing.push('清真證書到期日');
   return { missing, data: { halal, halalHasCert: hasCert, halalBody: hasCert ? body : '', halalExpDate: hasCert ? exp : '' } };
+}
+function halalCodeSuggest(p, halal){
+  if(p === 'mf') return suggestNextCode(editingInventoryKind, halal);
+  if(p === 'sg') return suggestNextSemiGoodCode(document.getElementById('sgCategory').value, halal);
+  return suggestNextFgCode(halal);
+}
+// 新增時勾／取消清真：料號如果還是系統建議的，就自動換成 HTB 開頭（或換回一般）
+function syncHalalCode(p){
+  const isNew = p === 'mf' ? !editingMaterialId : p === 'sg' ? !editingSgId : !editingFgId;
+  if(!isNew) return;
+  const el = document.getElementById(p + 'Code');
+  const cur = el.value.trim();
+  const plain = halalCodeSuggest(p, false), halalCode = halalCodeSuggest(p, true);
+  if(!cur || cur === plain || cur === halalCode) el.value = document.getElementById(p + 'Halal').checked ? halalCode : plain;
+}
+['mf','sg','fg'].forEach(p=> document.getElementById(p + 'Halal').addEventListener('change', ()=> syncHalalCode(p)));
+// 存檔時：清真品項的料號不是 HTB 開頭，問要不要改
+async function askHalalCode(p, code, halal){
+  if(!halal || new RegExp('^' + HALAL_CODE_PREFIX, 'i').test(code)) return code;
+  const sug = halalCodeSuggest(p, true);
+  const ok = await showConfirm('清真料號要用「' + HALAL_CODE_PREFIX + '」開頭。\n要把料號「' + (code || '（空白）') + '」改成「' + sug + '」嗎？\n\n按「取消」會保留原本的料號繼續存檔。', '改成清真料號？');
+  if(ok){ document.getElementById(p + 'Code').value = sug; return sug; }
+  return code;
 }
 const HALAL_KIND_LABEL = { material:'原料', additive:'食品添加物', packaging:'包材', semi:'半成品' };
 // 成品是否為清真：成品配方勾了清真，或成品庫存裡同名產品勾了清真
@@ -8111,6 +8139,7 @@ document.getElementById('mfHalalClone').onclick = async ()=>{
   document.getElementById('mfDefaultSpec').value = src.defaultSpec ?? '';
   if(kind === 'additive' && src.additiveCategory){ document.getElementById('mfAddCategory').value = src.additiveCategory; document.getElementById('mfAddCategory').dispatchEvent(new Event('change')); }
   fillHalalBox('mf', { halal:true }, false);
+  syncHalalCode('mf');
   updateMaterialStockTotalDisplay();
 };
 function logManualBatchChanges(kind, itemId, itemName, oldBatches, newBatches){
@@ -8143,7 +8172,7 @@ function logManualBatchChanges(kind, itemId, itemName, oldBatches, newBatches){
 }
 document.getElementById('btnSaveMaterial').onclick = async ()=>{
   const cfg = INVENTORY_KIND_CONFIG[editingInventoryKind];
-  const code = document.getElementById('mfCode').value.trim();
+  let code = document.getElementById('mfCode').value.trim();
   const name = document.getElementById('mfName').value.trim();
   const unit = document.getElementById('mfUnit').value.trim();
   const origin = normalizeOrigin(document.getElementById('mfOrigin').value);
@@ -8161,6 +8190,7 @@ document.getElementById('btnSaveMaterial').onclick = async ()=>{
   const hr = readHalalBox('mf');
   if(hr.missing.length){ showToast('請填寫：' + hr.missing.join('、')); return; }
   if(!checkHalalTriad('mf', cfg.getList(), editingMaterialId, name, manufacturer, origin, hr.data.halal)) return;
+  code = await askHalalCode('mf', code, hr.data.halal);
   if(editingMaterialId){
     const before = cfg.getList().find(x=>x.id===editingMaterialId);
     if(isHalal(before) && !hr.data.halal){
@@ -8277,7 +8307,7 @@ document.getElementById('btnAutoCodeFg').onclick = async ()=>{
   if(!list.length) return;
   const ok = await showConfirm('會依建立順序給 ' + list.length + ' 個成品編上料號，例如 ' + suggestNextFgCode() + '。之後還是可以點進去個別修改。', '自動編號成品料號？');
   if(!ok) return;
-  list.forEach(f=>{ f.code = suggestNextFgCode(); });
+  list.forEach(f=>{ f.code = suggestNextFgCode(isHalal(f)); });
   await saveBomData(); renderFinishedGoodList(); showToast('已幫 ' + list.length + ' 個成品編上料號');
 };
 document.getElementById('btnAutoCodeSg').onclick = async ()=>{
@@ -8285,7 +8315,7 @@ document.getElementById('btnAutoCodeSg').onclick = async ()=>{
   if(!list.length) return;
   const ok = await showConfirm('會依類別給 ' + list.length + ' 個半成品編上料號（原料類 SR-、添加物類 SA-）。之後還是可以點進去個別修改。', '自動編號半成品料號？');
   if(!ok) return;
-  list.forEach(x=>{ x.code = suggestNextSemiGoodCode(x.category || 'SR'); });
+  list.forEach(x=>{ x.code = suggestNextSemiGoodCode(x.category || 'SR', isHalal(x)); });
   await saveBomData(); renderSemiGoodList(); showToast('已幫 ' + list.length + ' 個半成品編上料號');
 };
 function renderFinishedGoodList(){
@@ -8394,10 +8424,8 @@ document.getElementById('fgUnit').addEventListener('input', updateFgStockTotalDi
 
 let editingFgId = null;
 const fgFormOverlay = document.getElementById('fgFormOverlay');
-function suggestNextFgCode(){
-  let max = 0;
-  finishedGoods.forEach(f=>{ const m = /^F-(\d+)$/.exec(f.code||''); if(m) max = Math.max(max, parseInt(m[1],10)); });
-  return 'F-' + String(max + 1).padStart(3, '0');
+function suggestNextFgCode(halal){
+  return nextCodeFor(finishedGoods, (halal ? HALAL_CODE_PREFIX : '') + 'F-');
 }
 // 料號重複檢查（同一類清單裡，排除自己）
 function findDuplicateCode(list, code, selfId){
@@ -8429,7 +8457,7 @@ document.getElementById('btnCancelFg').onclick = ()=>{
 };
 // fgFormOverlay：點表單外面不會關閉，避免誤觸讓輸入到一半的資料消失（請用「取消」或「儲存」）
 document.getElementById('btnSaveFg').onclick = async ()=>{
-  const code = document.getElementById('fgCode').value.trim();
+  let code = document.getElementById('fgCode').value.trim();
   const product = document.getElementById('fgProduct').value.trim();
   const spec = getPickerValue('fgSpec', 'fgSpecCustom');
   const unit = document.getElementById('fgUnit').value.trim();
@@ -8439,6 +8467,7 @@ document.getElementById('btnSaveFg').onclick = async ()=>{
   if(dupFg){ showToast('料號 ' + code + ' 已經用在「' + dupFg.product + (dupFg.spec ? '（' + dupFg.spec + '）' : '') + '」，請換一個'); return; }
   const hr = readHalalBox('fg');
   if(hr.missing.length){ showToast('請填寫：' + hr.missing.join('、')); return; }
+  code = await askHalalCode('fg', code, hr.data.halal);
   if(hr.data.halal){
     const bom = boms.find(b=>b.product === product);
     const bad = bom ? nonHalalRecipeItems(bom.rows, false) : [];
@@ -8611,8 +8640,8 @@ document.getElementById('btnAddSemiGoodBatchLot').onclick = ()=>{
 };
 document.getElementById('sgUnit').addEventListener('input', updateSemiGoodStockTotalDisplay);
 
-function suggestNextSemiGoodCode(category){
-  const prefix = category === 'SA' ? 'SA-' : 'SR-';
+function suggestNextSemiGoodCode(category, halal){
+  const prefix = (halal ? HALAL_CODE_PREFIX : '') + (category === 'SA' ? 'SA-' : 'SR-');
   let max = 0;
   const re = new RegExp('^' + prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\d+)$');
   semiGoods.forEach(s=>{
@@ -8640,7 +8669,7 @@ function openSgForm(s){
 document.getElementById('sgCategory').addEventListener('change', function(){
   if(!editingSgId){
     // 只在新增(還沒有editingSgId)時才自動依類別切換更新料號建議，避免誤改既有半成品的料號
-    document.getElementById('sgCode').value = suggestNextSemiGoodCode(this.value);
+    document.getElementById('sgCode').value = suggestNextSemiGoodCode(this.value, document.getElementById('sgHalal').checked);
   }
 });
 document.getElementById('semiGoodSearchInput').addEventListener('input', renderSemiGoodList);
@@ -8654,7 +8683,7 @@ document.getElementById('sgHalalClone').onclick = async ()=>{
   if(!ok) return;
   openSgForm(null);
   document.getElementById('sgCategory').value = src.category || 'SR';
-  document.getElementById('sgCode').value = suggestNextSemiGoodCode(src.category || 'SR');
+  document.getElementById('sgCode').value = suggestNextSemiGoodCode(src.category || 'SR', true);
   document.getElementById('sgName').value = newName;
   document.getElementById('sgUnit').value = src.unit || '';
   document.getElementById('sgOrigin').value = src.origin || '';
@@ -8664,7 +8693,7 @@ document.getElementById('sgHalalClone').onclick = async ()=>{
 // 半成品編輯表單內容較多，不設定點擊背景關閉，避免填寫到一半誤觸背景導致資料遺失（只能點「取消」或「儲存」關閉）
 document.getElementById('btnSaveSg').onclick = async ()=>{
   const category = document.getElementById('sgCategory').value;
-  const code = document.getElementById('sgCode').value.trim();
+  let code = document.getElementById('sgCode').value.trim();
   const name = document.getElementById('sgName').value.trim();
   const unit = document.getElementById('sgUnit').value.trim();
   const origin = normalizeOrigin(document.getElementById('sgOrigin').value);
@@ -8678,6 +8707,7 @@ document.getElementById('btnSaveSg').onclick = async ()=>{
   const hr = readHalalBox('sg');
   if(hr.missing.length){ showToast('請填寫：' + hr.missing.join('、')); return; }
   if(!checkHalalTriad('sg', semiGoods, editingSgId, name, manufacturer, origin, hr.data.halal)) return;
+  code = await askHalalCode('sg', code, hr.data.halal);
   if(editingSgId){
     const before = semiGoods.find(x=>x.id===editingSgId);
     if(hr.data.halal){
