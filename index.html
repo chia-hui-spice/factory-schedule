@@ -462,6 +462,10 @@
 .halal-box{ border:2px solid var(--green); border-radius:12px; padding:10px 12px; margin:6px 0 12px; background:rgba(76,168,114,0.07); }
 .halal-toggle{ display:flex; align-items:center; gap:10px; font-size:16.5px; font-weight:800; color:var(--green); cursor:pointer; }
 .halal-toggle input{ width:22px; height:22px; flex:0 0 auto; }
+.halal-triad{ font-size:14px; line-height:1.6; color:var(--ink); background:rgba(76,168,114,0.12); border-radius:8px; padding:8px 10px; margin-bottom:8px; }
+.halal-sub{ display:flex; align-items:flex-start; gap:8px; font-size:15px; font-weight:700; cursor:pointer; line-height:1.5; }
+.halal-sub input{ width:20px; height:20px; flex:0 0 auto; margin-top:2px; }
+input.halal-locked{ opacity:0.7; background:rgba(76,168,114,0.10) !important; border-color:var(--green) !important; }
 .halal-tag{ font-size:13px; color:var(--green); border:1px solid var(--green); border-radius:6px; padding:1px 5px; margin-right:6px; white-space:nowrap; }
 </style>
 </head>
@@ -1424,11 +1428,15 @@
       </div>
     </div>
     <div class="halal-box">
-      <label class="halal-toggle"><input type="checkbox" id="sgHalal"> 🕌 清真（有清真認證）</label>
+      <label class="halal-toggle"><input type="checkbox" id="sgHalal"> 🕌 清真</label>
       <div id="sgHalalFields" style="display:none; margin-top:8px;">
+        <div id="sgHalalTriad" class="halal-triad">清真三要素（綁定）：<b>品名、製造商、產地</b> 三個都要填，存檔後會鎖定。<br>同一種原料換了製造商或產地，就要另建一個清真料號。</div>
+        <label class="halal-sub"><input type="checkbox" id="sgHalalHasCert"> 這個品項有清真證書（要追蹤到期日）</label>
+        <div id="sgHalalCertFields" style="display:none; margin-top:8px;">
         <div class="row2">
           <div class="field"><label>清真認證機構 <span style="color:var(--red);">*</span></label><input type="text" id="sgHalalBody" list="halalBodySuggestions" placeholder="例如 台灣清真產業品質保證推廣協會" autocomplete="off"></div>
           <div class="field"><label>清真證書到期日 <span style="color:var(--red);">*</span></label><input type="date" id="sgHalalExp"></div>
+        </div>
         </div>
       </div>
       <button type="button" class="split-btn" id="sgHalalClone" style="display:none; margin-top:8px; width:100%;">🕌 另建一個「清真版」料號（庫存分開，不會混用）</button>
@@ -1608,11 +1616,14 @@
       </div>
     </div>
     <div class="halal-box">
-      <label class="halal-toggle"><input type="checkbox" id="fgHalal"> 🕌 清真產品（有清真認證；配方只能用清真材料）</label>
+      <label class="halal-toggle"><input type="checkbox" id="fgHalal"> 🕌 清真產品（配方只能用清真材料）</label>
       <div id="fgHalalFields" style="display:none; margin-top:8px;">
+        <label class="halal-sub"><input type="checkbox" id="fgHalalHasCert"> 這個品項有清真證書（要追蹤到期日）</label>
+        <div id="fgHalalCertFields" style="display:none; margin-top:8px;">
         <div class="row2">
           <div class="field"><label>清真認證機構 <span style="color:var(--red);">*</span></label><input type="text" id="fgHalalBody" list="halalBodySuggestions" placeholder="例如 台灣清真產業品質保證推廣協會" autocomplete="off"></div>
           <div class="field"><label>清真證書到期日 <span style="color:var(--red);">*</span></label><input type="date" id="fgHalalExp"></div>
+        </div>
         </div>
       </div>
     </div>
@@ -1853,11 +1864,15 @@
       <input type="text" id="mfSupplier" placeholder="供應商名稱" list="supplierSuggestions">
     </div>
     <div class="halal-box">
-      <label class="halal-toggle"><input type="checkbox" id="mfHalal"> 🕌 清真（有清真認證）</label>
+      <label class="halal-toggle"><input type="checkbox" id="mfHalal"> 🕌 清真</label>
       <div id="mfHalalFields" style="display:none; margin-top:8px;">
+        <div id="mfHalalTriad" class="halal-triad">清真三要素（綁定）：<b>品名、製造商、產地</b> 三個都要填，存檔後會鎖定。<br>同一種原料換了製造商或產地，就要另建一個清真料號。</div>
+        <label class="halal-sub"><input type="checkbox" id="mfHalalHasCert"> 這個品項有清真證書（要追蹤到期日）（農產品例如胡椒粒、花椒粒不需要證書，不用勾）</label>
+        <div id="mfHalalCertFields" style="display:none; margin-top:8px;">
         <div class="row2">
           <div class="field"><label>清真認證機構 <span style="color:var(--red);">*</span></label><input type="text" id="mfHalalBody" list="halalBodySuggestions" placeholder="例如 台灣清真產業品質保證推廣協會" autocomplete="off"></div>
           <div class="field"><label>清真證書到期日 <span style="color:var(--red);">*</span></label><input type="date" id="mfHalalExp"></div>
+        </div>
         </div>
       </div>
       <button type="button" class="split-btn" id="mfHalalClone" style="display:none; margin-top:8px; width:100%;">🕌 另建一個「清真版」料號（庫存分開，不會混用）</button>
@@ -2336,6 +2351,7 @@ function pickOrigin(val){
   hideOriginDrop();
 }
 function showOriginDrop(inp){
+  if(inp.readOnly){ hideOriginDrop(); return; }
   const items = originSuggestionList(inp.value);
   if(!items.length || (items.length === 1 && items[0] === inp.value)){ hideOriginDrop(); return; }
   if(!originDrop || originDropInput !== inp){
@@ -6801,9 +6817,20 @@ function buildBulkImportPlan(wb){
     const halal = /^(是|y|yes|v|✓|o|清真|1)$/i.test(String(bulkCell(row,'清真(是/否)') || bulkCell(row,'清真') || '').trim());
     if(!halal) return;
     const exp = bulkDate(bulkCell(row,'清真證書到期日'));
-    Object.assign(a.record, { halal:true, halalBody: String(bulkCell(row,'清真認證機構')||''), halalExpDate: exp || '' });
+    const body = String(bulkCell(row,'清真認證機構')||'');
+    Object.assign(a.record, { halal:true, halalHasCert: !!(body || exp), halalBody: body, halalExpDate: exp || '' });
     a.display = (a.display || '') + ' 🕌';
   }));
+  // 清真三要素（品名＋製造商＋產地）沒填完整的，不匯入
+  plan.sections.forEach(sec=>{
+    if(sec.cfg.kind === 'finished') return;
+    sec.adds = sec.adds.filter(a=>{
+      if(!a.record.halal || (a.record.manufacturer && a.record.origin)) return true;
+      sec.errors.push({ rowNo: a.rowNo, name: a.record.name, why: '清真要填「製造商」和「產地」（清真三要素）' });
+      plan.totalNew--;
+      return false;
+    });
+  });
   return plan;
 }
 
@@ -7430,8 +7457,10 @@ function suggestNextMaterialCode(){ return suggestNextCode('material'); }
 // ================= 清真管理 =================
 // 清真是「料號」層級的屬性：同一種原料若有清真與非清真兩種來源，請建成兩個料號，庫存分開
 function isHalal(x){ return !!(x && x.halal); }
+function halalHasCert(x){ return !!(x && (x.halalHasCert !== undefined ? x.halalHasCert : (x.halalExpDate || x.halalBody))); }
 function halalStatus(x){
   if(!isHalal(x)) return null;
+  if(!halalHasCert(x)) return { level:'nocert', text:'不需證書', color:'var(--green)' };
   if(!x.halalExpDate) return { level:'missing', text:'沒填清真證書到期日', color:'var(--orange)' };
   const days = Math.round((new Date(x.halalExpDate + 'T00:00:00') - new Date(todayStr() + 'T00:00:00')) / 86400000);
   if(days < 0) return { level:'expired', days, text:'清真證書已過期 ' + (-days) + ' 天', color:'var(--red)' };
@@ -7441,32 +7470,88 @@ function halalStatus(x){
 function halalInfoLine(x){
   const hs = halalStatus(x);
   if(!hs) return '';
-  return '<span style="color:var(--green); font-weight:800;">🕌 清真</span>' + (x.halalBody ? '　' + escapeHtml(x.halalBody) : '') +
-    '　<span style="font-weight:800; color:' + hs.color + ';">' + (hs.level !== 'ok' ? '⚠ ' : '') + hs.text + '</span>';
+  const warn = hs.level === 'expired' || hs.level === 'soon' || hs.level === 'missing';
+  return '<span style="color:var(--green); font-weight:800;">🕌 清真</span>' +
+    (x.halalBody ? '　' + escapeHtml(x.halalBody) : '') +
+    '　<span style="font-weight:800; color:' + hs.color + ';">' + (warn ? '⚠ ' : '') + hs.text + '</span>';
+}
+// 清真三要素：品名＋製造商＋產地（綁定）
+const HALAL_TRIAD_FIELDS = { mf: ['mfName','mfManufacturer','mfOrigin'], sg: ['sgName','sgManufacturer','sgOrigin'] };
+function halalTriadText(x){ return (x.name||'') + '／' + (x.manufacturer||'（未填製造商）') + '／' + (x.origin||'（未填產地）'); }
+function applyHalalLock(p){
+  const ids = HALAL_TRIAD_FIELDS[p];
+  if(!ids) return;
+  const cb = document.getElementById(p + 'Halal');
+  const locked = cb.checked && cb.dataset.savedHalal === '1';
+  ids.forEach(id=>{
+    const el = document.getElementById(id);
+    el.readOnly = locked;
+    el.classList.toggle('halal-locked', locked);
+    el.title = locked ? '清真三要素已綁定，不能修改。要換製造商或產地請另建清真料號。' : '';
+  });
+  const tri = document.getElementById(p + 'HalalTriad');
+  if(tri) tri.innerHTML = locked
+    ? '🔒 清真三要素已綁定：<b>品名、製造商、產地</b> 不能修改。<br>換了製造商或產地，請按下面「另建一個清真料號」。'
+    : '清真三要素（綁定）：<b>品名、製造商、產地</b> 三個都要填，存檔後會鎖定。<br>同一種原料換了製造商或產地，就要另建一個清真料號。';
+}
+// 檢查三要素：都要填、存過的清真料號不能改、不能跟別的清真料號重複
+function checkHalalTriad(p, list, editingId, name, manufacturer, origin, wantHalal){
+  if(!wantHalal) return true;
+  const miss = [];
+  if(!name) miss.push('品名');
+  if(!manufacturer) miss.push('製造商');
+  if(!origin) miss.push('產地');
+  if(miss.length){ showAlert('清真三要素「品名、製造商、產地」都要填。\n還沒填：' + miss.join('、'), '清真三要素沒填完'); return false; }
+  const before = editingId ? list.find(x=>x.id===editingId) : null;
+  if(isHalal(before) && (before.name !== name || (before.manufacturer||'') !== manufacturer || normalizeOrigin(before.origin) !== normalizeOrigin(origin))){
+    showAlert('這個清真料號的三要素已經綁定：\n' + halalTriadText(before) + '\n\n不能改成：\n' + name + '／' + manufacturer + '／' + origin + '\n\n請改用「另建一個清真料號」。', '清真三要素不能修改');
+    return false;
+  }
+  const dup = list.find(x=> x.id !== editingId && isHalal(x) && x.name === name && (x.manufacturer||'') === manufacturer && normalizeOrigin(x.origin) === normalizeOrigin(origin));
+  if(dup){ showAlert('已經有一樣三要素的清真料號：\n' + materialLabelPlain(dup) + '\n' + halalTriadText(dup) + '\n\n請直接用那個料號進貨。', '清真料號重複'); return false; }
+  return true;
 }
 function setupHalalBox(p){
   const cb = document.getElementById(p + 'Halal');
   const fields = document.getElementById(p + 'HalalFields');
   if(!cb || !fields) return;
-  cb.addEventListener('change', ()=>{ fields.style.display = cb.checked ? '' : 'none'; const c = document.getElementById(p + 'HalalClone'); if(c && cb.checked) c.style.display = 'none'; });
+  cb.addEventListener('change', ()=>{
+    fields.style.display = cb.checked ? '' : 'none';
+    const c = document.getElementById(p + 'HalalClone');
+    if(c && cb.dataset.savedHalal !== '1') c.style.display = cb.checked ? 'none' : (c.dataset.allow === '1' ? '' : 'none');
+    applyHalalLock(p);
+  });
+  const hc = document.getElementById(p + 'HalalHasCert');
+  hc.addEventListener('change', ()=>{ document.getElementById(p + 'HalalCertFields').style.display = hc.checked ? '' : 'none'; });
 }
 ['mf','sg','fg'].forEach(setupHalalBox);
 function fillHalalBox(p, x, allowClone){
-  document.getElementById(p + 'Halal').checked = isHalal(x);
+  const cb = document.getElementById(p + 'Halal');
+  cb.checked = isHalal(x);
+  cb.dataset.savedHalal = (x && x.id && isHalal(x)) ? '1' : '';
   document.getElementById(p + 'HalalFields').style.display = isHalal(x) ? '' : 'none';
+  const hasCert = isHalal(x) && halalHasCert(x);
+  document.getElementById(p + 'HalalHasCert').checked = hasCert;
+  document.getElementById(p + 'HalalCertFields').style.display = hasCert ? '' : 'none';
   document.getElementById(p + 'HalalBody').value = (x && x.halalBody) || '';
   document.getElementById(p + 'HalalExp').value = (x && x.halalExpDate) || '';
   const c = document.getElementById(p + 'HalalClone');
-  if(c) c.style.display = (allowClone && x && !isHalal(x)) ? '' : 'none';
+  if(c){
+    c.dataset.allow = (allowClone && x && x.id) ? '1' : '';
+    c.style.display = c.dataset.allow ? '' : 'none';
+    c.textContent = isHalal(x) ? '🕌 另建一個清真料號（不同製造商或產地）' : '🕌 另建一個「清真版」料號（庫存分開，不會混用）';
+  }
+  applyHalalLock(p);
 }
 function readHalalBox(p){
   const halal = document.getElementById(p + 'Halal').checked;
+  const hasCert = halal && document.getElementById(p + 'HalalHasCert').checked;
   const body = document.getElementById(p + 'HalalBody').value.trim();
   const exp = document.getElementById(p + 'HalalExp').value;
   const missing = [];
-  if(halal && !body) missing.push('清真認證機構');
-  if(halal && !exp) missing.push('清真證書到期日');
-  return { missing, data: { halal, halalBody: halal ? body : '', halalExpDate: halal ? exp : '' } };
+  if(hasCert && !body) missing.push('清真認證機構');
+  if(hasCert && !exp) missing.push('清真證書到期日');
+  return { missing, data: { halal, halalHasCert: hasCert, halalBody: hasCert ? body : '', halalExpDate: hasCert ? exp : '' } };
 }
 const HALAL_KIND_LABEL = { material:'原料', additive:'食品添加物', packaging:'包材', semi:'半成品' };
 // 成品是否為清真：成品配方勾了清真，或成品庫存裡同名產品勾了清真
@@ -7597,7 +7682,10 @@ function halalOverviewData(){
     { kind:'finished', label:'🏷 成品', list: finishedGoods }
   ].map(g=>({ ...g, items: g.list.filter(isHalal) }));
   const certAlerts = [];
-  groups.forEach(g=> g.items.forEach(x=>{ const hs = halalStatus(x); if(hs && hs.level !== 'ok') certAlerts.push({ g, x, hs }); }));
+  groups.forEach(g=> g.items.forEach(x=>{ const hs = halalStatus(x); if(hs && (hs.level === 'expired' || hs.level === 'soon' || hs.level === 'missing')) certAlerts.push({ g, x, hs }); }));
+  // 三要素沒填完整的清真原料、添加物、包材、半成品
+  const triadMissing = [];
+  groups.filter(g=>g.kind !== 'finished').forEach(g=> g.items.forEach(x=>{ if(!x.manufacturer || !x.origin) triadMissing.push({ g, x }); }));
   const recipeChecks = [];
   boms.filter(b=>productIsHalal(b.product)).forEach(b=> recipeChecks.push({ type:'bom', name: b.product, id: b.id, bad: nonHalalRecipeItems(b.rows, false) }));
   semiBoms.forEach(b=>{ const sg = semiGoods.find(x=>x.id===b.semiGoodId); if(isHalal(sg)) recipeChecks.push({ type:'semiBom', name: sg.name, id: b.id, bad: nonHalalRecipeItems(b.rows, true) }); });
@@ -7605,7 +7693,7 @@ function halalOverviewData(){
   const noRecipe = [];
   finishedGoods.filter(isHalal).forEach(f=>{ if(!boms.some(b=>b.product === f.product)) noRecipe.push('成品「' + f.product + '」'); });
   semiGoods.filter(isHalal).forEach(s=>{ if(!semiBoms.some(b=>b.semiGoodId === s.id)) noRecipe.push('半成品「' + s.name + '」'); });
-  return { groups, certAlerts, recipeChecks, noRecipe };
+  return { groups, certAlerts, recipeChecks, noRecipe, triadMissing };
 }
 function openHalalOverview(){ renderHalalOverview(); document.getElementById('halalOverviewOverlay').classList.add('show'); }
 function renderHalalOverview(){
@@ -7614,8 +7702,14 @@ function renderHalalOverview(){
   const badRecipes = d.recipeChecks.filter(r=>r.bad.length);
   let html = '<div class="coa-notice-row" style="line-height:1.7; border-color:' + (d.certAlerts.length || badRecipes.length ? 'var(--red)' : 'var(--green)') + ';">' +
     '清真品項：' + d.groups.map(g=> g.label.replace(/^\S+ /,'') + ' ' + g.items.length).join('　') +
+    (d.triadMissing.length ? '<br>三要素沒填完整 <b style="color:var(--orange);">' + d.triadMissing.length + '</b> 項' : '') +
     '<br>證書要注意 <b style="color:' + (d.certAlerts.length ? 'var(--red)' : 'var(--green)') + ';">' + d.certAlerts.length + '</b> 項　' +
     '清真配方 ' + d.recipeChecks.length + ' 個，有問題 <b style="color:' + (badRecipes.length ? 'var(--red)' : 'var(--green)') + ';">' + badRecipes.length + '</b> 個</div>';
+  if(d.triadMissing.length){
+    html += '<div class="section-label" style="color:var(--orange);">⚠ 清真三要素沒填完整（品名／製造商／產地）</div>' + d.triadMissing.map(a=>
+      '<div class="material-item" data-ho-kind="' + a.g.kind + '" data-ho-id="' + a.x.id + '" style="cursor:pointer; border-left:5px solid var(--orange);"><div class="material-item-top"><div class="material-item-name">' + a.g.label + '　' + nameOf(a.g, a.x) + '</div></div>' +
+      '<div class="material-item-meta">' + escapeHtml(halalTriadText(a.x)) + '</div></div>').join('');
+  }
   if(d.certAlerts.length){
     html += '<div class="section-label" style="color:var(--red);">⚠ 清真證書要注意</div>' + d.certAlerts.map(a=>
       '<div class="material-item" data-ho-kind="' + a.g.kind + '" data-ho-id="' + a.x.id + '" style="cursor:pointer; border-left:5px solid ' + a.hs.color + ';"><div class="material-item-top"><div class="material-item-name">' + a.g.label + '　' + nameOf(a.g, a.x) + '</div></div>' +
@@ -7631,8 +7725,8 @@ function renderHalalOverview(){
     html += '<div class="section-label">' + g.label + '（清真 ' + g.items.length + ' 項）</div>';
     if(!g.items.length){ html += '<div style="font-size:14px; color:var(--ink-dim); margin-bottom:8px;">沒有</div>'; return; }
     html += g.items.map(x=>{ const hs = halalStatus(x); return '<div class="material-item" data-ho-kind="' + g.kind + '" data-ho-id="' + x.id + '" style="cursor:pointer; padding:8px 12px;">' +
-      '<div class="material-item-top"><div class="material-item-name" style="font-size:15.5px;">' + nameOf(g, x) + '</div><div style="font-size:13.5px; font-weight:800; color:' + hs.color + '; white-space:nowrap;">' + (hs.level === 'ok' ? '到期 ' + escapeHtml(x.halalExpDate) : hs.text) + '</div></div>' +
-      '<div class="material-item-meta">' + escapeHtml(x.halalBody || '未填認證機構') + '</div></div>'; }).join('');
+      '<div class="material-item-top"><div class="material-item-name" style="font-size:15.5px;">' + nameOf(g, x) + '</div><div style="font-size:13.5px; font-weight:800; color:' + hs.color + '; white-space:nowrap;">' + (hs.level === 'ok' ? '證書到期 ' + escapeHtml(x.halalExpDate) : hs.text) + '</div></div>' +
+      '<div class="material-item-meta">' + (g.kind !== 'finished' ? '製造商 ' + escapeHtml(x.manufacturer || '未填') + '　產地 ' + escapeHtml(x.origin || '未填') : '') + (x.halalBody ? '<br>認證：' + escapeHtml(x.halalBody) : '') + '</div></div>'; }).join('');
   });
   const body = document.getElementById('hoBody');
   body.innerHTML = html;
@@ -7655,17 +7749,17 @@ document.getElementById('btnHoPrint').onclick = ()=>{
   const d = halalOverviewData();
   const esc = escapeHtml;
   const rows = [];
-  d.groups.forEach(g=> g.items.forEach(x=>{ const hs = halalStatus(x); rows.push([g.label.replace(/^\S+ /,''), x.code||'', g.kind === 'finished' ? (x.product + (x.spec ? ' ' + x.spec : '')) : x.name, x.halalBody||'', x.halalExpDate||'', hs.level === 'ok' ? '有效' : hs.text]); }));
+  d.groups.forEach(g=> g.items.forEach(x=>{ const hs = halalStatus(x); rows.push([g.label.replace(/^\S+ /,''), x.code||'', g.kind === 'finished' ? (x.product + (x.spec ? ' ' + x.spec : '')) : x.name, g.kind === 'finished' ? '' : (x.manufacturer||''), g.kind === 'finished' ? '' : (x.origin||''), x.halalBody||'', x.halalExpDate||'', hs.level === 'ok' ? '證書有效' : hs.text]); }));
   const html = '<!doctype html><html><head><meta charset="utf-8"><title>清真品項清單</title><style>' +
-    '@page{ size:A4 portrait; margin:10mm; } body{ font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif; color:#000; margin:0; }' +
+    '@page{ size:A4 landscape; margin:10mm; } body{ font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif; color:#000; margin:0; }' +
     'h1{ font-size:18px; margin:0 0 6px; } h2{ font-size:15px; margin:14px 0 6px; } .info{ font-size:13px; margin-bottom:8px; }' +
     'table{ width:calc(100% - 2px); border-collapse:collapse; font-size:12.5px; } th,td{ border:1px solid #000; padding:5px; } th{ background:#e8e8e8; }' +
     'thead{ display:table-header-group; } tr{ page-break-inside:avoid; } .bad{ font-weight:bold; }' +
     '.btn{ margin:10px 0; padding:8px 16px; font-size:15px; } @media print{ .btn{ display:none; } }' +
     '</style></head><body><button class="btn" onclick="window.print()">🖨 列印</button>' +
-    '<h1>清真品項清單</h1><div class="info">列印日期：' + todayStr() + '　共 ' + rows.length + ' 項</div>' +
-    '<table><thead><tr><th>類別</th><th>料號</th><th>名稱</th><th>認證機構</th><th>證書到期日</th><th>狀態</th></tr></thead><tbody>' +
-    (rows.length ? rows.map(r=>'<tr>' + r.map((c,i)=>'<td' + (i===5 && c!=='有效' ? ' class="bad"' : '') + '>' + esc(String(c)) + '</td>').join('') + '</tr>').join('') : '<tr><td colspan="6">沒有資料</td></tr>') +
+    '<h1>清真品項清單</h1><div class="info">清真三要素（品名／製造商／產地）綁定管理　列印日期：' + todayStr() + '　共 ' + rows.length + ' 項</div>' +
+    '<table><thead><tr><th>類別</th><th>料號</th><th>品名</th><th>製造商</th><th>產地</th><th>認證機構</th><th>證書到期日</th><th>狀態</th></tr></thead><tbody>' +
+    (rows.length ? rows.map(r=>'<tr>' + r.map((c,i)=>'<td' + (i===7 && /過期|到期日|天後/.test(c) ? ' class="bad"' : '') + '>' + esc(String(c)) + '</td>').join('') + '</tr>').join('') : '<tr><td colspan="8">沒有資料</td></tr>') +
     '</tbody></table>' +
     '<h2>清真配方檢查</h2><table><thead><tr><th>配方</th><th>名稱</th><th>結果</th></tr></thead><tbody>' +
     (d.recipeChecks.length ? d.recipeChecks.map(r=>'<tr><td>' + (r.type === 'bom' ? '成品配方' : '半成品配方') + '</td><td>' + esc(r.name) + '</td><td' + (r.bad.length ? ' class="bad"' : '') + '>' + (r.bad.length ? '非清真：' + esc(r.bad.join('、')) : '全部清真') + '</td></tr>').join('') : '<tr><td colspan="3">沒有清真配方</td></tr>') +
@@ -8008,10 +8102,11 @@ document.getElementById('mfHalalClone').onclick = async ()=>{
   const kind = editingInventoryKind;
   const src = INVENTORY_KIND_CONFIG[kind].getList().find(x=>x.id===editingMaterialId);
   if(!src) return;
-  const ok = await showConfirm('會開一個新的' + INVENTORY_KIND_CONFIG[kind].label + '表單：名稱「' + src.name + '（清真）」，庫存從 0 開始。\n產地、製造商、供應商請依清真的來源重新填寫。\n（目前這個表單沒按儲存的修改不會保留）', '另建清真版料號？');
+  const newName = isHalal(src) ? src.name : src.name.replace(/（清真）$/, '') + '（清真）';
+  const ok = await showConfirm('會開一個新的' + INVENTORY_KIND_CONFIG[kind].label + '表單：名稱「' + newName + '」，清真已勾好，庫存從 0 開始。\n製造商、產地（清真三要素）和供應商請依這個清真來源填寫。\n（目前這個表單沒按儲存的修改不會保留）', '另建清真料號？');
   if(!ok) return;
   openMaterialForm(null, kind);
-  document.getElementById('mfName').value = src.name.replace(/（清真）$/, '') + '（清真）';
+  document.getElementById('mfName').value = newName;
   document.getElementById('mfUnit').value = src.unit || '';
   document.getElementById('mfDefaultSpec').value = src.defaultSpec ?? '';
   if(kind === 'additive' && src.additiveCategory){ document.getElementById('mfAddCategory').value = src.additiveCategory; document.getElementById('mfAddCategory').dispatchEvent(new Event('change')); }
@@ -8065,6 +8160,7 @@ document.getElementById('btnSaveMaterial').onclick = async ()=>{
   }
   const hr = readHalalBox('mf');
   if(hr.missing.length){ showToast('請填寫：' + hr.missing.join('、')); return; }
+  if(!checkHalalTriad('mf', cfg.getList(), editingMaterialId, name, manufacturer, origin, hr.data.halal)) return;
   if(editingMaterialId){
     const before = cfg.getList().find(x=>x.id===editingMaterialId);
     if(isHalal(before) && !hr.data.halal){
@@ -8553,12 +8649,13 @@ document.getElementById('btnCancelSg').onclick = ()=> semiGoodFormOverlay.classL
 document.getElementById('sgHalalClone').onclick = async ()=>{
   const src = semiGoods.find(x=>x.id===editingSgId);
   if(!src) return;
-  const ok = await showConfirm('會開一個新的半成品表單：名稱「' + src.name + '（清真）」，庫存從 0 開始。之後請另外設定它的配方（只能用清真原料）。\n（目前這個表單沒按儲存的修改不會保留）', '另建清真版料號？');
+  const newName = isHalal(src) ? src.name : src.name.replace(/（清真）$/, '') + '（清真）';
+  const ok = await showConfirm('會開一個新的半成品表單：名稱「' + newName + '」，清真已勾好，庫存從 0 開始。製造商、產地請依實際填寫。之後請另外設定它的配方（只能用清真原料）。\n（目前這個表單沒按儲存的修改不會保留）', '另建清真料號？');
   if(!ok) return;
   openSgForm(null);
   document.getElementById('sgCategory').value = src.category || 'SR';
   document.getElementById('sgCode').value = suggestNextSemiGoodCode(src.category || 'SR');
-  document.getElementById('sgName').value = src.name.replace(/（清真）$/, '') + '（清真）';
+  document.getElementById('sgName').value = newName;
   document.getElementById('sgUnit').value = src.unit || '';
   document.getElementById('sgOrigin').value = src.origin || '';
   document.getElementById('sgShelfLife').value = semiShelfLifeMonths(src) || '';
@@ -8580,6 +8677,7 @@ document.getElementById('btnSaveSg').onclick = async ()=>{
   if(dupSg){ showToast('料號 ' + code + ' 已經用在「' + dupSg.name + '」，請換一個'); return; }
   const hr = readHalalBox('sg');
   if(hr.missing.length){ showToast('請填寫：' + hr.missing.join('、')); return; }
+  if(!checkHalalTriad('sg', semiGoods, editingSgId, name, manufacturer, origin, hr.data.halal)) return;
   if(editingSgId){
     const before = semiGoods.find(x=>x.id===editingSgId);
     if(hr.data.halal){
