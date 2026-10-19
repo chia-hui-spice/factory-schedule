@@ -1737,6 +1737,15 @@ input.halal-locked{ opacity:0.7; background:rgba(76,168,114,0.10) !important; bo
     <div class="sheet-handle"></div>
     <h2>🕌 清真管理總覽</h2>
     <div class="report-updated">所有標示清真的原料、添加物、包材、半成品、成品，以及清真配方是否都用清真材料。點一列可以打開編輯。</div>
+    <div class="field" style="margin-bottom:10px;">
+      <label>清單排序</label>
+      <select id="hoSort" style="width:100%; padding:10px 12px; font-size:16px; border-radius:10px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink);">
+        <option value="halalCode">依清真料號（HTB…）</option>
+        <option value="code">依一般料號</option>
+        <option value="name">依名稱</option>
+        <option value="exp">依證書到期日（快到期的在前）</option>
+      </select>
+    </div>
     <div id="hoBody"></div>
     <div class="sheet-actions" style="margin-top:16px;">
       <button type="button" class="btn-secondary" id="btnHoPrint" style="flex:1;">🖨 列印</button>
@@ -7883,6 +7892,20 @@ function addAdditiveAlertBanner(){
 function renderPackagingList(){ renderInventoryList('packaging'); }
 
 // ---- 清真管理總覽 ----
+// 排序：料號用「自然排序」（HTBR-2 排在 HTBR-10 前面），沒有值的排最後
+function sortHalalItems(items, kind){
+  const el = document.getElementById('hoSort');
+  const mode = (el && el.value) || 'halalCode';
+  const nameOf = (x)=> kind === 'finished' ? (x.product || '') + (x.spec || '') : (x.name || '');
+  const keyOf = (x)=> mode === 'halalCode' ? (x.halalCode || '') : mode === 'code' ? (x.code || '') : mode === 'exp' ? (halalHasCert(x) ? (x.halalExpDate || '') : '') : nameOf(x);
+  return items.slice().sort((a, b)=>{
+    const ka = keyOf(a), kb = keyOf(b);
+    if(!ka && kb) return 1;
+    if(ka && !kb) return -1;
+    const c = String(ka).localeCompare(String(kb), 'zh-Hant', { numeric:true, sensitivity:'base' });
+    return c || nameOf(a).localeCompare(nameOf(b), 'zh-Hant', { numeric:true });
+  });
+}
 function halalOverviewData(){
   const groups = [
     { kind:'material', label:'📦 原料', list: materials },
@@ -7890,7 +7913,7 @@ function halalOverviewData(){
     { kind:'packaging', label:'🛍 包材', list: packagings },
     { kind:'semi', label:'🧪 半成品', list: semiGoods },
     { kind:'finished', label:'🏷 成品', list: finishedGoods }
-  ].map(g=>({ ...g, items: g.list.filter(isHalal) }));
+  ].map(g=>({ ...g, items: sortHalalItems(g.list.filter(isHalal), g.kind) }));
   const certAlerts = [];
   groups.forEach(g=> g.items.forEach(x=>{ const hs = halalStatus(x); if(hs && (hs.level === 'expired' || hs.level === 'soon' || hs.level === 'missing')) certAlerts.push({ g, x, hs }); }));
   // 三要素沒填完整的清真原料、添加物、包材、半成品
@@ -7954,6 +7977,7 @@ function renderHalalOverview(){
   });
 }
 document.getElementById('btnHalalOverview').onclick = openHalalOverview;
+document.getElementById('hoSort').addEventListener('change', renderHalalOverview);
 document.getElementById('btnHoClose').onclick = ()=> document.getElementById('halalOverviewOverlay').classList.remove('show');
 document.getElementById('btnHoPrint').onclick = ()=>{
   const d = halalOverviewData();
