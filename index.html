@@ -982,9 +982,15 @@ input.halal-locked{ opacity:0.7; background:rgba(76,168,114,0.10) !important; bo
             <input type="date" id="searchDueDateTo">
           </div>
         </div>
-        <div class="field" style="margin-bottom:0;">
-          <label class="i18n">客戶（可留空）</label>
-          <input type="text" id="searchCustomer" placeholder="輸入客戶名稱關鍵字">
+        <div class="row2" style="margin-bottom:0;">
+          <div class="field" style="margin-bottom:0;">
+            <label class="i18n">客戶（可留空）</label>
+            <input type="text" id="searchCustomer" placeholder="輸入客戶名稱關鍵字">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>產品名稱（可留空）</label>
+            <input type="text" id="searchProduct" placeholder="輸入產品名稱或規格關鍵字" list="productSuggestions">
+          </div>
         </div>
         <button type="button" class="i18n split-btn" id="searchClearBtn" style="margin-top:10px;">清除搜尋</button>
       </div>
@@ -4708,9 +4714,10 @@ function renderOrderSearchList(){
   const dueDateFrom = document.getElementById('searchDueDateFrom').value;
   const dueDateTo = document.getElementById('searchDueDateTo').value;
   const customerKeyword = document.getElementById('searchCustomer').value.trim().toLowerCase();
+  const productKeyword = document.getElementById('searchProduct').value.trim().toLowerCase();
 
-  if(!fillDateFrom && !fillDateTo && !dueDateFrom && !dueDateTo && !customerKeyword){
-    listEl.innerHTML = '<div class="ship-list-empty">' + t('請輸入填寫日期、出貨日期或客戶名稱開始查詢') + '</div>';
+  if(!fillDateFrom && !fillDateTo && !dueDateFrom && !dueDateTo && !customerKeyword && !productKeyword){
+    listEl.innerHTML = '<div class="ship-list-empty">請輸入填寫日期、出貨日期、客戶或產品名稱開始查詢</div>';
     return;
   }
 
@@ -4732,6 +4739,11 @@ function renderOrderSearchList(){
   if(customerKeyword){
     results = results.filter(x => (x.order.customer || '').toLowerCase().includes(customerKeyword));
   }
+  if(productKeyword){
+    // 空白分開的多個關鍵字都要符合，例如「黑胡椒 1公斤」
+    const words = productKeyword.split(/\s+/).filter(Boolean);
+    results = results.filter(x => { const text = ((x.item.product || '') + ' ' + (x.item.spec || '')).toLowerCase(); return words.every(w => text.includes(w)); });
+  }
   const sortByDue = (dueDateFrom || dueDateTo) && !fillDateFrom && !fillDateTo;
   results.sort((a,b)=> sortByDue ? (a.item.due||'').localeCompare(b.item.due||'') : (a.item.fillFormDate||'').localeCompare(b.item.fillFormDate||''));
 
@@ -4740,7 +4752,17 @@ function renderOrderSearchList(){
     return;
   }
 
-  listEl.innerHTML = results.map(x=>{
+  // 合計：筆數、訂單數，搜尋產品時另外依「產品＋規格」加總數量
+  const orderCount = new Set(results.map(x=>x.order.id)).size;
+  let summary = '<div class="coa-notice-row" style="line-height:1.7; margin-bottom:8px;">共 <b>' + results.length + '</b> 個品項，來自 <b>' + orderCount + '</b> 張訂單';
+  if(productKeyword){
+    const sums = {};
+    results.forEach(x=>{ const k = (x.item.product || '') + (x.item.spec ? '（' + x.item.spec + '）' : ''); sums[k] = (sums[k] || 0) + (parseFloat(x.item.qty) || 0); });
+    summary += '<br>數量合計：' + Object.keys(sums).sort((a,b)=>a.localeCompare(b,'zh-Hant')).map(k=> escapeHtml(k) + ' <b>' + (Math.round(sums[k]*1000)/1000) + '</b>').join('　');
+  }
+  summary += '</div>';
+
+  listEl.innerHTML = summary + results.map(x=>{
     const stageTag = '<span class="badge stage st-' + x.item.status + '">' + STATUS_LABEL[x.item.status] + '</span>';
     const dateTag = x.item.fillFormDate ? ('<span class="ship-list-tag">' + t('填寫日期') + ' ' + x.item.fillFormDate + '</span>') : '';
     const dueTag = x.item.due ? ('<span class="ship-list-tag">' + t('出貨日期') + ' ' + x.item.due + '</span>') : '';
@@ -4772,12 +4794,15 @@ document.getElementById('searchFillDateTo').addEventListener('input', renderOrde
 document.getElementById('searchDueDateFrom').addEventListener('input', renderOrderSearchList);
 document.getElementById('searchDueDateTo').addEventListener('input', renderOrderSearchList);
 document.getElementById('searchCustomer').addEventListener('input', renderOrderSearchList);
+document.getElementById('searchProduct').addEventListener('input', renderOrderSearchList);
+document.getElementById('searchProduct').addEventListener('focus', ()=>{ if(typeof populateProductSuggestions === 'function') populateProductSuggestions(); });
 document.getElementById('searchClearBtn').onclick = ()=>{
   document.getElementById('searchFillDateFrom').value = '';
   document.getElementById('searchFillDateTo').value = '';
   document.getElementById('searchDueDateFrom').value = '';
   document.getElementById('searchDueDateTo').value = '';
   document.getElementById('searchCustomer').value = '';
+  document.getElementById('searchProduct').value = '';
   renderOrderSearchList();
 };
 
