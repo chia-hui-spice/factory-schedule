@@ -467,6 +467,7 @@
 .halal-sub input{ width:20px; height:20px; flex:0 0 auto; margin-top:2px; }
 input.halal-locked{ opacity:0.7; background:rgba(76,168,114,0.10) !important; border-color:var(--green) !important; }
 .halal-tag{ font-size:13px; color:var(--green); border:1px solid var(--green); border-radius:6px; padding:1px 5px; margin-right:6px; white-space:nowrap; }
+.sheet-close-top{ position:sticky; top:0; float:right; z-index:5; margin:-4px -4px 0 8px; padding:8px 14px; font-size:15.5px; font-weight:800; border-radius:999px; border:1.5px solid var(--line); background:var(--panel-raised); color:var(--ink); cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.3); }
 </style>
 </head>
 <body>
@@ -1301,6 +1302,7 @@ input.halal-locked{ opacity:0.7; background:rgba(76,168,114,0.10) !important; bo
 <div class="overlay" id="bomOverlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
+    <button type="button" id="btnCloseBomTop" class="sheet-close-top">✕ 關閉</button>
     <h2 class="i18n">進銷存管理</h2>
     <div class="report-updated">庫存確認→排程生產自動扣原料、添加物、包材（依成品配方）；排程生產→標籤印製自動加成品(並依配方扣半成品)；標籤印製→出貨自動扣成品</div>
     <button type="button" id="btnHalalOverview" style="width:100%; margin:4px 0 6px 0; padding:12px 14px; font-size:17px; font-weight:800; color:var(--green); background:rgba(76,168,114,0.10); border:2px dashed var(--green); border-radius:12px; cursor:pointer;">🕌 清真管理總覽（證書到期、配方檢查）</button>
@@ -5134,7 +5136,7 @@ document.getElementById('recallBtn').onclick = ()=>{
   recallOverlay.classList.add('show');
 };
 document.getElementById('btnCloseRecall').onclick = ()=> recallOverlay.classList.remove('show');
-recallOverlay.onclick = (e)=>{ if(e.target === recallOverlay) recallOverlay.classList.remove('show'); };
+// 點畫面外面不會關閉（請用右上角「✕ 關閉」或下面的關閉按鈕）
 document.getElementById('recallSearchBtn').onclick = ()=>{
   performRecallSearch(document.getElementById('recallSearchInput').value.trim());
 };
@@ -5295,7 +5297,7 @@ document.getElementById('reportBtn').onclick = ()=>{
   reportOverlay.classList.add('show');
 };
 document.getElementById('btnCloseReport').onclick = ()=> reportOverlay.classList.remove('show');
-reportOverlay.onclick = (e)=>{ if(e.target === reportOverlay) reportOverlay.classList.remove('show'); };
+// 點畫面外面不會關閉（請用右上角「✕ 關閉」或下面的關閉按鈕）
 
 // ---- 衛生管理(溫溼度 / 人員衛生 / 機器衛生) ----
 const CLIMATE_TIME_SLOTS = ['09:00','11:00','13:00','15:00'];
@@ -5484,7 +5486,7 @@ document.getElementById('hygieneBtn').onclick = ()=>{
   hygieneOverlay.classList.add('show');
 };
 document.getElementById('btnCloseHygiene').onclick = ()=> hygieneOverlay.classList.remove('show');
-hygieneOverlay.onclick = (e)=>{ if(e.target === hygieneOverlay) hygieneOverlay.classList.remove('show'); };
+// 點畫面外面不會關閉（請用右上角「✕ 關閉」或下面的關閉按鈕）
 
 // ---- 人員衛生 / 機器衛生 共用邏輯 ----
 function hygieneKindConfig(kind){
@@ -5912,7 +5914,7 @@ function openHygieneDetail(kind, entityId){
   hygieneDetailOverlay.classList.add('show');
 }
 document.getElementById('btnCloseHygieneDetail').onclick = ()=> hygieneDetailOverlay.classList.remove('show');
-hygieneDetailOverlay.onclick = (e)=>{ if(e.target === hygieneDetailOverlay) hygieneDetailOverlay.classList.remove('show'); };
+// 點畫面外面不會關閉（請用右上角「✕ 關閉」或下面的關閉按鈕）
 document.getElementById('hygieneDetailExportBtn').onclick = ()=>{
   if(!editingHygieneDetail) return;
   if(typeof XLSX === 'undefined'){
@@ -6269,7 +6271,7 @@ function renderTrash(){
 }
 document.getElementById('trashBtn').onclick = ()=>{ renderTrash(); trashOverlay.classList.add('show'); };
 document.getElementById('btnCloseTrash').onclick = ()=> trashOverlay.classList.remove('show');
-trashOverlay.onclick = (e)=>{ if(e.target === trashOverlay) trashOverlay.classList.remove('show'); };
+// 點畫面外面不會關閉（請用右上角「✕ 關閉」或下面的關閉按鈕）
 
 async function purgeExpiredTrash(){
   const cutoff = Date.now() - TRASH_RETENTION_DAYS*86400000;
@@ -6434,7 +6436,7 @@ document.getElementById('permBtn').onclick = ()=>{
   renderPermUserList();
 };
 document.getElementById('btnCancelPerm').onclick = ()=> document.getElementById('permOverlay').classList.remove('show');
-document.getElementById('permOverlay').onclick = (e)=>{ if(e.target === document.getElementById('permOverlay')) document.getElementById('permOverlay').classList.remove('show'); };
+// 權限設定：點畫面外面不會關閉（請用「✕ 關閉」或「取消」）
 
 document.getElementById('btnSavePerm').onclick = async ()=>{
   const email = document.getElementById('permEmail').value.trim().toLowerCase();
@@ -6597,7 +6599,22 @@ document.getElementById('bomBtn').onclick = ()=>{
   bomOverlay.classList.add('show');
 };
 document.getElementById('btnCloseBom').onclick = ()=> bomOverlay.classList.remove('show');
-bomOverlay.onclick = (e)=>{ if(e.target === bomOverlay) bomOverlay.classList.remove('show'); };
+// 進銷存管理：點表單外面不會關閉，避免誤觸跳出（請用右上角「✕ 關閉」或最下面的「關閉」）
+document.getElementById('btnCloseBomTop').onclick = ()=> bomOverlay.classList.remove('show');
+// 其他大畫面也加上固定在右上角的「✕ 關閉」，按下去等於按該畫面原本的關閉／取消按鈕
+[['reportOverlay','btnCloseReport'], ['recallOverlay','btnCloseRecall'], ['hygieneOverlay','btnCloseHygiene'], ['hygieneDetailOverlay','btnCloseHygieneDetail'],
+ ['trashOverlay','btnCloseTrash'], ['permOverlay','btnCancelPerm'], ['photoViewOverlay','btnClosePhotoView'], ['materialPreviewOverlay','btnCloseMaterialPreview'],
+ ['permitOverviewOverlay','btnPoClose'], ['halalOverviewOverlay','btnHoClose'], ['inventoryLogOverlay','btnCloseInventoryLog'], ['receiptPickerOverlay','btnCloseReceiptPicker']
+].forEach(([ov, closeId])=>{
+  const sheet = document.querySelector('#' + ov + ' .sheet');
+  const closeBtn = document.getElementById(closeId);
+  if(!sheet || !closeBtn || sheet.querySelector('.sheet-close-top')) return;
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'sheet-close-top'; b.textContent = '✕ 關閉';
+  b.onclick = ()=> closeBtn.click();
+  const handle = sheet.querySelector('.sheet-handle');
+  if(handle) handle.insertAdjacentElement('afterend', b); else sheet.prepend(b);
+});
 
 const BOM_PANELS = { stocktake:'bomPanelStocktake', materials:'bomPanelMaterials', additives:'bomPanelAdditives', packagings:'bomPanelPackagings', semiGoods:'bomPanelSemiGoods', finishedGoods:'bomPanelFinishedGoods', boms:'bomPanelBoms', semiBoms:'bomPanelSemiBoms', receipts:'bomPanelReceipts' };
 function switchBomTab(key){
@@ -6664,7 +6681,7 @@ document.getElementById('receiptSearchClear').onclick = ()=>{
 };
 document.getElementById('receiptPickerSearchInput').addEventListener('input', renderReceiptPickerList);
 document.getElementById('btnCloseReceiptPicker').onclick = ()=> receiptPickerOverlay.classList.remove('show');
-receiptPickerOverlay.onclick = (e)=>{ if(e.target === receiptPickerOverlay) receiptPickerOverlay.classList.remove('show'); };
+// 選擇進貨項目：點外面不關閉（請用「關閉」）
 
 
 // ================= Excel 批次建檔 =================
@@ -8526,7 +8543,7 @@ function openInventoryLog(kind, itemId){
   inventoryLogOverlay.classList.add('show');
 }
 document.getElementById('btnCloseInventoryLog').onclick = ()=> inventoryLogOverlay.classList.remove('show');
-inventoryLogOverlay.onclick = (e)=>{ if(e.target === inventoryLogOverlay) inventoryLogOverlay.classList.remove('show'); };
+// 出入庫紀錄：點外面不關閉（請用「關閉」）
 
 function updateAutoCodeButtons(){
   const fgMissing = finishedGoods.filter(f=>!f.code).length;
@@ -9585,7 +9602,7 @@ document.getElementById('photoViewImg').onclick = ()=>{
   w.document.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=10, user-scalable=yes"><title>照片</title></head><body style="margin:0; background:#111;"><img src="' + src + '" style="display:block; width:100%; height:auto;"></body></html>');
   w.document.close();
 };
-photoViewOverlay.onclick = (e)=>{ if(e.target === photoViewOverlay) photoViewOverlay.classList.remove('show'); };
+// 點畫面外面不會關閉（請用右上角「✕ 關閉」或下面的關閉按鈕）
 
 document.getElementById('btnReplacePhotoView').onclick = ()=>{
   document.getElementById('photoViewReplaceInput').value = '';
@@ -10288,7 +10305,7 @@ function openMaterialPreview(order, item){
   document.getElementById('materialPreviewOverlay').classList.add('show');
 }
 document.getElementById('btnCloseMaterialPreview').onclick = ()=> document.getElementById('materialPreviewOverlay').classList.remove('show');
-document.getElementById('materialPreviewOverlay').onclick = (e)=>{ if(e.target.id === 'materialPreviewOverlay') e.target.classList.remove('show'); };
+// 點畫面外面不會關閉（請用右上角「✕ 關閉」或下面的關閉按鈕）
 
 async function deductStockForItem(item, order){
   const bom = boms.find(b=>b.product === item.product);
