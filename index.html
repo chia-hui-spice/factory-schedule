@@ -2902,10 +2902,12 @@ function getAllowedTabs(){
   if(!perm || !perm.tabs) return ALL_TABS.slice();
   return ALL_TABS.filter(s => perm.tabs.includes(s));
 }
+// 不在上方顯示的分頁：「已完成」用處不大，隱藏起來（資料還在，可到統計報表的訂單查詢找）
+const HIDDEN_TABS = ['qc'];
 function renderTabs(){
   const tabsEl = document.getElementById('tabs');
   tabsEl.innerHTML = '';
-  const allowedTabs = getAllowedTabs();
+  const allowedTabs = getAllowedTabs().filter(s=> !HIDDEN_TABS.includes(s));
   if(allowedTabs.length > 0 && !allowedTabs.includes(currentTab)){
     currentTab = allowedTabs[0];
   }
