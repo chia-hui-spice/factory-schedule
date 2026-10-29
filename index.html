@@ -468,6 +468,9 @@
 input.halal-locked{ opacity:0.7; background:rgba(76,168,114,0.10) !important; border-color:var(--green) !important; }
 .halal-tag{ font-size:13px; color:var(--green); border:1px solid var(--green); border-radius:6px; padding:1px 5px; margin-right:6px; white-space:nowrap; }
 .sheet-close-top{ position:sticky; top:0; float:right; z-index:5; margin:-4px -4px 0 8px; padding:8px 14px; font-size:15.5px; font-weight:800; border-radius:999px; border:1.5px solid var(--line); background:var(--panel-raised); color:var(--ink); cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.3); }
+html.kb-open .overlay.show{ top:var(--vv-top, 0px); bottom:auto; height:var(--vv-h, 100%); }
+html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
+.kb-sticky-actions{ position:sticky; bottom:calc(-20px - env(safe-area-inset-bottom)); z-index:6; background:var(--panel); margin-left:-18px; margin-right:-18px; padding:10px 18px calc(10px + env(safe-area-inset-bottom)) 18px; box-shadow:0 -6px 14px rgba(0,0,0,0.35); border-top:1px solid var(--line); }
 </style>
 </head>
 <body>
@@ -10504,6 +10507,41 @@ document.getElementById('signOutBtn').onclick = ()=> signOut(auth);
 
 // ================= iPad／iPhone 彈出視窗捲動 =================
 // 有彈出視窗開著時鎖住背景頁面（iPad Safari 有時會把手指滑動交給背後的頁面，造成視窗滑不動）
+// ---- iPad／手機鍵盤跳出來時：視窗縮到鍵盤上方，儲存按鈕固定在可視範圍底部，不會被鍵盤擋住 ----
+(function setupKeyboardAvoid(){
+  const vv = window.visualViewport;
+  if(!vv) return;
+  const root = document.documentElement;
+  let stickyEls = [];
+  function markSticky(on){
+    stickyEls.forEach(el=> el.classList.remove('kb-sticky-actions'));
+    stickyEls = [];
+    if(!on) return;
+    document.querySelectorAll('.overlay.show .sheet').forEach(sheet=>{
+      const cands = Array.from(sheet.querySelectorAll('.sheet-actions')).filter(el=> (el.parentElement === sheet || el.parentElement.tagName === 'FORM') && el.offsetParent !== null);
+      const last = cands[cands.length - 1];
+      if(last){ last.classList.add('kb-sticky-actions'); stickyEls.push(last); }
+    });
+  }
+  function update(){
+    const kb = window.innerHeight - vv.height;
+    const open = kb > 120 && document.querySelector('.overlay.show');
+    root.classList.toggle('kb-open', !!open);
+    root.style.setProperty('--vv-h', vv.height + 'px');
+    root.style.setProperty('--vv-top', vv.offsetTop + 'px');
+    markSticky(!!open);
+  }
+  vv.addEventListener('resize', update);
+  vv.addEventListener('scroll', update);
+  // 點到輸入欄位時，把它捲到視窗中間，避免停在鍵盤後面
+  document.addEventListener('focusin', (e)=>{
+    const el = e.target;
+    if(!el || !el.closest || !el.closest('.overlay.show .sheet')) return;
+    if(!/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+    setTimeout(()=>{ update(); try{ el.scrollIntoView({ block:'center', behavior:'smooth' }); }catch(_){} }, 350);
+  });
+  document.addEventListener('focusout', ()=> setTimeout(update, 400));
+})();
 (function setupModalScrollLock(){
   const update = ()=>{
     const anyOpen = !!document.querySelector('.overlay.show');
