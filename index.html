@@ -471,6 +471,8 @@ input.halal-locked{ opacity:0.7; background:rgba(76,168,114,0.10) !important; bo
 html.kb-open .overlay.show{ top:var(--vv-top, 0px); bottom:auto; height:var(--vv-h, 100%); }
 html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .kb-sticky-actions{ position:sticky; bottom:calc(-20px - env(safe-area-inset-bottom)); z-index:6; background:var(--panel); margin-left:-18px; margin-right:-18px; padding:10px 18px calc(10px + env(safe-area-inset-bottom)) 18px; box-shadow:0 -6px 14px rgba(0,0,0,0.35); border-top:1px solid var(--line); }
+.zone-count{ display:inline-block; margin-left:6px; min-width:22px; padding:1px 7px; border-radius:999px; font-size:13px; font-weight:800; background:var(--red); color:#fff; vertical-align:1px; }
+.zone-count.zero{ background:transparent; color:var(--ink-dim); border:1px solid var(--line); font-weight:600; }
 </style>
 </head>
 <body>
@@ -3503,16 +3505,32 @@ function renderZoneFilterBar(){
   }
   bar.style.display = '';
 
+  // 每條產線在這個分頁還沒完成的訂單數（品項數比訂單數多時一起顯示）
+  const zoneCount = (zone)=>{
+    const orderIds = new Set(); let items = 0;
+    orders.forEach(o=> (o.items||[]).forEach(it=>{
+      if(!itemBelongsToTab(it, currentTab)) return;
+      if(zone && !(it.productionZones || []).includes(zone)) return;
+      orderIds.add(o.id); items++;
+    }));
+    return { orders: orderIds.size, items };
+  };
+  const countBadge = (zone)=>{
+    const c = zoneCount(zone);
+    const txt = c.orders + '單' + (c.items > c.orders ? '・' + c.items + '項' : '');
+    return '<span class="zone-count' + (c.orders ? '' : ' zero') + '">' + txt + '</span>';
+  };
+
   const myPerm = (!isCurrentUserAdmin && permissions[currentUserEmail]) ? permissions[currentUserEmail] : null;
   const myZoneLock = myPerm && myPerm.productionZone;
   if(myZoneLock){
     currentZoneFilter = myZoneLock;
-    bar.innerHTML = '<span class="zone-filter-pill active" style="cursor:default;">🔒 ' + escapeHtml(myZoneLock) + '</span>';
+    bar.innerHTML = '<span class="zone-filter-pill active" style="cursor:default;">🔒 ' + escapeHtml(myZoneLock) + countBadge(myZoneLock) + '</span>';
     return;
   }
 
-  const pills = ['<button type="button" class="zone-filter-pill' + (!currentZoneFilter ? ' active' : '') + '" data-zone="">全部</button>']
-    .concat(PRODUCTION_ZONES.map(z => '<button type="button" class="zone-filter-pill' + (currentZoneFilter===z ? ' active' : '') + '" data-zone="'+escapeHtml(z)+'">'+escapeHtml(z)+'</button>'));
+  const pills = ['<button type="button" class="zone-filter-pill' + (!currentZoneFilter ? ' active' : '') + '" data-zone="">全部' + countBadge(null) + '</button>']
+    .concat(PRODUCTION_ZONES.map(z => '<button type="button" class="zone-filter-pill' + (currentZoneFilter===z ? ' active' : '') + '" data-zone="'+escapeHtml(z)+'">'+escapeHtml(z)+countBadge(z)+'</button>'));
   bar.innerHTML = pills.join('');
   bar.querySelectorAll('[data-zone]').forEach(btn=>{
     btn.onclick = ()=>{
