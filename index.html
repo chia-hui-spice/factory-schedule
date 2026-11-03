@@ -473,6 +473,17 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .kb-sticky-actions{ position:sticky; bottom:calc(-20px - env(safe-area-inset-bottom)); z-index:6; background:var(--panel); margin-left:-18px; margin-right:-18px; padding:10px 18px calc(10px + env(safe-area-inset-bottom)) 18px; box-shadow:0 -6px 14px rgba(0,0,0,0.35); border-top:1px solid var(--line); }
 .zone-count{ display:inline-block; margin-left:6px; min-width:22px; padding:1px 7px; border-radius:999px; font-size:13px; font-weight:800; background:var(--red); color:#fff; vertical-align:1px; }
 .zone-count.zero{ background:transparent; color:var(--ink-dim); border:1px solid var(--line); font-weight:600; }
+.order-progress{ margin:8px 0 12px; border:1.5px solid var(--line); border-radius:12px; padding:8px 12px; background:var(--panel-raised); }
+.order-progress summary{ cursor:pointer; font-size:15.5px; line-height:1.6; }
+.op-bar{ height:8px; border-radius:6px; background:var(--line); overflow:hidden; margin:6px 0 8px; }
+.op-bar > div{ height:100%; }
+.op-row{ display:flex; align-items:center; gap:8px; padding:6px 4px; border-top:1px solid var(--line); font-size:15px; }
+.op-row.here{ background:rgba(212,111,179,0.10); border-radius:6px; }
+.op-row.behind .op-name{ color:var(--amber); }
+.op-mark{ flex:0 0 auto; }
+.op-name{ flex:1; min-width:0; }
+.op-qty{ flex:0 0 auto; color:var(--ink-dim); font-weight:700; }
+.op-row .badge{ flex:0 0 auto; }
 </style>
 </head>
 <body>
@@ -2994,6 +3005,32 @@ function formatOrderCreated(order){
   return d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日（星期' + WEEKDAY_ZH[d.getDay()] + '）' +
     String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
 }
+// 裝箱確認：顯示整張訂單所有品項目前在哪個階段，讓倉管知道還差哪些沒到
+function orderProgressHtml(order){
+  const items = (order.items || []).filter(it=> !it.deleted);
+  if(!items.length) return '';
+  const boxIdx = STATUS.indexOf('boxing');
+  const reached = items.filter(it=> STATUS.indexOf(it.status) >= boxIdx).length;
+  const pct = Math.round(reached / items.length * 100);
+  const allReady = reached === items.length;
+  const sorted = items.slice().sort((a,b)=> STATUS.indexOf(a.status) - STATUS.indexOf(b.status));
+  const rows = sorted.map(it=>{
+    const idx = STATUS.indexOf(it.status);
+    const mark = idx > boxIdx ? '✅' : idx === boxIdx ? '📦' : '⏳';
+    const here = it.status === 'boxing';
+    return '<div class="op-row' + (here ? ' here' : '') + (idx < boxIdx ? ' behind' : '') + '">' +
+      '<span class="op-mark">' + mark + '</span>' +
+      '<span class="op-name">' + escapeHtml(it.product || '') + (it.spec ? '<span class="item-spec"> ・ ' + escapeHtml(it.spec) + '</span>' : '') + '</span>' +
+      '<span class="op-qty">x' + escapeHtml(String(it.qty ?? '')) + '</span>' +
+      '<span class="badge stage st-' + it.status + '">' + STATUS_LABEL[it.status] + '</span>' +
+    '</div>';
+  }).join('');
+  return '<details class="order-progress" open>' +
+    '<summary><b>📋 整張訂單進度</b>　已到裝箱確認或之後 <b style="color:' + (allReady ? 'var(--green)' : 'var(--amber)') + ';">' + reached + ' / ' + items.length + '</b> 項' +
+      (allReady ? '　✅ 全部到齊' : '　⏳ 還有 ' + (items.length - reached) + ' 項在前面階段') + '</summary>' +
+    '<div class="op-bar"><div style="width:' + pct + '%; background:' + (allReady ? 'var(--green)' : 'var(--amber)') + ';"></div></div>' +
+    rows + '</details>';
+}
 function renderList(){
   const listEl = document.getElementById('listArea');
   const matchingOrders = orders.filter(o => (o.items||[]).some(it => itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it) && itemMatchesTabSearch(it, o)));
@@ -3151,6 +3188,7 @@ function renderList(){
           '<button class="icon-btn" data-act="delorder" data-oid="' + order.id + '" title="刪除整張訂單">🗑</button>' +
         '</div>' +
       '</div>' +
+      (currentTab === 'boxing' ? orderProgressHtml(order) : '') +
       itemsHtml +
       '<button class="add-item-btn" data-act="additem" data-oid="' + order.id + '">+ 新增品項</button>';
 
