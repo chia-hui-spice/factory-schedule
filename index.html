@@ -4310,15 +4310,8 @@ function renderQoRecent(){
   const list = cust ? qoCustomerOrders(cust).slice(0, 3) : [];
   if(list.length === 0){ el.innerHTML = cust ? '<div style="font-size:14px; color:var(--ink-dim); margin:-4px 0 10px;">這位客戶還沒有訂單紀錄，請在下方直接輸入品項</div>' : ''; return; }
   const histCount = qoCustomerHistory(cust).length;
-  el.innerHTML = '<button type="button" class="btn-primary" id="qoOpenPick" style="width:100%; margin-bottom:8px; background:var(--amber);">🛒 從「' + escapeHtml(cust) + '」訂過的 ' + histCount + ' 種品項中挑選</button>' + list.map((o, idx)=>{
-    const items = qoItemsOfOrder(o);
-    const summary = items.slice(0, 4).map(it=> it.product + (it.spec ? '（' + it.spec + '）' : '') + '×' + it.qty).join('、') + (items.length > 4 ? '…等 ' + items.length + ' 項' : '');
-    return '<div class="qo-recent"' + (idx ? ' style="border-color:var(--line); background:none;"' : '') + '>' +
-      '<div style="font-size:14px; color:var(--ink-dim);">' + (idx === 0 ? '<b style="color:var(--teal);">上一張訂單</b>　' : '') + escapeHtml(formatOrderCreated(o)) + '　共 ' + items.length + ' 項</div>' +
-      '<div style="font-size:14.5px; margin:4px 0 8px; line-height:1.5;">' + escapeHtml(summary) + '</div>' +
-      '<button type="button" class="' + (idx === 0 ? 'btn-primary' : 'split-btn') + '" data-qo-copy="' + o.id + '" style="width:100%;' + (idx === 0 ? ' background:var(--teal); border-color:var(--teal);' : '') + '">📋 ' + (idx === 0 ? '複製上一張訂單的品項' : '複製這張') + '</button></div>';
-  }).join('');
-  el.querySelectorAll('[data-qo-copy]').forEach(b=> b.onclick = ()=> qoCopyOrder(b.dataset.qoCopy));
+  // 「複製上一張訂單」已拿掉，改用從訂過的品項挑選
+  el.innerHTML = '<button type="button" class="btn-primary" id="qoOpenPick" style="width:100%; margin-bottom:10px; background:var(--amber);">🛒 從「' + escapeHtml(cust) + '」訂過的 ' + histCount + ' 種品項中挑選</button>';
   const pb = document.getElementById('qoOpenPick'); if(pb) pb.onclick = openQoPick;
 }
 // ---- 從客戶訂過的品項挑選：列出這位客戶所有訂過的「產品＋規格」，勾選後加入，再逐項確認數量 ----
