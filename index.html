@@ -3140,9 +3140,9 @@ function orderProgressHtml(order){
     '<div class="op-bar"><div style="width:' + pct + '%; background:' + (allReady ? 'var(--green)' : 'var(--amber)') + ';"></div></div>' +
     rows + '</details>';
 }
-// 排程生產、充填包裝：作業員用的「簡潔顯示」（預設開啟，每個分頁、每台裝置各自記住）
-const SIMPLE_VIEW_TABS = { labeling:'simpleViewLabeling', refill:'simpleViewRefill' };
-const simpleViewOn = { labeling:true, refill:true };
+// 各分頁：作業員用的「簡潔顯示」（預設開啟，每個分頁、每台裝置各自記住）
+const SIMPLE_VIEW_TABS = { pending:'simpleViewPending', inprogress:'simpleViewInprogress', labeling:'simpleViewLabeling', done:'simpleViewDone', refill:'simpleViewRefill', boxing:'simpleViewBoxing', shipped:'simpleViewShipped', coa:'simpleViewCoa' };
+const simpleViewOn = {}; Object.keys(SIMPLE_VIEW_TABS).forEach(t=> simpleViewOn[t] = true);
 Object.keys(SIMPLE_VIEW_TABS).forEach(t=>{ try{ const v = localStorage.getItem(SIMPLE_VIEW_TABS[t]); if(v !== null) simpleViewOn[t] = v === '1'; }catch(e){} });
 function isSimpleView(){ return !!SIMPLE_VIEW_TABS[currentTab] && simpleViewOn[currentTab]; }
 function updateSimpleViewToggle(){
@@ -3288,23 +3288,39 @@ function renderList(){
         coaNoticeHtml = '<div class="coa-notice-row">📄 此訂單客戶<b>需要COA</b>' + (item.coa === '需要(Email)' ? '（Email寄送）' : '（隨貨附）') + '，出貨確認後將進入品管抽樣確認</div>';
       }
 
+      const irrConfirmHtml = (item.status === 'done' && item.needsIrradiation) ? (function(){
+          const ok = !!item.irradiationLabelConfirm;
+          return '<label data-irr-oid="' + order.id + '" data-irr-iid="' + item.id + '" style="display:flex; align-items:center; gap:10px; margin:8px 0; padding:12px; border-radius:10px; cursor:pointer; border:2px solid ' + (ok ? 'var(--teal)' : 'var(--red)') + '; background:' + (ok ? 'rgba(43,182,163,0.10)' : 'rgba(229,84,77,0.10)') + ';">' +
+            '<input type="checkbox" class="irrConfirmChk"' + (ok ? ' checked' : '') + ' style="width:26px; height:26px; flex:0 0 26px; accent-color:var(--teal);">' +
+            '<span style="font-size:17px; font-weight:800; color:' + (ok ? 'var(--teal)' : 'var(--red)') + ';">☢️ 確認已印有「照射滅菌」標籤' +
+            (ok && item.irradiationLabelConfirmBy ? '<br><span style="font-size:13px; font-weight:400; color:var(--ink-dim);">' + escapeHtml(item.irradiationLabelConfirmBy) + (item.irradiationLabelConfirmAt ? '　' + new Date(item.irradiationLabelConfirmAt).toLocaleString('zh-TW') : '') + '</span>' : (ok ? '' : '<br><span style="font-size:13px; font-weight:400;">勾選後才能進入充填包裝</span>')) + '</span></label>';
+        })() : '';
       if(isSimpleView()){
-        // 排程生產／充填包裝「簡潔顯示」：只留品項、規格、數量、出貨日、急件／逾期、照射、備註（充填包裝另外顯示批號、有效日期）
+        // 「簡潔顯示」：只留品項、規格、數量、出貨日、急件／逾期、照射、備註；各階段另外保留做事需要的資訊
+        const tab = currentTab;
         const tags = [];
         if(overdue) tags.push('<span class="badge overdue">逾期</span>');
         else if(item.priority === 'urgent') tags.push('<span class="badge urgent">急件</span>');
+        if(todayRisk) tags.push('<span class="badge todayrisk" data-jump-today="1" data-oid="'+order.id+'" data-iid="'+item.id+'">⏰ 今日3點未出貨</span>');
+        if(tab === 'coa') tags.push('<span class="badge stage st-' + item.status + '">' + STATUS_LABEL[item.status] + '</span>');
         if(item.needsIrradiation) tags.push('<span class="badge irradiation-badge">☢️ 照射滅菌</span>');
-        const zonesTxt = (!currentZoneFilter && item.productionZones && item.productionZones.length) ? '　' + escapeHtml(item.productionZones.join('、')) : '';
+        if(needsCoa(item) && (tab === 'pending' || tab === 'shipped' || tab === 'coa')) tags.push('<span class="badge coa-badge">📄 需COA' + (item.coa === '需要(Email)' ? '(Email)' : '(隨貨)') + '</span>');
+        if(item.shipMethod && (tab === 'boxing' || tab === 'shipped')) tags.push('<span class="badge ship-' + item.shipMethod + '">' + shipMethodFullLabel(item) + '</span>');
+        const zonesTxt = ((tab === 'labeling' || tab === 'refill') && !currentZoneFilter && item.productionZones && item.productionZones.length) ? '　' + escapeHtml(item.productionZones.join('、')) : '';
+        const showBatch = ['done','refill','boxing','shipped','coa'].includes(tab) && (item.productBatchNo || item.productExpDate);
         itemsHtml += '<div class="item-row simple-row pri-' + item.priority + (overdue ? ' overdue' : '') + '">' +
           '<div class="simple-main">' +
             '<div class="simple-name">' + escapeHtml(item.product) + (item.spec ? '<div class="simple-spec">' + escapeHtml(item.spec) + '</div>' : '') + '</div>' +
             '<div class="simple-qty"><span>數量</span>' + escapeHtml(String(item.qty)) + '</div>' +
           '</div>' +
           '<div class="simple-sub">出貨日 <b>' + escapeHtml((item.due || '').slice(5).replace('-', '/')) + '</b>' + zonesTxt + (tags.length ? '　' + tags.join(' ') : '') + '</div>' +
-          ((currentTab === 'refill' && (item.productBatchNo || item.productExpDate)) ? '<div class="simple-sub" style="margin-top:-2px;">' +
+          (showBatch ? '<div class="simple-sub" style="margin-top:-2px;">' +
             (item.productBatchNo ? '批號 <b>' + escapeHtml(item.productBatchNo) + '</b>　' : '') +
             (item.productExpDate ? '有效日期 <b>' + escapeHtml(item.productExpDate.replace(/-/g,'/')) + '</b>' : '') + '</div>' : '') +
+          (tab === 'inprogress' ? stockInfoHtml : '') +
+          (tab === 'boxing' ? '<div class="checklist-row">' + chkHtml + '</div>' : '') +
           (item.note ? '<div class="item-note">' + escapeHtml(item.note) + '</div>' : '') +
+          irrConfirmHtml +
           '<div class="item-actions">' + actionsHtml + '</div>' +
         '</div>';
         return;
@@ -3316,13 +3332,7 @@ function renderList(){
         coaNoticeHtml +
         '<div class="checklist-row">' + chkHtml + '</div>' +
         (item.note ? '<div class="item-note">' + escapeHtml(item.note) + '</div>' : '') +
-        ((item.status === 'done' && item.needsIrradiation) ? (function(){
-          const ok = !!item.irradiationLabelConfirm;
-          return '<label data-irr-oid="' + order.id + '" data-irr-iid="' + item.id + '" style="display:flex; align-items:center; gap:10px; margin:8px 0; padding:12px; border-radius:10px; cursor:pointer; border:2px solid ' + (ok ? 'var(--teal)' : 'var(--red)') + '; background:' + (ok ? 'rgba(43,182,163,0.10)' : 'rgba(229,84,77,0.10)') + ';">' +
-            '<input type="checkbox" class="irrConfirmChk"' + (ok ? ' checked' : '') + ' style="width:26px; height:26px; flex:0 0 26px; accent-color:var(--teal);">' +
-            '<span style="font-size:17px; font-weight:800; color:' + (ok ? 'var(--teal)' : 'var(--red)') + ';">☢️ 確認已印有「照射滅菌」標籤' +
-            (ok && item.irradiationLabelConfirmBy ? '<br><span style="font-size:13px; font-weight:400; color:var(--ink-dim);">' + escapeHtml(item.irradiationLabelConfirmBy) + (item.irradiationLabelConfirmAt ? '　' + new Date(item.irradiationLabelConfirmAt).toLocaleString('zh-TW') : '') + '</span>' : (ok ? '' : '<br><span style="font-size:13px; font-weight:400;">勾選後才能進入充填包裝</span>')) + '</span></label>';
-        })() : '') +
+        irrConfirmHtml +
         '<div class="item-actions">' + actionsHtml + '</div>' +
         splitBtnHtml +
       '</div>';
