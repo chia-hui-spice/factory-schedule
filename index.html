@@ -588,7 +588,7 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
       <div class="section-label i18n">基本資料</div>
       <div class="field">
         <label class="i18n">客戶名稱</label>
-        <input type="text" id="fCustomer" placeholder="例如 許桂花" required>
+        <input type="text" id="fCustomer" data-cust-suggest placeholder="輸入客戶名稱關鍵字，會跳出選項" autocomplete="off" required>
       </div>
       <div id="fPickWrap" style="display:none; margin:-4px 0 12px;"></div>
       <div class="row2">
@@ -962,7 +962,7 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
         <div class="row2" style="margin-bottom:8px;">
           <div class="field" style="margin-bottom:0;">
             <label class="i18n">客戶</label>
-            <input type="text" id="shipFilterCustomer" placeholder="輸入客戶名稱關鍵字">
+            <input type="text" id="shipFilterCustomer" data-cust-suggest placeholder="輸入客戶名稱關鍵字" autocomplete="off">
           </div>
           <div class="field" style="margin-bottom:0;">
             <label class="i18n">產品</label>
@@ -1006,7 +1006,7 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
         <div class="row2" style="margin-bottom:0;">
           <div class="field" style="margin-bottom:0;">
             <label class="i18n">客戶（可留空）</label>
-            <input type="text" id="searchCustomer" placeholder="輸入客戶名稱關鍵字">
+            <input type="text" id="searchCustomer" data-cust-suggest placeholder="輸入客戶名稱關鍵字" autocomplete="off">
           </div>
           <div class="field" style="margin-bottom:0;">
             <label>產品名稱（可留空）</label>
@@ -1709,7 +1709,7 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
     <h2>⚡ 快速多品項下單</h2>
     <div class="field">
       <label>客戶名稱 <span style="color:var(--red);">*</span></label>
-      <input type="text" id="qoCustomer" list="qoCustomerList" placeholder="輸入或選擇客戶" autocomplete="off">
+      <input type="text" id="qoCustomer" data-cust-suggest placeholder="輸入客戶名稱關鍵字，會跳出選項" autocomplete="off">
       <datalist id="qoCustomerList"></datalist>
     </div>
     <div id="qoRecent"></div>
@@ -2474,6 +2474,79 @@ document.addEventListener('keydown', (e)=>{
     if(o){ e.preventDefault(); pickOrigin(o.dataset.originOpt); }
   } else if(e.key === 'Escape'){ hideOriginDrop(); }
 });
+// ---- 客戶名稱提示：打到任何一段關鍵字就跳出符合的客戶（電腦、iPad 都一樣），點一下就填入 ----
+function customerSuggestList(q){
+  const info = new Map(); // 名稱 -> { last, count }
+  orders.forEach(o=>{
+    const n = (o.customer || '').trim(); if(!n) return;
+    if(!(o.items||[]).some(it=>!it.deleted)) return;
+    const t = (typeof orderCreatedDate === 'function' ? orderCreatedDate(o) : 0) || 0;
+    const h = info.get(n) || { last: 0, count: 0 };
+    h.count++; if(t > h.last) h.last = t;
+    info.set(n, h);
+  });
+  const query = String(q || '').trim().toLowerCase();
+  let names = Array.from(info.keys());
+  if(query){
+    const words = query.split(/\s+/).filter(Boolean);
+    names = names.filter(n=> words.every(w=> n.toLowerCase().includes(w)));
+    // 開頭符合的排前面，其次最近有下單的
+    names.sort((a,b)=> (b.toLowerCase().startsWith(query) - a.toLowerCase().startsWith(query)) || (info.get(b).last - info.get(a).last));
+  }else{
+    names.sort((a,b)=> info.get(b).last - info.get(a).last);
+  }
+  return names.slice(0, 12).map(n=>({ name: n, count: info.get(n).count }));
+}
+let custDrop = null, custDropInput = null, custDropIdx = -1;
+function hideCustDrop(){ if(custDrop){ custDrop.remove(); custDrop = null; } custDropInput = null; custDropIdx = -1; }
+function pickCustomer(val){
+  const inp = custDropInput; if(!inp) return;
+  inp.value = val;
+  hideCustDrop();
+  inp.dispatchEvent(new Event('input', { bubbles:true }));
+  inp.dispatchEvent(new Event('change', { bubbles:true }));
+}
+function showCustDrop(inp){
+  if(inp.readOnly || inp.disabled){ hideCustDrop(); return; }
+  const items = customerSuggestList(inp.value);
+  if(!items.length || (items.length === 1 && items[0].name === inp.value.trim())){ hideCustDrop(); return; }
+  if(!custDrop || custDropInput !== inp){
+    hideCustDrop();
+    custDrop = document.createElement('div');
+    custDrop.className = 'origin-drop';
+    const host = inp.parentElement;
+    if(getComputedStyle(host).position === 'static') host.style.position = 'relative';
+    host.appendChild(custDrop);
+    custDropInput = inp;
+    custDrop.addEventListener('pointerdown', (e)=>{
+      const it = e.target.closest('[data-cust-opt]'); if(!it) return;
+      e.preventDefault();
+      pickCustomer(it.dataset.custOpt);
+    });
+  }
+  custDropIdx = -1;
+  custDrop.style.top = (inp.offsetTop + inp.offsetHeight + 2) + 'px';
+  custDrop.style.left = inp.offsetLeft + 'px';
+  custDrop.style.width = inp.offsetWidth + 'px';
+  const q = inp.value.trim();
+  const hl = (name)=>{ if(!q) return escapeHtml(name); const i = name.toLowerCase().indexOf(q.toLowerCase()); return i < 0 ? escapeHtml(name) : escapeHtml(name.slice(0,i)) + '<b style="color:var(--amber);">' + escapeHtml(name.slice(i, i+q.length)) + '</b>' + escapeHtml(name.slice(i+q.length)); };
+  custDrop.innerHTML = (q ? '' : '<div style="padding:6px 14px; font-size:12.5px; color:var(--ink-dim);">最近下單的客戶</div>') +
+    items.map(it=>'<div class="origin-opt" data-cust-opt="'+escapeHtml(it.name)+'" style="display:flex; justify-content:space-between; gap:8px;"><span>'+hl(it.name)+'</span><span style="font-size:13px; color:var(--ink-dim); white-space:nowrap;">'+it.count+' 張訂單</span></div>').join('');
+}
+document.addEventListener('focusin', (e)=>{ const t = e.target; if(t && t.matches && t.matches('input[data-cust-suggest]')) showCustDrop(t); });
+document.addEventListener('input', (e)=>{ const t = e.target; if(t && t.matches && t.matches('input[data-cust-suggest]') && document.activeElement === t) showCustDrop(t); });
+document.addEventListener('focusout', (e)=>{ if(e.target === custDropInput) setTimeout(()=>{ if(document.activeElement !== custDropInput) hideCustDrop(); }, 150); });
+document.addEventListener('keydown', (e)=>{
+  if(!custDrop || e.target !== custDropInput) return;
+  const opts = custDrop.querySelectorAll('[data-cust-opt]');
+  if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+    e.preventDefault();
+    custDropIdx = (custDropIdx + (e.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length;
+    opts.forEach((o,i)=> o.classList.toggle('active', i === custDropIdx));
+  }else if(e.key === 'Enter' && custDropIdx >= 0){
+    e.preventDefault(); e.stopPropagation(); pickCustomer(opts[custDropIdx].dataset.custOpt);
+  }else if(e.key === 'Escape'){ hideCustDrop(); }
+}, true);
 function sameOrigin(a, b){ return normalizeOrigin(a) === normalizeOrigin(b); }
 ['mfOrigin','sgOrigin'].forEach(id=>{
   const el = document.getElementById(id);
