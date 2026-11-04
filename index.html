@@ -499,6 +499,16 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .simple-batch > div{ flex:1 1 140px; border:1.5px solid var(--line); border-radius:10px; padding:6px 10px; background:var(--panel-raised); }
 .simple-batch span{ display:block; font-size:12.5px; color:var(--ink-dim); }
 .simple-batch b{ font-size:18px; }
+.ship-inline{ border:2px solid var(--teal); border-radius:12px; padding:10px 12px; margin:8px 0; background:rgba(63,184,175,0.07); }
+.si-label{ font-size:14px; font-weight:800; color:var(--ink-dim); margin-bottom:5px; }
+.si-methods{ display:flex; gap:8px; margin-bottom:10px; }
+.si-method{ flex:1; padding:11px 6px; font-size:16.5px; font-weight:800; border-radius:10px; border:2px solid var(--line); background:var(--panel); color:var(--ink); cursor:pointer; }
+.si-method.on{ border-color:var(--teal); background:rgba(63,184,175,0.22); color:var(--teal); }
+.si-row{ display:flex; gap:10px; flex-wrap:wrap; }
+.si-col{ flex:1 1 200px; min-width:0; }
+.si-col select, .si-col input{ width:100%; padding:10px; font-size:16px; border-radius:10px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); }
+@keyframes siFlash{ 0%,100%{ box-shadow:none; } 30%,70%{ box-shadow:0 0 0 4px rgba(229,84,77,0.6); border-color:var(--red); } }
+.ship-inline.si-flash{ animation:siFlash 1.2s ease 1; }
 </style>
 </head>
 <body>
@@ -2786,7 +2796,7 @@ function allActiveItems(){
   return list;
 }
 
-function todayStr(){ const d = new Date(); return d.toISOString().slice(0,10); }
+function todayStr(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); } // 用本地日期（台灣早上 8 點前用 UTC 會變成前一天）
 
 function generateOrderNo(){
   const prefix = todayStr().replace(/-/g,'');
@@ -3118,6 +3128,59 @@ function formatOrderCreated(order){
   return d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日（星期' + WEEKDAY_ZH[d.getDay()] + '）' +
     String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
 }
+// 出貨確認：出貨方式、倉管會計出貨確認、實際出貨日期直接在卡片上填，不用點進表單
+function warehouseConfirmNames(){
+  const base = Array.from(document.getElementById('fWarehouseConfirm').options).map(o=>o.value).filter(v=> v && v !== '自訂');
+  orders.forEach(o=> (o.items||[]).forEach(it=>{ if(it.warehouseConfirm && !base.includes(it.warehouseConfirm)) base.push(it.warehouseConfirm); }));
+  return base;
+}
+function shipConfirmPanelHtml(order, item){
+  if(currentTab !== 'shipped' || item.status !== 'shipped' || item.stockPreDeducted) return '';
+  const ids = 'data-sc-oid="' + order.id + '" data-sc-iid="' + item.id + '"';
+  const methods = [['today','🚚 寄貨'],['tomorrow','📦 送貨'],['pickup','🙋 自取']];
+  const names = warehouseConfirmNames();
+  const wc = item.warehouseConfirm || '';
+  const isCustom = wc && !names.includes(wc);
+  const dateVal = item.actualShipDate || todayStr();
+  return '<div class="ship-inline">' +
+    '<div class="si-label">出貨方式 <span style="color:var(--red);">*</span></div>' +
+    '<div class="si-methods">' + methods.map(([v,l])=>'<button type="button" class="si-method' + (item.shipMethod === v ? ' on' : '') + '" ' + ids + ' data-sc-method="' + v + '">' + l + '</button>').join('') + '</div>' +
+    '<div class="si-row">' +
+      '<div class="si-col"><div class="si-label">倉管會計出貨確認 <span style="color:var(--red);">*</span></div>' +
+        '<select class="si-wc" ' + ids + '><option value="">請選擇</option>' + names.map(n=>'<option value="' + escapeHtml(n) + '"' + (wc === n ? ' selected' : '') + '>' + escapeHtml(n) + '</option>').join('') +
+          (isCustom ? '<option value="' + escapeHtml(wc) + '" selected>' + escapeHtml(wc) + '</option>' : '') + '<option value="__custom">自訂（輸入其他姓名）</option></select></div>' +
+      '<div class="si-col"><div class="si-label">實際出貨日期' + (item.actualShipDate ? '' : '<span style="font-weight:400;">（預設今天）</span>') + '</div>' +
+        '<input type="date" class="si-date" ' + ids + ' value="' + escapeHtml(dateVal) + '"></div>' +
+    '</div>' +
+  '</div>';
+}
+function wireShipConfirmPanels(root){
+  const find = (el)=>{ const o = orders.find(x=>x.id === el.dataset.scOid); return { order:o, item: o && (o.items||[]).find(i=>i.id === el.dataset.scIid) }; };
+  const save = async (item, field, value, prev)=>{
+    item[field] = value;
+    const ok = await saveOrders();
+    if(!ok){ item[field] = prev; }
+    renderList();
+    if(ok) showToast('已儲存');
+  };
+  root.querySelectorAll('[data-sc-method]').forEach(b=> b.onclick = ()=>{
+    const { item } = find(b); if(!item) return;
+    save(item, 'shipMethod', b.dataset.scMethod, item.shipMethod || '');
+  });
+  root.querySelectorAll('select.si-wc').forEach(sel=> sel.onchange = async ()=>{
+    const { item } = find(sel); if(!item) return;
+    let v = sel.value;
+    if(v === '__custom'){
+      v = (window.prompt('請輸入倉管會計出貨確認人員姓名') || '').trim();
+      if(!v){ sel.value = item.warehouseConfirm || ''; return; }
+    }
+    save(item, 'warehouseConfirm', v, item.warehouseConfirm || '');
+  });
+  root.querySelectorAll('input.si-date').forEach(inp=> inp.addEventListener('change', ()=>{
+    const { item } = find(inp); if(!item) return;
+    if(inp.value && inp.value !== item.actualShipDate) save(item, 'actualShipDate', inp.value, item.actualShipDate || '');
+  }));
+}
 // 裝箱確認：顯示整張訂單所有品項目前在哪個階段，讓倉管知道還差哪些沒到
 function orderProgressHtml(order){
   const items = (order.items || []).filter(it=> !it.deleted);
@@ -3335,6 +3398,7 @@ function renderList(){
           (tab === 'boxing' ? '<div class="checklist-row">' + chkHtml + '</div>' : '') +
           (item.note ? '<div class="item-note">' + escapeHtml(item.note) + '</div>' : '') +
           irrConfirmHtml +
+          shipConfirmPanelHtml(order, item) +
           '<div class="item-actions">' + actionsHtml + '</div>' +
         '</div>';
         return;
@@ -3347,6 +3411,7 @@ function renderList(){
         '<div class="checklist-row">' + chkHtml + '</div>' +
         (item.note ? '<div class="item-note">' + escapeHtml(item.note) + '</div>' : '') +
         irrConfirmHtml +
+        shipConfirmPanelHtml(order, item) +
         '<div class="item-actions">' + actionsHtml + '</div>' +
         splitBtnHtml +
       '</div>';
@@ -3367,6 +3432,7 @@ function renderList(){
     wrap.appendChild(card);
   });
 
+  wireShipConfirmPanels(wrap);
   wrap.querySelectorAll('[data-act="forward"]').forEach(btn=>{
     btn.onclick = async ()=>{
       const order = orders.find(o=>o.id === btn.dataset.oid);
@@ -3411,13 +3477,22 @@ function renderList(){
         pendingAdvanceItemId = item.id; openSheet(order, item);
         return;
       }
+      if(item.status === 'shipped' && !item.actualShipDate && !item.stockPreDeducted) item.actualShipDate = todayStr();
       if(item.status === 'shipped'){
         const missing = [];
         if(!item.warehouseConfirm && !item.stockPreDeducted) missing.push('倉管會計出貨確認');
         if(!item.shipMethod && !item.stockPreDeducted) missing.push('出貨方式');
         if(needsCoa(item) && !item.coaConfirmBy) missing.push('COA確認人員');
         if(missing.length > 0){
-          showToast('請先填寫「' + missing.join('、') + '」才能完成品管');
+          const onlyInline = missing.every(m=> m === '倉管會計出貨確認' || m === '出貨方式');
+          if(onlyInline){
+            // 這兩項在卡片上就能填，不用打開表單
+            showToast('請先在卡片上選「' + missing.join('、') + '」');
+            const panel = btn.closest('.item-row') && btn.closest('.item-row').querySelector('.ship-inline');
+            if(panel){ panel.classList.remove('si-flash'); void panel.offsetWidth; panel.classList.add('si-flash'); }
+            return;
+          }
+          showToast('請先填寫「' + missing.join('、') + '」才能完成出貨確認');
           openSheet(order, item);
           return;
         }
