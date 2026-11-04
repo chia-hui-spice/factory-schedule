@@ -590,6 +590,7 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
         <label class="i18n">客戶名稱</label>
         <input type="text" id="fCustomer" placeholder="例如 許桂花" required>
       </div>
+      <div id="fPickWrap" style="display:none; margin:-4px 0 12px;"></div>
       <div class="row2">
         <div class="field">
           <label class="i18n">產品名稱</label>
@@ -4045,11 +4046,14 @@ function openSheet(order, item){
   document.getElementById('sheetSub').textContent = isNewOrder ? '' : ('訂單編號 ' + (order.orderNo || '') + '　客戶：' + (order.customer || ''));
 
   document.getElementById('fCustomer').value = order ? (order.customer || '') : '';
+  fPickEnabled = isNewOrder;
+  setTimeout(renderFPick, 0);
   setFlexDateValue('fFillFormDate', item ? (item.fillFormDate || todayStr()) : todayStr());
   document.getElementById('fFillFormTime').value = item ? (item.fillFormTime || nowTimeStr()) : nowTimeStr();
   document.getElementById('fProduct').value = item ? item.product : '';
   populateSpecSelect('fSpec', 'fSpecCustom', item ? item.product : '', item ? (item.spec || '') : '');
   document.getElementById('fQty').value = item ? item.qty : '';
+  document.getElementById('fQty').placeholder = '0';
   document.getElementById('fActualYieldQty').value = item ? ((item.actualYieldQty !== undefined && item.actualYieldQty !== null && item.actualYieldQty !== '') ? item.actualYieldQty : item.qty) : '';
   setFlexDateValue('fDue', item ? item.due : (firstItem ? firstItem.due : todayStr()));
   setPickerValue('fOrigin', 'fOriginCustom', item ? (item.origin || '') : '');
@@ -4312,7 +4316,7 @@ function renderQoRecent(){
   const histCount = qoCustomerHistory(cust).length;
   // 「複製上一張訂單」已拿掉，改用從訂過的品項挑選
   el.innerHTML = '<button type="button" class="btn-primary" id="qoOpenPick" style="width:100%; margin-bottom:10px; background:var(--amber);">🛒 從「' + escapeHtml(cust) + '」訂過的 ' + histCount + ' 種品項中挑選</button>';
-  const pb = document.getElementById('qoOpenPick'); if(pb) pb.onclick = openQoPick;
+  const pb = document.getElementById('qoOpenPick'); if(pb) pb.onclick = ()=> openQoPick('quick');
 }
 // ---- 從客戶訂過的品項挑選：列出這位客戶所有訂過的「產品＋規格」，勾選後加入，再逐項確認數量 ----
 function qoCustomerHistory(cust){
@@ -4329,11 +4333,25 @@ function qoCustomerHistory(cust){
   });
   return Array.from(map.values());
 }
-let qoPickHist = [], qoPickSel = new Set();
-function openQoPick(){
-  const cust = document.getElementById('qoCustomer').value.trim();
+let qoPickHist = [], qoPickSel = new Set(), qoPickMode = 'quick';
+// 新增訂單（單一品項表單）也可以從客戶訂過的品項挑選
+let fPickEnabled = false;
+function renderFPick(){
+  const wrap = document.getElementById('fPickWrap');
+  const cust = document.getElementById('fCustomer').value.trim();
+  const n = (fPickEnabled && cust) ? qoCustomerHistory(cust).length : 0;
+  if(!n){ wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+  wrap.style.display = '';
+  wrap.innerHTML = '<button type="button" class="btn-primary" id="fOpenPick" style="width:100%; background:var(--amber);">🛒 從「' + escapeHtml(cust) + '」訂過的 ' + n + ' 種品項中挑選</button>' +
+    '<div style="font-size:13.5px; color:var(--ink-dim); margin-top:4px;">勾一項會直接填到下面；勾很多項會自動換到「多品項下單」一次建立。</div>';
+  document.getElementById('fOpenPick').onclick = ()=> openQoPick('single');
+}
+document.getElementById('fCustomer').addEventListener('input', renderFPick);
+function openQoPick(mode){
+  qoPickMode = mode === 'single' ? 'single' : 'quick';
+  const cust = document.getElementById(qoPickMode === 'single' ? 'fCustomer' : 'qoCustomer').value.trim();
   qoPickHist = qoCustomerHistory(cust);
-  const already = new Set(qoRows.filter(r=>r.product).map(r=> r.product + '||' + (r.spec || '')));
+  const already = qoPickMode === 'single' ? new Set() : new Set(qoRows.filter(r=>r.product).map(r=> r.product + '||' + (r.spec || '')));
   qoPickSel = new Set();
   document.getElementById('qoPickSub').textContent = cust + '　共訂過 ' + qoPickHist.length + ' 種品項（產品＋規格）' + (already.size ? '，下單畫面已有的會標「已加入」' : '');
   document.getElementById('qoPickSearch').value = '';
@@ -4348,7 +4366,7 @@ function qoPickVisible(){
   return list;
 }
 function renderQoPick(){
-  const already = new Set(qoRows.filter(r=>r.product).map(r=> r.product + '||' + (r.spec || '')));
+  const already = qoPickMode === 'single' ? new Set() : new Set(qoRows.filter(r=>r.product).map(r=> r.product + '||' + (r.spec || '')));
   const list = qoPickVisible();
   const el = document.getElementById('qoPickList');
   el.innerHTML = list.length ? list.map(h=>{
@@ -4372,9 +4390,46 @@ document.getElementById('qoPickSort').addEventListener('change', renderQoPick);
 document.getElementById('qoPickAll').onclick = ()=>{ qoPickVisible().forEach(h=> qoPickSel.add(h.key)); renderQoPick(); };
 document.getElementById('qoPickNone').onclick = ()=>{ qoPickSel.clear(); renderQoPick(); };
 document.getElementById('qoPickCancel').onclick = ()=> document.getElementById('qoPickOverlay').classList.remove('show');
-document.getElementById('qoPickOk').onclick = ()=>{
+document.getElementById('qoPickOk').onclick = async ()=>{
   const picked = qoPickHist.filter(h=> qoPickSel.has(h.key));
   if(!picked.length) return;
+  if(qoPickMode === 'single'){
+    if(picked.length === 1){
+      // 只選一項：直接填到新增訂單表單，數量請確認
+      const h = picked[0], it = h.last || {};
+      document.getElementById('fProduct').value = h.product;
+      populateSpecSelect('fSpec', 'fSpecCustom', h.product, h.spec || '');
+      const q = document.getElementById('fQty');
+      q.value = ''; q.placeholder = (h.lastQty !== undefined && h.lastQty !== '') ? '上次 ' + h.lastQty : '0';
+      if(it.origin) setPickerValue('fOrigin', 'fOriginCustom', it.origin);
+      document.getElementById('qoPickOverlay').classList.remove('show');
+      showToast('已帶入「' + h.product + '」，請確認規格和數量');
+      setTimeout(()=>{ q.focus(); }, 100);
+      return;
+    }
+    // 選很多項：換到多品項下單，把這張表單已填的客戶、出貨日、填寫人員、COA、急件一起帶過去
+    const ok = await showConfirm('選了 ' + picked.length + ' 個品項，一張訂單有多個品項要用「多品項下單」建立。\n會自動換過去，客戶、出貨日期、填寫人員、COA 會一起帶入，品項的數量請在那邊逐項確認。', '換到多品項下單？');
+    if(!ok) return;
+    const carry = {
+      customer: document.getElementById('fCustomer').value.trim(),
+      due: getFlexDateValue('fDue'),
+      filledBy: getPickerValue('fFilledBy', 'fFilledByCustom'),
+      coa: document.getElementById('fCoa').value,
+      urgent: (typeof selectedPriority !== 'undefined' && selectedPriority === 'urgent'),
+      note: (document.getElementById('fNote') && document.getElementById('fNote').value.trim()) || ''
+    };
+    document.getElementById('qoPickOverlay').classList.remove('show');
+    closeSheet();
+    openQuickOrder();
+    document.getElementById('qoCustomer').value = carry.customer;
+    qoRefreshProductList(); renderQoRecent();
+    if(carry.due) document.getElementById('qoDue').value = carry.due;
+    if(carry.filledBy) qoSetFilledBy(carry.filledBy);
+    if(carry.coa && Array.from(document.getElementById('qoCoa').options).some(o=>o.value===carry.coa)) document.getElementById('qoCoa').value = carry.coa;
+    document.getElementById('qoUrgent').checked = carry.urgent;
+    if(carry.note) document.getElementById('qoNote').value = carry.note;
+    qoPickMode = 'quick';
+  }
   const irrAll = document.getElementById('qoIrrAll').checked;
   qoRows = qoRows.filter(r=> r.product || r.qty); // 拿掉空白列
   picked.forEach(h=>{
