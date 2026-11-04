@@ -509,6 +509,10 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .si-col select, .si-col input{ width:100%; padding:10px; font-size:16px; border-radius:10px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); }
 @keyframes siFlash{ 0%,100%{ box-shadow:none; } 30%,70%{ box-shadow:0 0 0 4px rgba(229,84,77,0.6); border-color:var(--red); } }
 .ship-inline.si-flash{ animation:siFlash 1.2s ease 1; }
+.bx-checks{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+.bx-check{ padding:12px 8px; font-size:16px; font-weight:800; border-radius:10px; border:2px solid var(--line); background:var(--panel); color:var(--ink); cursor:pointer; text-align:left; }
+.bx-check.on{ border-color:var(--green); background:rgba(76,168,114,0.2); color:var(--green); }
+.si-wide{ width:100%; padding:10px; font-size:16px; border-radius:10px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); }
 </style>
 </head>
 <body>
@@ -3182,6 +3186,111 @@ function wireShipConfirmPanels(root){
     if(inp.value && inp.value !== item.actualShipDate) save(item, 'actualShipDate', inp.value, item.actualShipDate || '');
   }));
 }
+// 充填包裝：包裝人員、包裝日期（月／日 → 4 碼）直接在卡片上填
+function packagingStaffNames(item){
+  const names = [];
+  (item.productionZones || []).forEach(z=> (PACKAGING_STAFF_BY_ZONE[z] || []).forEach(n=>{ if(!names.includes(n)) names.push(n); }));
+  return names;
+}
+function todayMMDD(){ const t = todayStr(); return t.slice(5,7) + t.slice(8,10); }
+function refillPanelHtml(order, item){
+  if(currentTab !== 'refill' || item.status !== 'refill') return '';
+  const ids = 'data-rf-oid="' + order.id + '" data-rf-iid="' + item.id + '"';
+  const names = packagingStaffNames(item);
+  const ps = item.packagingStaff || '';
+  const isCustom = ps && !names.includes(ps);
+  const pd = (item.packagingDate && item.packagingDate.length === 4) ? item.packagingDate : todayMMDD();
+  const mm = pd.slice(0,2), dd = pd.slice(2,4);
+  const opt = (v, cur)=> '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + parseInt(v,10) + '</option>';
+  const months = Array.from({length:12}, (_,i)=> String(i+1).padStart(2,'0'));
+  const days = Array.from({length:31}, (_,i)=> String(i+1).padStart(2,'0'));
+  return '<div class="ship-inline refill-inline">' +
+    '<div class="si-label" style="font-size:15px; color:var(--teal);">包裝區域確認</div>' +
+    '<div class="si-row">' +
+      '<div class="si-col"><div class="si-label">包裝人員 <span style="color:var(--red);">*</span></div>' +
+        '<select class="rf-staff" ' + ids + '><option value="">請選擇</option>' + names.map(n=>'<option value="' + escapeHtml(n) + '"' + (ps === n ? ' selected' : '') + '>' + escapeHtml(n) + '</option>').join('') +
+          (isCustom ? '<option value="' + escapeHtml(ps) + '" selected>' + escapeHtml(ps) + '</option>' : '') + '<option value="__custom">自訂（輸入其他姓名）</option></select></div>' +
+      '<div class="si-col"><div class="si-label">包裝日期 <b style="color:var(--ink);">' + pd + '</b>' + (item.packagingDate ? '' : '<span style="font-weight:400;">（預設今天）</span>') + '</div>' +
+        '<div style="display:flex; gap:6px;">' +
+          '<select class="rf-month" ' + ids + ' style="flex:1;">' + months.map(m=>opt(m, mm)).join('') + '</select><span style="align-self:center;">月</span>' +
+          '<select class="rf-day" ' + ids + ' style="flex:1;">' + days.map(d=>opt(d, dd)).join('') + '</select><span style="align-self:center;">日</span>' +
+        '</div></div>' +
+    '</div>' +
+  '</div>';
+}
+function wireRefillPanels(root){
+  const find = (el)=>{ const o = orders.find(x=>x.id === el.dataset.rfOid); return o && (o.items||[]).find(i=>i.id === el.dataset.rfIid); };
+  const save = async (item, field, value)=>{
+    const prev = item[field];
+    item[field] = value;
+    const ok = await saveOrders();
+    if(!ok) item[field] = prev;
+    renderList();
+    if(ok) showToast('已儲存');
+  };
+  root.querySelectorAll('select.rf-staff').forEach(sel=> sel.onchange = ()=>{
+    const item = find(sel); if(!item) return;
+    let v = sel.value;
+    if(v === '__custom'){
+      v = (window.prompt('請輸入包裝人員姓名') || '').trim();
+      if(!v){ sel.value = item.packagingStaff || ''; return; }
+    }
+    save(item, 'packagingStaff', v);
+  });
+  root.querySelectorAll('select.rf-month, select.rf-day').forEach(sel=> sel.onchange = ()=>{
+    const item = find(sel); if(!item) return;
+    const row = sel.closest('.refill-inline');
+    const v = row.querySelector('.rf-month').value + row.querySelector('.rf-day').value;
+    if(v.length === 4) save(item, 'packagingDate', v);
+  });
+}
+// 裝箱確認：出貨前檢查項目、裝箱確認及放行人員直接在卡片上填
+function releaseByNames(){
+  const base = Array.from(document.getElementById('fReleaseBy').options).map(o=>o.value).filter(v=> v && v !== '自訂');
+  orders.forEach(o=> (o.items||[]).forEach(it=>{ if(it.releaseBy && !base.includes(it.releaseBy)) base.push(it.releaseBy); }));
+  return base;
+}
+function boxingPanelHtml(order, item){
+  if(currentTab !== 'boxing' || item.status !== 'boxing') return '';
+  const ids = 'data-bx-oid="' + order.id + '" data-bx-iid="' + item.id + '"';
+  const c = item.checklist || {};
+  const done = ['c1','c2','c3','c4'].filter(k=>c[k]).length;
+  const names = releaseByNames();
+  const rb = item.releaseBy || '';
+  const isCustom = rb && !names.includes(rb);
+  return '<div class="ship-inline box-inline">' +
+    '<div class="si-label">出貨前檢查項目及放行確認 <span style="color:var(--red);">*</span>　<span style="font-weight:700; color:' + (done === 4 ? 'var(--green)' : 'var(--amber)') + ';">' + done + ' / 4</span></div>' +
+    '<div class="bx-checks">' + ['c1','c2','c3','c4'].map(k=>'<button type="button" class="bx-check' + (c[k] ? ' on' : '') + '" ' + ids + ' data-bx-chk="' + k + '">' + (c[k] ? '☑' : '☐') + ' ' + CHK_LABELS[k] + '</button>').join('') + '</div>' +
+    '<div class="si-label">裝箱確認及放行人員 <span style="color:var(--red);">*</span></div>' +
+    '<select class="bx-rb si-wide" ' + ids + '><option value="">請選擇</option>' + names.map(n=>'<option value="' + escapeHtml(n) + '"' + (rb === n ? ' selected' : '') + '>' + escapeHtml(n) + '</option>').join('') +
+      (isCustom ? '<option value="' + escapeHtml(rb) + '" selected>' + escapeHtml(rb) + '</option>' : '') + '<option value="__custom">自訂（輸入其他姓名）</option></select>' +
+  '</div>';
+}
+function wireBoxingPanels(root){
+  const find = (el)=>{ const o = orders.find(x=>x.id === el.dataset.bxOid); return o && (o.items||[]).find(i=>i.id === el.dataset.bxIid); };
+  root.querySelectorAll('[data-bx-chk]').forEach(b=> b.onclick = async ()=>{
+    const item = find(b); if(!item) return;
+    const prev = Object.assign({ c1:false, c2:false, c3:false, c4:false }, item.checklist || {});
+    item.checklist = Object.assign({}, prev, { [b.dataset.bxChk]: !prev[b.dataset.bxChk] });
+    const ok = await saveOrders();
+    if(!ok) item.checklist = prev;
+    renderList();
+  });
+  root.querySelectorAll('select.bx-rb').forEach(sel=> sel.onchange = async ()=>{
+    const item = find(sel); if(!item) return;
+    let v = sel.value;
+    if(v === '__custom'){
+      v = (window.prompt('請輸入裝箱確認及放行人員姓名') || '').trim();
+      if(!v){ sel.value = item.releaseBy || ''; return; }
+    }
+    const prev = item.releaseBy || '';
+    item.releaseBy = v;
+    const ok = await saveOrders();
+    if(!ok) item.releaseBy = prev;
+    renderList();
+    if(ok) showToast('已儲存');
+  });
+}
 // 裝箱確認：顯示整張訂單所有品項目前在哪個階段，讓倉管知道還差哪些沒到
 function orderProgressHtml(order){
   const items = (order.items || []).filter(it=> !it.deleted);
@@ -3396,9 +3505,11 @@ function renderList(){
                 (item.productMfgDate ? '製造 <b>' + fmtD(item.productMfgDate) + '</b>　' : '') +
                 (item.productExpDate ? '有效 <b>' + fmtD(item.productExpDate) + '</b>' : '') + '</div>') : '') +
           (tab === 'inprogress' ? stockInfoHtml : '') +
-          (tab === 'boxing' ? '<div class="checklist-row">' + chkHtml + '</div>' : '') +
+          ((tab === 'boxing' && item.status !== 'boxing') ? '<div class="checklist-row">' + chkHtml + '</div>' : '') +
           (item.note ? '<div class="item-note">' + escapeHtml(item.note) + '</div>' : '') +
           irrConfirmHtml +
+          refillPanelHtml(order, item) +
+          boxingPanelHtml(order, item) +
           shipConfirmPanelHtml(order, item) +
           '<div class="item-actions">' + actionsHtml + '</div>' +
         '</div>';
@@ -3409,9 +3520,11 @@ function renderList(){
         '<div class="item-meta">' + metaBits.join('') + '</div>' +
         stockInfoHtml +
         coaNoticeHtml +
-        '<div class="checklist-row">' + chkHtml + '</div>' +
+        ((currentTab === 'boxing' && item.status === 'boxing') ? '' : '<div class="checklist-row">' + chkHtml + '</div>') +
         (item.note ? '<div class="item-note">' + escapeHtml(item.note) + '</div>' : '') +
         irrConfirmHtml +
+        refillPanelHtml(order, item) +
+        boxingPanelHtml(order, item) +
         shipConfirmPanelHtml(order, item) +
         '<div class="item-actions">' + actionsHtml + '</div>' +
         splitBtnHtml +
@@ -3434,6 +3547,8 @@ function renderList(){
   });
 
   wireShipConfirmPanels(wrap);
+  wireBoxingPanels(wrap);
+  wireRefillPanels(wrap);
   wrap.querySelectorAll('[data-act="forward"]').forEach(btn=>{
     btn.onclick = async ()=>{
       const order = orders.find(o=>o.id === btn.dataset.oid);
@@ -3466,16 +3581,27 @@ function renderList(){
         return;
       }
       if(item.status === 'refill' && !item.packagingStaff){
-        showToast('請先填寫「包裝人員」才能進入裝箱確認');
-        pendingAdvanceItemId = item.id; openSheet(order, item);
+        const panel = btn.closest('.item-row') && btn.closest('.item-row').querySelector('.refill-inline');
+        if(panel){
+          showToast('請先在卡片上選「包裝人員」才能進入裝箱確認');
+          panel.classList.remove('si-flash'); void panel.offsetWidth; panel.classList.add('si-flash');
+        }else{
+          showToast('請先填寫「包裝人員」才能進入裝箱確認');
+          pendingAdvanceItemId = item.id; openSheet(order, item);
+        }
         return;
       }
+      // 包裝日期沒選的話，預設今天
+      if(item.status === 'refill' && !item.packagingDate) item.packagingDate = todayMMDD();
       if(item.status === 'boxing' && (!item.releaseBy || !isChecklistComplete(item))){
         const missing = [];
         if(!isChecklistComplete(item)) missing.push('出貨前檢查項目');
         if(!item.releaseBy) missing.push('裝箱確認及放行人員');
-        showToast('請先完成「' + missing.join('、') + '」才能進入出貨確認');
-        pendingAdvanceItemId = item.id; openSheet(order, item);
+        // 這兩項在卡片上就能填，不用打開表單
+        showToast('請先在卡片上完成「' + missing.join('、') + '」才能進入出貨確認');
+        const panel = btn.closest('.item-row') && btn.closest('.item-row').querySelector('.box-inline');
+        if(panel){ panel.classList.remove('si-flash'); void panel.offsetWidth; panel.classList.add('si-flash'); }
+        else { pendingAdvanceItemId = item.id; openSheet(order, item); }
         return;
       }
       if(item.status === 'shipped' && !item.actualShipDate && !item.stockPreDeducted) item.actualShipDate = todayStr();
