@@ -495,6 +495,10 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .simple-qty span{ display:block; font-size:13px; font-weight:700; color:var(--ink-dim); margin-bottom:4px; }
 .simple-sub{ font-size:16px; color:var(--ink-dim); margin:8px 0 6px; line-height:1.6; }
 .simple-sub b{ color:var(--ink); }
+.simple-batch{ display:flex; flex-wrap:wrap; gap:8px; margin:2px 0 8px; }
+.simple-batch > div{ flex:1 1 140px; border:1.5px solid var(--line); border-radius:10px; padding:6px 10px; background:var(--panel-raised); }
+.simple-batch span{ display:block; font-size:12.5px; color:var(--ink-dim); }
+.simple-batch b{ font-size:18px; }
 </style>
 </head>
 <body>
@@ -3307,16 +3311,26 @@ function renderList(){
         if(needsCoa(item) && (tab === 'pending' || tab === 'shipped' || tab === 'coa')) tags.push('<span class="badge coa-badge">📄 需COA' + (item.coa === '需要(Email)' ? '(Email)' : '(隨貨)') + '</span>');
         if(item.shipMethod && (tab === 'boxing' || tab === 'shipped')) tags.push('<span class="badge ship-' + item.shipMethod + '">' + shipMethodFullLabel(item) + '</span>');
         const zonesTxt = ((tab === 'labeling' || tab === 'refill') && !currentZoneFilter && item.productionZones && item.productionZones.length) ? '　' + escapeHtml(item.productionZones.join('、')) : '';
-        const showBatch = ['done','refill','boxing','shipped','coa'].includes(tab) && (item.productBatchNo || item.productExpDate);
+        // 出貨確認一定顯示批號／製造日期／有效日期（沒填會標紅色「未填」提醒）；其他階段有填才顯示
+        const showBatch = tab === 'shipped' || (['done','refill','boxing','coa'].includes(tab) && (item.productBatchNo || item.productMfgDate || item.productExpDate));
+        const miss = '<b style="color:var(--red);">未填</b>';
+        const fmtD = (d)=> escapeHtml(String(d).replace(/-/g,'/'));
         itemsHtml += '<div class="item-row simple-row pri-' + item.priority + (overdue ? ' overdue' : '') + '">' +
           '<div class="simple-main">' +
             '<div class="simple-name">' + escapeHtml(item.product) + (item.spec ? '<div class="simple-spec">' + escapeHtml(item.spec) + '</div>' : '') + '</div>' +
             '<div class="simple-qty"><span>數量</span>' + escapeHtml(String(item.qty)) + '</div>' +
           '</div>' +
           '<div class="simple-sub">出貨日 <b>' + escapeHtml((item.due || '').slice(5).replace('-', '/')) + '</b>' + zonesTxt + (tags.length ? '　' + tags.join(' ') : '') + '</div>' +
-          (showBatch ? '<div class="simple-sub" style="margin-top:-2px;">' +
-            (item.productBatchNo ? '批號 <b>' + escapeHtml(item.productBatchNo) + '</b>　' : '') +
-            (item.productExpDate ? '有效日期 <b>' + escapeHtml(item.productExpDate.replace(/-/g,'/')) + '</b>' : '') + '</div>' : '') +
+          (showBatch ? (tab === 'shipped'
+            ? '<div class="simple-batch">' +
+                '<div><span>批號</span>' + (item.productBatchNo ? '<b>' + escapeHtml(item.productBatchNo) + '</b>' : miss) + '</div>' +
+                '<div><span>製造日期</span>' + (item.productMfgDate ? '<b>' + fmtD(item.productMfgDate) + '</b>' : miss) + '</div>' +
+                '<div><span>有效日期</span>' + (item.productExpDate ? '<b>' + fmtD(item.productExpDate) + '</b>' : miss) + '</div>' +
+              '</div>'
+            : '<div class="simple-sub" style="margin-top:-2px;">' +
+                (item.productBatchNo ? '批號 <b>' + escapeHtml(item.productBatchNo) + '</b>　' : '') +
+                (item.productMfgDate ? '製造 <b>' + fmtD(item.productMfgDate) + '</b>　' : '') +
+                (item.productExpDate ? '有效 <b>' + fmtD(item.productExpDate) + '</b>' : '') + '</div>') : '') +
           (tab === 'inprogress' ? stockInfoHtml : '') +
           (tab === 'boxing' ? '<div class="checklist-row">' + chkHtml + '</div>' : '') +
           (item.note ? '<div class="item-note">' + escapeHtml(item.note) + '</div>' : '') +
