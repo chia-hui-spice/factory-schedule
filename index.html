@@ -3135,7 +3135,8 @@ function warehouseConfirmNames(){
   return base;
 }
 function shipConfirmPanelHtml(order, item){
-  if(currentTab !== 'shipped' || item.status !== 'shipped' || item.stockPreDeducted) return '';
+  // 「出貨確認」頁、以及「品管COA」頁裡停在出貨確認的品項都顯示（含用現有庫存直接送來的品項）
+  if((currentTab !== 'shipped' && currentTab !== 'coa') || item.status !== 'shipped') return '';
   const ids = 'data-sc-oid="' + order.id + '" data-sc-iid="' + item.id + '"';
   const methods = [['today','🚚 寄貨'],['tomorrow','📦 送貨'],['pickup','🙋 自取']];
   const names = warehouseConfirmNames();
