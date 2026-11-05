@@ -522,6 +522,8 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .coa-batch .cb-list span{ font-size:15px; font-weight:700; padding:3px 9px; border-radius:8px; background:var(--panel-raised); border:1px solid var(--line); }
 .coa-batch .cb-note{ font-size:13px; color:var(--ink-dim); margin-bottom:6px; }
 .coa-batch .cb-btn{ width:100%; padding:10px; font-size:16px; font-weight:800; border-radius:10px; border:2px solid var(--blue); background:var(--panel); color:var(--blue); cursor:pointer; }
+.order-ship{ border-width:2.5px; margin:8px 0 12px; }
+.os-done{ width:100%; margin-top:10px; padding:13px; font-size:17.5px; font-weight:900; border-radius:10px; border:none; background:var(--teal); color:#0d1f1d; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -3150,6 +3152,7 @@ function warehouseConfirmNames(){
 function shipConfirmPanelHtml(order, item){
   // 「出貨確認」頁、以及「品管COA」頁裡停在出貨確認的品項都顯示（含用現有庫存直接送來的品項）
   if((currentTab !== 'shipped' && currentTab !== 'coa') || item.status !== 'shipped') return '';
+  if(currentTab === 'shipped' && orderShippedItems(order).length >= 2) return ''; // 整張訂單一次確認時，品項上就不重複顯示
   const ids = 'data-sc-oid="' + order.id + '" data-sc-iid="' + item.id + '"';
   const methods = [['today','🚚 寄貨'],['tomorrow','📦 送貨'],['pickup','🙋 自取']];
   const names = warehouseConfirmNames();
@@ -3167,6 +3170,78 @@ function shipConfirmPanelHtml(order, item){
         '<input type="date" class="si-date" ' + ids + ' value="' + escapeHtml(dateVal) + '"></div>' +
     '</div>' +
   '</div>';
+}
+// ---- 出貨確認：整張訂單一次確認（同一張訂單有 2 個以上品項在出貨確認時） ----
+function orderShippedItems(order){ return (order.items || []).filter(it=> !it.deleted && it.status === 'shipped'); }
+function orderShipPanelHtml(order){
+  if(currentTab !== 'shipped') return '';
+  const items = orderShippedItems(order);
+  if(items.length < 2) return '';
+  const ids = 'data-os-oid="' + order.id + '"';
+  const pick = (f)=>{ const vals = [...new Set(items.map(it=> it[f] || ''))]; return vals.length === 1 ? vals[0] : '__mixed'; };
+  const sm = pick('shipMethod'), wc = pick('warehouseConfirm');
+  const dates = [...new Set(items.map(it=> it.actualShipDate || ''))];
+  const dateVal = dates.length === 1 && dates[0] ? dates[0] : todayStr();
+  const names = warehouseConfirmNames();
+  const methods = [['today','🚚 寄貨'],['tomorrow','📦 送貨'],['pickup','🙋 自取']];
+  const coaWait = items.filter(it=> needsCoa(it) && !it.coaConfirmBy).length;
+  return '<div class="ship-inline order-ship">' +
+    '<div class="si-label" style="font-size:16px; color:var(--teal);">🚚 整張訂單一次出貨確認（' + items.length + ' 個品項）</div>' +
+    '<div class="si-label">出貨方式 <span style="color:var(--red);">*</span>' + (sm === '__mixed' ? '<span style="color:var(--amber); font-weight:700;">（目前各品項不一樣，選了會全部改成一樣）</span>' : '') + '</div>' +
+    '<div class="si-methods">' + methods.map(([v,l])=>'<button type="button" class="si-method' + (sm === v ? ' on' : '') + '" ' + ids + ' data-os-method="' + v + '">' + l + '</button>').join('') + '</div>' +
+    '<div class="si-row">' +
+      '<div class="si-col"><div class="si-label">倉管會計出貨確認 <span style="color:var(--red);">*</span></div>' +
+        '<select class="os-wc" ' + ids + '><option value="">' + (wc === '__mixed' ? '（各品項不一樣，請重新選）' : '請選擇') + '</option>' + names.map(n=>'<option value="' + escapeHtml(n) + '"' + (wc === n ? ' selected' : '') + '>' + escapeHtml(n) + '</option>').join('') +
+          ((wc && wc !== '__mixed' && !names.includes(wc)) ? '<option value="' + escapeHtml(wc) + '" selected>' + escapeHtml(wc) + '</option>' : '') + '<option value="__custom">自訂（輸入其他姓名）</option></select></div>' +
+      '<div class="si-col"><div class="si-label">實際出貨日期</div><input type="date" class="os-date" ' + ids + ' value="' + escapeHtml(dateVal) + '"></div>' +
+    '</div>' +
+    (coaWait ? '<div style="font-size:14px; color:var(--amber); margin-top:8px;">📄 有 ' + coaWait + ' 項需要 COA 但還沒有 COA 確認人員，這幾項會先留在出貨確認，其他的照樣完成。</div>' : '') +
+    '<button type="button" class="os-done" ' + ids + '>✅ 整張訂單出貨確認完成（' + items.length + ' 項）</button>' +
+  '</div>';
+}
+function wireOrderShipPanels(root){
+  const orderOf = (el)=> orders.find(o=> o.id === el.dataset.osOid);
+  const applyAll = async (order, field, value)=>{
+    const items = orderShippedItems(order);
+    const prev = items.map(it=> it[field]);
+    items.forEach(it=>{ it[field] = value; });
+    const ok = await saveOrders();
+    if(!ok) items.forEach((it, i)=>{ it[field] = prev[i]; });
+    renderList();
+    if(ok) showToast('已套用到 ' + items.length + ' 個品項');
+    return ok;
+  };
+  root.querySelectorAll('[data-os-method]').forEach(b=> b.onclick = ()=>{ const o = orderOf(b); if(o) applyAll(o, 'shipMethod', b.dataset.osMethod); });
+  root.querySelectorAll('select.os-wc').forEach(sel=> sel.onchange = ()=>{
+    const o = orderOf(sel); if(!o) return;
+    let v = sel.value;
+    if(v === '__custom'){ v = (window.prompt('請輸入倉管會計出貨確認人員姓名') || '').trim(); if(!v){ renderList(); return; } }
+    if(v) applyAll(o, 'warehouseConfirm', v);
+  });
+  root.querySelectorAll('input.os-date').forEach(inp=> inp.addEventListener('change', ()=>{ const o = orderOf(inp); if(o && inp.value) applyAll(o, 'actualShipDate', inp.value); }));
+  root.querySelectorAll('button.os-done').forEach(b=> b.onclick = async ()=>{
+    const o = orderOf(b); if(!o) return;
+    const items = orderShippedItems(o);
+    const panel = b.closest('.order-ship');
+    const needSm = items.some(it=> !it.shipMethod && !it.stockPreDeducted);
+    const needWc = items.some(it=> !it.warehouseConfirm && !it.stockPreDeducted);
+    if(needSm || needWc){
+      showToast('請先選「' + [needWc ? '倉管會計出貨確認' : '', needSm ? '出貨方式' : ''].filter(Boolean).join('、') + '」');
+      if(panel){ panel.classList.remove('si-flash'); void panel.offsetWidth; panel.classList.add('si-flash'); }
+      return;
+    }
+    const ready = items.filter(it=> !(needsCoa(it) && !it.coaConfirmBy));
+    const waiting = items.length - ready.length;
+    if(!ready.length){ showToast('這些品項都還需要填 COA 確認人員，請先到品管COA填寫'); return; }
+    const okc = await showConfirm('「' + o.customer + '」這張訂單的 ' + ready.length + ' 個品項要一起完成出貨確認嗎？' + (waiting ? '\n（另外 ' + waiting + ' 項還沒有 COA 確認人員，會先留在出貨確認）' : ''), '整張訂單出貨確認');
+    if(!okc) return;
+    const prev = ready.map(it=> ({ status: it.status, actualShipDate: it.actualShipDate }));
+    ready.forEach(it=>{ if(!it.actualShipDate) it.actualShipDate = todayStr(); it.status = 'qc'; });
+    render();
+    const ok = await saveOrders();
+    if(!ok){ ready.forEach((it, i)=>{ it.status = prev[i].status; it.actualShipDate = prev[i].actualShipDate; }); render(); return; }
+    showToast('已完成 ' + ready.length + ' 個品項的出貨確認' + (waiting ? '，' + waiting + ' 項等 COA' : ''));
+  });
 }
 function wireShipConfirmPanels(root){
   const find = (el)=>{ const o = orders.find(x=>x.id === el.dataset.scOid); return { order:o, item: o && (o.items||[]).find(i=>i.id === el.dataset.scIid) }; };
@@ -3579,6 +3654,7 @@ function renderList(){
         '</div>' +
       '</div>' +
       (currentTab === 'boxing' ? orderProgressHtml(order) : '') +
+      orderShipPanelHtml(order) +
       itemsHtml +
       '<button class="add-item-btn" data-act="additem" data-oid="' + order.id + '">+ 新增品項</button>';
 
@@ -3586,6 +3662,7 @@ function renderList(){
   });
 
   wireShipConfirmPanels(wrap);
+  wireOrderShipPanels(wrap);
   wireBoxingPanels(wrap);
   wireRefillPanels(wrap);
   wrap.querySelectorAll('[data-act="forward"]').forEach(btn=>{
