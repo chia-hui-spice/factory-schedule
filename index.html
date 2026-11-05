@@ -3652,6 +3652,8 @@ function renderList(){
       const metaBits = [];
       if(item.productionZones && item.productionZones.length > 0) metaBits.push('<div class="meta-item">產線 <b>' + escapeHtml(item.productionZones.join('、')) + '</b></div>');
       if(item.productMfgDate) metaBits.push('<div class="meta-item">製造日期 <b>' + item.productMfgDate + (item.productBatchNo ? '('+escapeHtml(item.productBatchNo)+')' : '') + '</b></div>');
+      if(item.productExpDate) metaBits.push('<div class="meta-item">有效日期 <b>' + escapeHtml(item.productExpDate) + '</b></div>');
+      if(item.productBatchNo && !item.productMfgDate) metaBits.push('<div class="meta-item">批號 <b>' + escapeHtml(item.productBatchNo) + '</b></div>');
       if(item.packagingDate) metaBits.push('<div class="meta-item">包裝日期 <b>' + item.packagingDate + '</b></div>');
       const manualBatchNos = (item.manualMaterialBatches||[]).map(b=>b.batchNo).filter(Boolean);
       if(manualBatchNos.length > 0) metaBits.push('<div class="meta-item">原料批號 <b>' + escapeHtml(manualBatchNos.join('、')) + '</b></div>');
@@ -3714,7 +3716,8 @@ function renderList(){
         if(item.shipMethod && (tab === 'boxing' || tab === 'shipped')) tags.push('<span class="badge ship-' + item.shipMethod + '">' + shipMethodFullLabel(item) + '</span>');
         const zonesTxt = ((tab === 'labeling' || tab === 'refill') && !currentZoneFilter && item.productionZones && item.productionZones.length) ? '　' + escapeHtml(item.productionZones.join('、')) : '';
         // 出貨確認一定顯示批號／製造日期／有效日期（沒填會標紅色「未填」提醒）；其他階段有填才顯示
-        const showBatch = tab === 'shipped' || (['done','refill','boxing','coa'].includes(tab) && (item.productBatchNo || item.productMfgDate || item.productExpDate));
+        const bigBatch = ['done','refill','boxing','shipped'].includes(tab); // 這幾頁用大框一定顯示（沒填標紅色「未填」）
+        const showBatch = bigBatch || (['boxing','coa'].includes(tab) && (item.productBatchNo || item.productMfgDate || item.productExpDate));
         const miss = '<b style="color:var(--red);">未填</b>';
         const fmtD = (d)=> escapeHtml(String(d).replace(/-/g,'/'));
         itemsHtml += '<div class="item-row simple-row pri-' + item.priority + (overdue ? ' overdue' : '') + '">' +
@@ -3723,7 +3726,7 @@ function renderList(){
             '<div class="simple-qty"><span>數量</span>' + escapeHtml(String(item.qty)) + '</div>' +
           '</div>' +
           '<div class="simple-sub">出貨日 <b>' + escapeHtml((item.due || '').slice(5).replace('-', '/')) + '</b>' + zonesTxt + (tags.length ? '　' + tags.join(' ') : '') + '</div>' +
-          (showBatch ? (tab === 'shipped'
+          (showBatch ? (bigBatch
             ? '<div class="simple-batch">' +
                 '<div><span>批號</span>' + (item.productBatchNo ? '<b>' + escapeHtml(item.productBatchNo) + '</b>' : miss) + '</div>' +
                 '<div><span>製造日期</span>' + (item.productMfgDate ? '<b>' + fmtD(item.productMfgDate) + '</b>' : miss) + '</div>' +
