@@ -529,6 +529,13 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .box-inline .bx-all{ width:auto; margin:0; padding:5px 12px; font-size:14.5px; font-weight:800; }
 .box-inline .bx-checks{ display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px; }
 .box-inline .bx-check{ flex:1 1 auto; padding:6px 8px; font-size:14px; font-weight:700; border-width:1.5px; text-align:center; }
+.rf-batch{ border:2.5px solid var(--teal); border-radius:14px; padding:10px 12px; margin:10px 14px 4px; background:rgba(63,184,175,0.08); }
+.rf-batch .si-row select{ width:100%; padding:9px; font-size:15.5px; border-radius:10px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); }
+.rf-pick{ display:flex; align-items:center; gap:6px; font-size:14px; font-weight:800; color:var(--teal); cursor:pointer; white-space:nowrap; }
+.rf-pick input{ width:22px; height:22px; accent-color:var(--teal); }
+.refill-inline.rf-selected{ background:rgba(63,184,175,0.20); border-color:var(--teal); }
+.rf-batch.si-flash{ animation:siFlash 1.2s ease 1; }
+.rf-float{ position:fixed; left:50%; transform:translateX(-50%); bottom:calc(18px + env(safe-area-inset-bottom)); z-index:35; padding:14px 22px; font-size:17px; font-weight:900; border-radius:999px; border:none; background:var(--teal); color:#0d1f1d; box-shadow:0 6px 20px rgba(0,0,0,.45); cursor:pointer; max-width:calc(100% - 160px); white-space:nowrap; }
 </style>
 </head>
 <body>
@@ -3314,6 +3321,85 @@ function packagingStaffNames(item){
   return names;
 }
 function todayMMDD(){ const t = todayStr(); return t.slice(5,7) + t.slice(8,10); }
+// ---- 充填包裝：同一位包裝人員一次確認多個品項（可以跨訂單） ----
+const refillSel = new Set();
+function refillVisibleItems(){
+  const out = [];
+  orders.forEach(o=> (o.items||[]).forEach(it=>{ if(it.status === 'refill' && !it.deleted && itemMatchesZoneFilter(it) && itemMatchesTabSearch(it, o)) out.push({ order:o, item:it }); }));
+  return out;
+}
+function refillBatchBarHtml(){
+  if(currentTab !== 'refill') return '';
+  const vis = refillVisibleItems();
+  if(vis.length < 2) return '';
+  // 勾選的品項如果已經不在畫面上（完成了或被篩掉），就不算
+  const visIds = new Set(vis.map(x=>x.item.id));
+  Array.from(refillSel).forEach(id=>{ if(!visIds.has(id)) refillSel.delete(id); });
+  const names = [];
+  vis.forEach(x=> packagingStaffNames(x.item).forEach(n=>{ if(!names.includes(n)) names.push(n); }));
+  orders.forEach(o=> (o.items||[]).forEach(it=>{ if(it.packagingStaff && !names.includes(it.packagingStaff)) names.push(it.packagingStaff); }));
+  const pd = todayMMDD();
+  const opt = (v, cur)=> '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + parseInt(v,10) + '</option>';
+  const n = refillSel.size;
+  return '<div class="rf-batch">' +
+    '<div class="bx-head"><b style="font-size:16px; color:var(--teal);">👤 同一位包裝人員，一次確認多項</b>' +
+      '<span><button type="button" class="split-btn rf-b-all" style="width:auto; padding:5px 10px; font-size:14px;">全選（' + vis.length + '）</button> ' +
+      '<button type="button" class="split-btn rf-b-none" style="width:auto; padding:5px 10px; font-size:14px;">清除</button></span></div>' +
+    '<div class="si-row">' +
+      '<div class="si-col"><div class="si-label">包裝人員</div><select class="rf-b-staff"><option value="">請選擇</option>' + names.map(x=>'<option value="' + escapeHtml(x) + '">' + escapeHtml(x) + '</option>').join('') + '<option value="__custom">自訂（輸入其他姓名）</option></select></div>' +
+      '<div class="si-col"><div class="si-label">包裝日期</div><div style="display:flex; gap:6px;">' +
+        '<select class="rf-b-month" style="flex:1;">' + Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0')).map(m=>opt(m, pd.slice(0,2))).join('') + '</select><span style="align-self:center;">月</span>' +
+        '<select class="rf-b-day" style="flex:1;">' + Array.from({length:31},(_,i)=>String(i+1).padStart(2,'0')).map(d=>opt(d, pd.slice(2,4))).join('') + '</select><span style="align-self:center;">日</span></div></div>' +
+    '</div>' +
+    '<button type="button" class="os-done rf-b-go"' + (n ? '' : ' disabled style="opacity:0.5;"') + '>✅ ' + (n ? '勾選的 ' + n + ' 項一起充填包裝完成' : '請先在下方品項勾選「一起確認」') + '</button>' +
+  '</div>' +
+  // 往下滑勾選時看不到上面的區塊，所以底部另外浮一顆按鈕
+  (n ? '<button type="button" class="rf-float">✅ 已勾選 ' + n + ' 項　一起完成</button>' : '');
+}
+function wireRefillBatch(root){
+  const bar = root.querySelector('.rf-batch');
+  root.querySelectorAll('input.rf-sel').forEach(cb=> cb.onchange = ()=>{ if(cb.checked) refillSel.add(cb.dataset.rfSel); else refillSel.delete(cb.dataset.rfSel); renderList(); });
+  if(!bar) return;
+  // 重新畫面時保留已選的人員與日期
+  const st = wireRefillBatch.state || (wireRefillBatch.state = {});
+  const staffSel = bar.querySelector('.rf-b-staff'), m = bar.querySelector('.rf-b-month'), d = bar.querySelector('.rf-b-day');
+  if(st.staff){ if(!Array.from(staffSel.options).some(o=>o.value===st.staff)){ const o = document.createElement('option'); o.value = o.textContent = st.staff; staffSel.insertBefore(o, staffSel.lastElementChild); } staffSel.value = st.staff; }
+  if(st.m) m.value = st.m; if(st.d) d.value = st.d;
+  staffSel.onchange = ()=>{
+    let v = staffSel.value;
+    if(v === '__custom'){ v = (window.prompt('請輸入包裝人員姓名') || '').trim(); if(!v){ staffSel.value = st.staff || ''; return; } const o = document.createElement('option'); o.value = o.textContent = v; staffSel.insertBefore(o, staffSel.lastElementChild); staffSel.value = v; }
+    st.staff = v;
+  };
+  m.onchange = ()=>{ st.m = m.value; }; d.onchange = ()=>{ st.d = d.value; };
+  bar.querySelector('.rf-b-all').onclick = ()=>{ refillVisibleItems().forEach(x=> refillSel.add(x.item.id)); renderList(); };
+  bar.querySelector('.rf-b-none').onclick = ()=>{ refillSel.clear(); renderList(); };
+  const fl = root.querySelector('.rf-float');
+  if(fl) fl.onclick = ()=>{
+    if(!staffSel.value || staffSel.value === '__custom'){
+      bar.scrollIntoView({ behavior:'smooth', block:'center' });
+      showToast('請在上面選包裝人員');
+      bar.classList.remove('si-flash'); void bar.offsetWidth; bar.classList.add('si-flash');
+      return;
+    }
+    bar.querySelector('.rf-b-go').click();
+  };
+  bar.querySelector('.rf-b-go').onclick = async ()=>{
+    const staff = staffSel.value;
+    if(!staff || staff === '__custom'){ showToast('請先選包裝人員'); bar.classList.remove('si-flash'); void bar.offsetWidth; bar.classList.add('si-flash'); return; }
+    const picked = refillVisibleItems().filter(x=> refillSel.has(x.item.id));
+    if(!picked.length) return;
+    const date = m.value + d.value;
+    const ok = await showConfirm('包裝人員「' + staff + '」、包裝日期 ' + date + '\n這 ' + picked.length + ' 個品項一起完成充填包裝？\n' + picked.map(x=> '・' + x.order.customer + '　' + x.item.product + (x.item.spec ? '（' + x.item.spec + '）' : '') + ' x' + x.item.qty).join('\n'), '一起充填包裝完成');
+    if(!ok) return;
+    const prev = picked.map(x=> ({ s:x.item.status, p:x.item.packagingStaff, d:x.item.packagingDate }));
+    picked.forEach(x=>{ x.item.packagingStaff = staff; x.item.packagingDate = date; x.item.status = 'boxing'; });
+    render();
+    const saved = await saveOrders();
+    if(!saved){ picked.forEach((x,i)=>{ x.item.status = prev[i].s; x.item.packagingStaff = prev[i].p; x.item.packagingDate = prev[i].d; }); render(); return; }
+    refillSel.clear();
+    showToast('已完成 ' + picked.length + ' 個品項，移至「裝箱確認」');
+  };
+}
 function refillPanelHtml(order, item){
   if(currentTab !== 'refill' || item.status !== 'refill') return '';
   const ids = 'data-rf-oid="' + order.id + '" data-rf-iid="' + item.id + '"';
@@ -3325,8 +3411,10 @@ function refillPanelHtml(order, item){
   const opt = (v, cur)=> '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + parseInt(v,10) + '</option>';
   const months = Array.from({length:12}, (_,i)=> String(i+1).padStart(2,'0'));
   const days = Array.from({length:31}, (_,i)=> String(i+1).padStart(2,'0'));
-  return '<div class="ship-inline refill-inline">' +
-    '<div class="si-label" style="font-size:15px; color:var(--teal);">包裝區域確認</div>' +
+  const sel = refillSel.has(item.id);
+  return '<div class="ship-inline refill-inline' + (sel ? ' rf-selected' : '') + '">' +
+    '<div class="bx-head"><span class="si-label" style="margin:0; font-size:15px; color:var(--teal);">包裝區域確認</span>' +
+      '<label class="rf-pick"><input type="checkbox" class="rf-sel" data-rf-sel="' + item.id + '"' + (sel ? ' checked' : '') + '> 勾選一起確認</label></div>' +
     '<div class="si-row">' +
       '<div class="si-col"><div class="si-label">包裝人員 <span style="color:var(--red);">*</span></div>' +
         '<select class="rf-staff" ' + ids + '><option value="">請選擇</option>' + names.map(n=>'<option value="' + escapeHtml(n) + '"' + (ps === n ? ' selected' : '') + '>' + escapeHtml(n) + '</option>').join('') +
@@ -3500,7 +3588,7 @@ function renderList(){
     return currentSortMode === 'dueDesc' ? -cmp : cmp;
   });
 
-  listEl.innerHTML = '<div class="order-list" id="orderList"></div>';
+  listEl.innerHTML = refillBatchBarHtml() + '<div class="order-list" id="orderList"></div>';
   const wrap = document.getElementById('orderList');
 
   matchingOrders.forEach(order=>{
@@ -3688,6 +3776,7 @@ function renderList(){
   wireOrderShipPanels(wrap);
   wireBoxingPanels(wrap);
   wireRefillPanels(wrap);
+  wireRefillBatch(listEl);
   wrap.querySelectorAll('[data-act="forward"]').forEach(btn=>{
     btn.onclick = async ()=>{
       const order = orders.find(o=>o.id === btn.dataset.oid);
