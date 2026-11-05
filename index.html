@@ -536,6 +536,9 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .refill-inline.rf-selected{ background:rgba(63,184,175,0.20); border-color:var(--teal); }
 .rf-batch.si-flash{ animation:siFlash 1.2s ease 1; }
 .rf-float{ position:fixed; left:50%; transform:translateX(-50%); bottom:calc(18px + env(safe-area-inset-bottom)); z-index:35; padding:14px 22px; font-size:17px; font-weight:900; border-radius:999px; border:none; background:var(--teal); color:#0d1f1d; box-shadow:0 6px 20px rgba(0,0,0,.45); cursor:pointer; max-width:calc(100% - 160px); white-space:nowrap; }
+.simple-batch.editable > div{ border-color:var(--amber); background:rgba(242,183,5,0.06); }
+.simple-batch.editable input{ width:100%; margin-top:3px; padding:6px 8px; font-size:16px; font-weight:800; border-radius:8px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); }
+.simple-batch.editable input::placeholder{ color:var(--red); font-weight:800; }
 </style>
 </head>
 <body>
@@ -3268,6 +3271,51 @@ function wireOrderShipPanels(root){
     showToast('已完成 ' + ready.length + ' 個品項的出貨確認' + (waiting ? '，' + waiting + ' 項等 COA' : ''));
   });
 }
+// ---- 標籤印製：批號、製造日期、有效日期直接在卡片上改，成品庫存的批次一起跟著改 ----
+async function updateDoneItemBatch(order, item, changes){
+  const old = { batchNo: item.productBatchNo || '', mfg: item.productMfgDate || '', exp: item.productExpDate || '' };
+  const next = Object.assign({}, old, changes);
+  // 製造日期改了、批號原本是照製造日期自動帶的（或空白），批號跟著改
+  if(changes.mfg !== undefined && changes.batchNo === undefined && (!old.batchNo || old.batchNo === old.mfg.replace(/-/g,''))) next.batchNo = (next.mfg || '').replace(/-/g,'');
+  if(next.batchNo === old.batchNo && next.mfg === old.mfg && next.exp === old.exp) return;
+  // 標籤印製完成時已經把成品加進庫存（用舊批號），這裡把那一筆移到新的批號／日期
+  const qty = (item.actualYieldQty !== undefined && item.actualYieldQty !== null && item.actualYieldQty !== '') ? Number(item.actualYieldQty) : Number(item.qty || 0);
+  const f = finishedGoods.find(x=> x.product === item.product && (x.spec || '') === (item.spec || ''));
+  let fgChanged = false;
+  if(f && qty > 0){
+    const ob = (f.batches || []).find(b=> (b.batchNo || '') === old.batchNo);
+    if(next.batchNo !== old.batchNo){
+      const take = ob ? Math.min(ob.stock || 0, qty) : 0;
+      if(take > 0){
+        ob.stock = Math.round(((ob.stock || 0) - take) * 1000) / 1000;
+        if(ob.stock <= 0) f.batches = f.batches.filter(b=> b !== ob);
+        addFinishedGoodBatchStock(f, take, next.batchNo, next.mfg, next.exp);
+        logInventoryTransaction('finishedGood', f.id, f.product, 'out', old.batchNo, take, '標籤印製修改批號（移出）', order);
+        logInventoryTransaction('finishedGood', f.id, f.product, 'in', next.batchNo, take, '標籤印製修改批號（移入）', order);
+        fgChanged = true;
+      }
+    }else if(ob){
+      ob.mfgDate = next.mfg; ob.expDate = next.exp; fgChanged = true;
+    }
+  }
+  const prev = { b: item.productBatchNo, m: item.productMfgDate, e: item.productExpDate };
+  item.productBatchNo = next.batchNo; item.productMfgDate = next.mfg; item.productExpDate = next.exp;
+  const ok = await saveOrders();
+  if(!ok){ item.productBatchNo = prev.b; item.productMfgDate = prev.m; item.productExpDate = prev.e; renderList(); return; }
+  if(fgChanged){ await saveBomData(true); if(typeof renderFinishedGoodList === 'function') renderFinishedGoodList(); }
+  renderList();
+  showToast('已儲存' + (fgChanged ? '（成品庫存批次也已更新）' : ''));
+}
+function wireDoneBatchEdit(root){
+  const find = (el)=>{ const o = orders.find(x=>x.id === el.dataset.dbOid); return { order:o, item: o && (o.items||[]).find(i=>i.id === el.dataset.dbIid) }; };
+  root.querySelectorAll('input.db-batch').forEach(inp=>{
+    const commit = ()=>{ const { order, item } = find(inp); if(item && inp.value.trim() !== (item.productBatchNo || '')) updateDoneItemBatch(order, item, { batchNo: inp.value.trim() }); };
+    inp.addEventListener('change', commit);
+    inp.addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); inp.blur(); } });
+  });
+  root.querySelectorAll('input.db-mfg').forEach(inp=> inp.addEventListener('change', ()=>{ const { order, item } = find(inp); if(item && inp.value !== (item.productMfgDate || '')) updateDoneItemBatch(order, item, { mfg: inp.value }); }));
+  root.querySelectorAll('input.db-exp').forEach(inp=> inp.addEventListener('change', ()=>{ const { order, item } = find(inp); if(item && inp.value !== (item.productExpDate || '')) updateDoneItemBatch(order, item, { exp: inp.value }); }));
+}
 function wireShipConfirmPanels(root){
   const find = (el)=>{ const o = orders.find(x=>x.id === el.dataset.scOid); return { order:o, item: o && (o.items||[]).find(i=>i.id === el.dataset.scIid) }; };
   const save = async (item, field, value, prev)=>{
@@ -3696,6 +3744,11 @@ function renderList(){
         coaNoticeHtml = '<div class="coa-notice-row">📄 此訂單客戶<b>需要COA</b>' + (item.coa === '需要(Email)' ? '（Email寄送）' : '（隨貨附）') + '，出貨確認後將進入品管抽樣確認</div>';
       }
 
+      const doneEditHtml = (currentTab === 'done' && item.status === 'done') ? '<div class="simple-batch editable">' +
+                '<div><span>批號 ✎</span><input type="text" class="db-batch" data-db-oid="' + order.id + '" data-db-iid="' + item.id + '" value="' + escapeHtml(item.productBatchNo || '') + '" placeholder="未填" autocomplete="off"></div>' +
+                '<div><span>製造日期 ✎</span><input type="date" class="db-mfg" data-db-oid="' + order.id + '" data-db-iid="' + item.id + '" value="' + escapeHtml(item.productMfgDate || '') + '"></div>' +
+                '<div><span>有效日期 ✎</span><input type="date" class="db-exp" data-db-oid="' + order.id + '" data-db-iid="' + item.id + '" value="' + escapeHtml(item.productExpDate || '') + '"></div>' +
+              '</div>' : '';
       const irrConfirmHtml = (item.status === 'done' && item.needsIrradiation) ? (function(){
           const ok = !!item.irradiationLabelConfirm;
           return '<label data-irr-oid="' + order.id + '" data-irr-iid="' + item.id + '" style="display:flex; align-items:center; gap:10px; margin:8px 0; padding:12px; border-radius:10px; cursor:pointer; border:2px solid ' + (ok ? 'var(--teal)' : 'var(--red)') + '; background:' + (ok ? 'rgba(43,182,163,0.10)' : 'rgba(229,84,77,0.10)') + ';">' +
@@ -3726,7 +3779,9 @@ function renderList(){
             '<div class="simple-qty"><span>數量</span>' + escapeHtml(String(item.qty)) + '</div>' +
           '</div>' +
           '<div class="simple-sub">出貨日 <b>' + escapeHtml((item.due || '').slice(5).replace('-', '/')) + '</b>' + zonesTxt + (tags.length ? '　' + tags.join(' ') : '') + '</div>' +
-          (showBatch ? (bigBatch
+          (showBatch ? ((tab === 'done' && item.status === 'done')
+            ? doneEditHtml
+            : bigBatch
             ? '<div class="simple-batch">' +
                 '<div><span>批號</span>' + (item.productBatchNo ? '<b>' + escapeHtml(item.productBatchNo) + '</b>' : miss) + '</div>' +
                 '<div><span>製造日期</span>' + (item.productMfgDate ? '<b>' + fmtD(item.productMfgDate) + '</b>' : miss) + '</div>' +
@@ -3751,6 +3806,7 @@ function renderList(){
       itemsHtml += '<div class="item-row pri-' + item.priority + (overdue ? ' overdue' : '') + '">' +
         '<div class="item-top"><div><div class="item-product">' + escapeHtml(item.product) + (item.spec ? '<span class="item-spec"> ・ ' + escapeHtml(item.spec) + '</span>' : '') + '</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">' + badges + '</div></div>' +
         '<div class="item-meta">' + metaBits.join('') + '</div>' +
+        doneEditHtml +
         stockInfoHtml +
         coaNoticeHtml +
         ((currentTab === 'boxing' && item.status === 'boxing') ? '' : '<div class="checklist-row">' + chkHtml + '</div>') +
@@ -3782,6 +3838,7 @@ function renderList(){
   });
 
   wireShipConfirmPanels(wrap);
+  wireDoneBatchEdit(wrap);
   wireOrderShipPanels(wrap);
   wireBoxingPanels(wrap);
   wireRefillPanels(wrap);
