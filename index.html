@@ -3284,7 +3284,9 @@ function wireShipConfirmPanels(root){
 }
 // 排程生產：需要 COA 的品項提醒填寫原料批號（只提醒，不擋）
 function coaMaterialBatchHtml(order, item){
-  if(currentTab !== 'labeling' || item.status !== 'labeling' || !needsCoa(item)) return '';
+  // 排程生產頁（停在排程生產的品項）＋品管COA頁（全部需要 COA 的品項）
+  if(!needsCoa(item)) return '';
+  if(!((currentTab === 'labeling' && item.status === 'labeling') || currentTab === 'coa')) return '';
   const manual = (item.manualMaterialBatches || []).filter(b=> b.batchNo);
   const auto = manual.length ? [] : (item.materialTraceability || []).filter(t=> t.batchNo);
   const list = manual.length ? manual.map(b=> (b.materialName ? b.materialName + ' ' : '') + b.batchNo)
@@ -4663,6 +4665,11 @@ function applyStageContentLock(item){
     // 從「品管COA」分頁開啟時，不管品項實際在哪個生產階段，品管確認一律可以直接填寫
     if(!exemptSectionIds.includes('sectionQc')) exemptSectionIds.push('sectionQc');
     if(!exemptHintIds.includes('stageHintQc')) exemptHintIds.push('stageHintQc');
+    // 品管COA 要補原料批號：已經過排程生產的品項，批號區也開放填寫
+    if(status && STATUS.indexOf(status) >= STATUS.indexOf('labeling')){
+      if(!exemptSectionIds.includes('sectionBatch')) exemptSectionIds.push('sectionBatch');
+      if(!exemptHintIds.includes('stageHintBatch')) exemptHintIds.push('stageHintBatch');
+    }
   }
   const isCompleted = (status === 'qc'); // 已完成的訂單一律鎖定禁止修改(除非是從品管COA分頁開啟補填COA，上面已經處理)
   const isLocked = exemptSectionIds.length > 0 || isCompleted;
