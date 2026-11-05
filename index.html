@@ -539,6 +539,8 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .simple-batch.editable > div{ border-color:var(--amber); background:rgba(242,183,5,0.06); }
 .simple-batch.editable input{ width:100%; margin-top:3px; padding:6px 8px; font-size:16px; font-weight:800; border-radius:8px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); }
 .simple-batch.editable input::placeholder{ color:var(--red); font-weight:800; }
+.lb-grid{ margin-bottom:0; }
+.lb-grid > div{ flex:1 1 46%; }
 </style>
 </head>
 <body>
@@ -3306,6 +3308,33 @@ async function updateDoneItemBatch(order, item, changes){
   renderList();
   showToast('已儲存' + (fgChanged ? '（成品庫存批次也已更新）' : ''));
 }
+// ---- 排程生產：製造日期、製造批號、有效日期、包材批號直接在卡片上填 ----
+function wireLabelingEdit(root){
+  const find = (el)=>{ const o = orders.find(x=>x.id === el.dataset.lbOid); return o && (o.items||[]).find(i=>i.id === el.dataset.lbIid); };
+  const save = async (item, changes)=>{
+    const prev = {}; Object.keys(changes).forEach(k=> prev[k] = item[k]);
+    Object.assign(item, changes);
+    const ok = await saveOrders();
+    if(!ok) Object.assign(item, prev);
+    renderList();
+    if(ok) showToast('已儲存');
+  };
+  root.querySelectorAll('input.lb-mfg').forEach(inp=> inp.addEventListener('change', ()=>{
+    const item = find(inp); if(!item || inp.value === (item.productMfgDate || '')) return;
+    const changes = { productMfgDate: inp.value };
+    // 批號空白或是照舊製造日期自動帶的 → 跟著新的製造日期
+    const oldAuto = (item.productMfgDate || '').replace(/-/g,'');
+    if(!item.productBatchNo || item.productBatchNo === oldAuto) changes.productBatchNo = inp.value.replace(/-/g,'');
+    save(item, changes);
+  }));
+  root.querySelectorAll('input.lb-exp').forEach(inp=> inp.addEventListener('change', ()=>{ const item = find(inp); if(item && inp.value !== (item.productExpDate || '')) save(item, { productExpDate: inp.value }); }));
+  [['input.lb-batch','productBatchNo'], ['input.lb-tray','trayBatchNo']].forEach(([sel, field])=>{
+    root.querySelectorAll(sel).forEach(inp=>{
+      inp.addEventListener('change', ()=>{ const item = find(inp); if(item && inp.value.trim() !== (item[field] || '')) save(item, { [field]: inp.value.trim() }); });
+      inp.addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); inp.blur(); } });
+    });
+  });
+}
 function wireDoneBatchEdit(root){
   const find = (el)=>{ const o = orders.find(x=>x.id === el.dataset.dbOid); return { order:o, item: o && (o.items||[]).find(i=>i.id === el.dataset.dbIid) }; };
   root.querySelectorAll('input.db-batch').forEach(inp=>{
@@ -3744,6 +3773,15 @@ function renderList(){
         coaNoticeHtml = '<div class="coa-notice-row">📄 此訂單客戶<b>需要COA</b>' + (item.coa === '需要(Email)' ? '（Email寄送）' : '（隨貨附）') + '，出貨確認後將進入品管抽樣確認</div>';
       }
 
+      const lbIds = 'data-lb-oid="' + order.id + '" data-lb-iid="' + item.id + '"';
+      const labelEditHtml = (currentTab === 'labeling' && item.status === 'labeling') ?
+        '<div class="ship-inline label-inline"><div class="si-label" style="font-size:15px; color:var(--teal);">批號 / 日期</div>' +
+        '<div class="simple-batch editable lb-grid">' +
+          '<div><span>產品製造日期(調配、研磨日期) <b style="color:var(--red);">*</b></span><input type="date" class="lb-mfg" ' + lbIds + ' value="' + escapeHtml(item.productMfgDate || '') + '"></div>' +
+          '<div><span>製造批號</span><input type="text" class="lb-batch" ' + lbIds + ' value="' + escapeHtml(item.productBatchNo || '') + '" placeholder="預設為製造日期" autocomplete="off"></div>' +
+          '<div><span>產品有效日期</span><input type="date" class="lb-exp" ' + lbIds + ' value="' + escapeHtml(item.productExpDate || '') + '"></div>' +
+          '<div><span>包材批號</span><input type="text" class="lb-tray" ' + lbIds + ' value="' + escapeHtml(item.trayBatchNo || '') + '" placeholder="包材批號" autocomplete="off"></div>' +
+        '</div></div>' : '';
       const doneEditHtml = (currentTab === 'done' && item.status === 'done') ? '<div class="simple-batch editable">' +
                 '<div><span>批號 ✎</span><input type="text" class="db-batch" data-db-oid="' + order.id + '" data-db-iid="' + item.id + '" value="' + escapeHtml(item.productBatchNo || '') + '" placeholder="未填" autocomplete="off"></div>' +
                 '<div><span>製造日期 ✎</span><input type="date" class="db-mfg" data-db-oid="' + order.id + '" data-db-iid="' + item.id + '" value="' + escapeHtml(item.productMfgDate || '') + '"></div>' +
@@ -3795,6 +3833,7 @@ function renderList(){
           ((tab === 'boxing' && item.status !== 'boxing') ? '<div class="checklist-row">' + chkHtml + '</div>' : '') +
           (item.note ? '<div class="item-note">' + escapeHtml(item.note) + '</div>' : '') +
           irrConfirmHtml +
+          labelEditHtml +
           coaMaterialBatchHtml(order, item) +
           refillPanelHtml(order, item) +
           boxingPanelHtml(order, item) +
@@ -3807,6 +3846,7 @@ function renderList(){
         '<div class="item-top"><div><div class="item-product">' + escapeHtml(item.product) + (item.spec ? '<span class="item-spec"> ・ ' + escapeHtml(item.spec) + '</span>' : '') + '</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">' + badges + '</div></div>' +
         '<div class="item-meta">' + metaBits.join('') + '</div>' +
         doneEditHtml +
+        labelEditHtml +
         stockInfoHtml +
         coaNoticeHtml +
         ((currentTab === 'boxing' && item.status === 'boxing') ? '' : '<div class="checklist-row">' + chkHtml + '</div>') +
@@ -3839,6 +3879,7 @@ function renderList(){
 
   wireShipConfirmPanels(wrap);
   wireDoneBatchEdit(wrap);
+  wireLabelingEdit(wrap);
   wireOrderShipPanels(wrap);
   wireBoxingPanels(wrap);
   wireRefillPanels(wrap);
@@ -3866,8 +3907,14 @@ function renderList(){
         return;
       }
       if(item.status === 'labeling' && !item.productMfgDate){
-        showToast('請先填寫「產品製造日期(調配、研磨日期)」才能進入標籤印製');
-        pendingAdvanceItemId = item.id; openSheet(order, item);
+        const panel = btn.closest('.item-row') && btn.closest('.item-row').querySelector('.label-inline');
+        if(panel){
+          showToast('請先在卡片上填「產品製造日期」才能進入標籤印製');
+          panel.classList.remove('si-flash'); void panel.offsetWidth; panel.classList.add('si-flash');
+        }else{
+          showToast('請先填寫「產品製造日期(調配、研磨日期)」才能進入標籤印製');
+          pendingAdvanceItemId = item.id; openSheet(order, item);
+        }
         return;
       }
       if(item.status === 'done' && item.needsIrradiation && !item.irradiationLabelConfirm){
