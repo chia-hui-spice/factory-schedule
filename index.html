@@ -515,6 +515,13 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .si-wide{ width:100%; padding:10px; font-size:16px; border-radius:10px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); }
 .bx-all{ width:100%; padding:12px; margin-bottom:8px; font-size:17px; font-weight:900; border-radius:10px; border:2px solid var(--green); background:rgba(76,168,114,0.15); color:var(--green); cursor:pointer; }
 .bx-all.on{ background:rgba(76,168,114,0.28); cursor:default; }
+.coa-batch{ border:2px solid var(--blue); border-radius:12px; padding:10px 12px; margin:8px 0; background:rgba(76,140,176,0.10); }
+.coa-batch .cb-title{ font-size:15.5px; font-weight:900; color:var(--blue); margin-bottom:6px; }
+.coa-batch .cb-empty{ font-size:16px; font-weight:800; color:var(--amber); margin-bottom:8px; }
+.coa-batch .cb-list{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px; }
+.coa-batch .cb-list span{ font-size:15px; font-weight:700; padding:3px 9px; border-radius:8px; background:var(--panel-raised); border:1px solid var(--line); }
+.coa-batch .cb-note{ font-size:13px; color:var(--ink-dim); margin-bottom:6px; }
+.coa-batch .cb-btn{ width:100%; padding:10px; font-size:16px; font-weight:800; border-radius:10px; border:2px solid var(--blue); background:var(--panel); color:var(--blue); cursor:pointer; }
 </style>
 </head>
 <body>
@@ -3188,6 +3195,23 @@ function wireShipConfirmPanels(root){
     if(inp.value && inp.value !== item.actualShipDate) save(item, 'actualShipDate', inp.value, item.actualShipDate || '');
   }));
 }
+// 排程生產：需要 COA 的品項提醒填寫原料批號（只提醒，不擋）
+function coaMaterialBatchHtml(order, item){
+  if(currentTab !== 'labeling' || item.status !== 'labeling' || !needsCoa(item)) return '';
+  const manual = (item.manualMaterialBatches || []).filter(b=> b.batchNo);
+  const auto = manual.length ? [] : (item.materialTraceability || []).filter(t=> t.batchNo);
+  const list = manual.length ? manual.map(b=> (b.materialName ? b.materialName + ' ' : '') + b.batchNo)
+    : auto.map(t=> (t.materialName ? t.materialName + ' ' : '') + t.batchNo + (t.viaSemiGood ? '（經 ' + t.viaSemiGood + '）' : ''));
+  const uniq = [...new Set(list)];
+  const ok = uniq.length > 0;
+  return '<div class="coa-batch' + (ok ? ' ok' : '') + '">' +
+    '<div class="cb-title">📄 需要COA' + (item.coa === '需要(Email)' ? '（Email）' : '（隨貨附）') + '　請填寫原料批號</div>' +
+    (ok
+      ? '<div class="cb-list">' + uniq.map(t=>'<span>' + escapeHtml(t) + '</span>').join('') + '</div>' + (manual.length ? '' : '<div class="cb-note">以上是系統依配方自動帶入的批號，實際用的不一樣請點下面修改</div>')
+      : '<div class="cb-empty">⚠ 還沒有填寫原料批號</div>') +
+    '<button type="button" class="cb-btn" data-act="edit" data-scroll-to="fManualMaterialBatchList" data-oid="' + order.id + '" data-iid="' + item.id + '">✏️ ' + (ok ? '查看／修改原料批號' : '填寫原料批號') + '</button>' +
+  '</div>';
+}
 // 充填包裝：包裝人員、包裝日期（月／日 → 4 碼）直接在卡片上填
 function packagingStaffNames(item){
   const names = [];
@@ -3474,7 +3498,7 @@ function renderList(){
       }
 
       let coaNoticeHtml = '';
-      if(item.status === 'labeling' && needsCoa(item)){
+      if(item.status === 'labeling' && needsCoa(item) && currentTab !== 'labeling'){
         coaNoticeHtml = '<div class="coa-notice-row">📄 此訂單客戶<b>需要COA</b>' + (item.coa === '需要(Email)' ? '（Email寄送）' : '（隨貨附）') + '，出貨確認後將進入品管抽樣確認</div>';
       }
 
@@ -3521,6 +3545,7 @@ function renderList(){
           ((tab === 'boxing' && item.status !== 'boxing') ? '<div class="checklist-row">' + chkHtml + '</div>' : '') +
           (item.note ? '<div class="item-note">' + escapeHtml(item.note) + '</div>' : '') +
           irrConfirmHtml +
+          coaMaterialBatchHtml(order, item) +
           refillPanelHtml(order, item) +
           boxingPanelHtml(order, item) +
           shipConfirmPanelHtml(order, item) +
@@ -3536,6 +3561,7 @@ function renderList(){
         ((currentTab === 'boxing' && item.status === 'boxing') ? '' : '<div class="checklist-row">' + chkHtml + '</div>') +
         (item.note ? '<div class="item-note">' + escapeHtml(item.note) + '</div>' : '') +
         irrConfirmHtml +
+        coaMaterialBatchHtml(order, item) +
         refillPanelHtml(order, item) +
         boxingPanelHtml(order, item) +
         shipConfirmPanelHtml(order, item) +
@@ -3717,7 +3743,11 @@ function renderList(){
     btn.onclick = ()=>{
       const order = orders.find(o=>o.id === btn.dataset.oid);
       const item = order && order.items.find(i=>i.id === btn.dataset.iid);
-      if(order && item) openSheet(order, item);
+      if(order && item){
+        openSheet(order, item);
+        // 從「填寫原料批號」進來的，直接捲到原料批號那一區
+        if(btn.dataset.scrollTo) setTimeout(()=>{ const el = document.getElementById(btn.dataset.scrollTo); if(el){ const sec = el.closest('[id^="section"]'); if(sec && sec.style.display === 'none') sec.style.display = ''; el.scrollIntoView({ block:'center', behavior:'smooth' }); } }, 250);
+      }
     };
   });
   wrap.querySelectorAll('[data-jump-today]').forEach(badge=>{
