@@ -524,6 +524,11 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .coa-batch .cb-btn{ width:100%; padding:10px; font-size:16px; font-weight:800; border-radius:10px; border:2px solid var(--blue); background:var(--panel); color:var(--blue); cursor:pointer; }
 .order-ship{ border-width:2.5px; margin:8px 0 12px; }
 .os-done{ width:100%; margin-top:10px; padding:13px; font-size:17.5px; font-weight:900; border-radius:10px; border:none; background:var(--teal); color:#0d1f1d; cursor:pointer; }
+.box-inline{ padding:8px 10px; }
+.bx-head{ display:flex; align-items:center; gap:8px; justify-content:space-between; margin-bottom:6px; }
+.box-inline .bx-all{ width:auto; margin:0; padding:5px 12px; font-size:14.5px; font-weight:800; }
+.box-inline .bx-checks{ display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px; }
+.box-inline .bx-check{ flex:1 1 auto; padding:6px 8px; font-size:14px; font-weight:700; border-width:1.5px; text-align:center; }
 </style>
 </head>
 <body>
@@ -3360,12 +3365,12 @@ function boxingPanelHtml(order, item){
   const rb = item.releaseBy || '';
   const isCustom = rb && !names.includes(rb);
   return '<div class="ship-inline box-inline">' +
-    '<div class="si-label">出貨前檢查項目及放行確認 <span style="color:var(--red);">*</span>　<span style="font-weight:700; color:' + (done === 4 ? 'var(--green)' : 'var(--amber)') + ';">' + done + ' / 4</span></div>' +
-    '<button type="button" class="bx-all' + (done === 4 ? ' on' : '') + '" ' + ids + ' data-bx-all="1">' + (done === 4 ? '✅ 4 項都已確認' : '✅ 一鍵全部確認') + '</button>' +
+    '<div class="bx-head"><span class="si-label" style="margin:0;">出貨前檢查 <span style="color:var(--red);">*</span> <b style="color:' + (done === 4 ? 'var(--green)' : 'var(--amber)') + ';">' + done + '/4</b></span>' +
+      '<button type="button" class="bx-all' + (done === 4 ? ' on' : '') + '" ' + ids + ' data-bx-all="1">' + (done === 4 ? '✅ 已全部確認' : '✅ 一鍵全部確認') + '</button></div>' +
     '<div class="bx-checks">' + ['c1','c2','c3','c4'].map(k=>'<button type="button" class="bx-check' + (c[k] ? ' on' : '') + '" ' + ids + ' data-bx-chk="' + k + '">' + (c[k] ? '☑' : '☐') + ' ' + CHK_LABELS[k] + '</button>').join('') + '</div>' +
-    '<div class="si-label">裝箱確認及放行人員 <span style="color:var(--red);">*</span></div>' +
-    '<select class="bx-rb si-wide" ' + ids + '><option value="">請選擇</option>' + names.map(n=>'<option value="' + escapeHtml(n) + '"' + (rb === n ? ' selected' : '') + '>' + escapeHtml(n) + '</option>').join('') +
-      (isCustom ? '<option value="' + escapeHtml(rb) + '" selected>' + escapeHtml(rb) + '</option>' : '') + '<option value="__custom">自訂（輸入其他姓名）</option></select>' +
+    '<div class="bx-head"><span class="si-label" style="margin:0; white-space:nowrap;">放行人員 <span style="color:var(--red);">*</span></span>' +
+    '<select class="bx-rb si-wide" style="flex:1; padding:7px 8px; font-size:15px;" ' + ids + '><option value="">請選擇</option>' + names.map(n=>'<option value="' + escapeHtml(n) + '"' + (rb === n ? ' selected' : '') + '>' + escapeHtml(n) + '</option>').join('') +
+      (isCustom ? '<option value="' + escapeHtml(rb) + '" selected>' + escapeHtml(rb) + '</option>' : '') + '<option value="__custom">自訂（輸入其他姓名）</option></select></div>' +
   '</div>';
 }
 function wireBoxingPanels(root){
