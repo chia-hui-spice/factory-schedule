@@ -3150,6 +3150,7 @@ function formatOrderCreated(order){
 }
 // 預設人員：裝箱確認及放行人員、倉管會計出貨確認（沒選的話自動用這兩位，可以改）
 const DEFAULT_RELEASE_BY = '楊秋燕';
+const DEFAULT_FILLED_BY = '呂思穎'; // 訂單確認的填寫人員
 const DEFAULT_WAREHOUSE_CONFIRM = '潘麗娟';
 // 出貨確認：出貨方式、倉管會計出貨確認、實際出貨日期直接在卡片上填，不用點進表單
 function warehouseConfirmNames(){
@@ -3688,6 +3689,7 @@ function renderList(){
       const idx = STATUS.indexOf(item.status);
       const nextStatus = STATUS[idx+1];
 
+      if(item.status === 'pending' && !item.filledBy) item.filledBy = DEFAULT_FILLED_BY;
       if(item.status === 'pending' && (!item.filledBy || !item.coa)){
         const missing = [];
         if(!item.filledBy) missing.push('填寫人員');
@@ -4623,7 +4625,7 @@ function openSheet(order, item){
   document.getElementById('fIrradiationDestination').value = item ? (item.irradiationDestination || '') : '';
   document.getElementById('fNote').value = item ? (item.note || '') : (firstItem ? (firstItem.note || '') : '');
   setPickerValue('fReleaseBy', 'fReleaseByCustom', item ? (item.releaseBy || ((item.status === 'boxing' || item.status === 'shipped') ? DEFAULT_RELEASE_BY : '')) : '');
-  setPickerValue('fFilledBy', 'fFilledByCustom', item ? (item.filledBy || '') : (firstItem ? (firstItem.filledBy || '') : ''));
+  setPickerValue('fFilledBy', 'fFilledByCustom', item ? (item.filledBy || DEFAULT_FILLED_BY) : ((firstItem && firstItem.filledBy) || DEFAULT_FILLED_BY));
   setPickerValue('fWarehouseConfirm', 'fWarehouseConfirmCustom', item ? (item.warehouseConfirm || (item.status === 'shipped' ? DEFAULT_WAREHOUSE_CONFIRM : '')) : '');
 
   selectedPriority = item ? item.priority : (firstItem ? firstItem.priority : 'normal');
@@ -4780,7 +4782,7 @@ function openQuickOrder(){
   document.getElementById('qoFilledByCustom').value = '';
   document.getElementById('qoFilledByCustom').style.display = 'none';
   document.getElementById('qoCoa').innerHTML = document.getElementById('fCoa').innerHTML;
-  document.getElementById('qoFilledBy').value = '';
+  qoSetFilledBy(DEFAULT_FILLED_BY);
   document.getElementById('qoCoa').value = '';
   document.getElementById('qoUrgent').checked = false;
   document.getElementById('qoIrrAll').checked = false;
