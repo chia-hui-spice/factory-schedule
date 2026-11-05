@@ -3148,6 +3148,9 @@ function formatOrderCreated(order){
   return d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日（星期' + WEEKDAY_ZH[d.getDay()] + '）' +
     String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
 }
+// 預設人員：裝箱確認及放行人員、倉管會計出貨確認（沒選的話自動用這兩位，可以改）
+const DEFAULT_RELEASE_BY = '楊秋燕';
+const DEFAULT_WAREHOUSE_CONFIRM = '潘麗娟';
 // 出貨確認：出貨方式、倉管會計出貨確認、實際出貨日期直接在卡片上填，不用點進表單
 function warehouseConfirmNames(){
   const base = Array.from(document.getElementById('fWarehouseConfirm').options).map(o=>o.value).filter(v=> v && v !== '自訂');
@@ -3161,7 +3164,8 @@ function shipConfirmPanelHtml(order, item){
   const ids = 'data-sc-oid="' + order.id + '" data-sc-iid="' + item.id + '"';
   const methods = [['today','🚚 寄貨'],['tomorrow','📦 送貨'],['pickup','🙋 自取']];
   const names = warehouseConfirmNames();
-  const wc = item.warehouseConfirm || '';
+  const wc = item.warehouseConfirm || DEFAULT_WAREHOUSE_CONFIRM;
+  if(!names.includes(DEFAULT_WAREHOUSE_CONFIRM)) names.unshift(DEFAULT_WAREHOUSE_CONFIRM);
   const isCustom = wc && !names.includes(wc);
   const dateVal = item.actualShipDate || todayStr();
   return '<div class="ship-inline">' +
@@ -3184,10 +3188,12 @@ function orderShipPanelHtml(order){
   if(items.length < 2) return '';
   const ids = 'data-os-oid="' + order.id + '"';
   const pick = (f)=>{ const vals = [...new Set(items.map(it=> it[f] || ''))]; return vals.length === 1 ? vals[0] : '__mixed'; };
-  const sm = pick('shipMethod'), wc = pick('warehouseConfirm');
+  const sm = pick('shipMethod');
+  let wc = pick('warehouseConfirm'); if(!wc) wc = DEFAULT_WAREHOUSE_CONFIRM;
   const dates = [...new Set(items.map(it=> it.actualShipDate || ''))];
   const dateVal = dates.length === 1 && dates[0] ? dates[0] : todayStr();
   const names = warehouseConfirmNames();
+  if(!names.includes(DEFAULT_WAREHOUSE_CONFIRM)) names.unshift(DEFAULT_WAREHOUSE_CONFIRM);
   const methods = [['today','🚚 寄貨'],['tomorrow','📦 送貨'],['pickup','🙋 自取']];
   const coaWait = items.filter(it=> needsCoa(it) && !it.coaConfirmBy).length;
   return '<div class="ship-inline order-ship">' +
@@ -3228,6 +3234,7 @@ function wireOrderShipPanels(root){
     const o = orderOf(b); if(!o) return;
     const items = orderShippedItems(o);
     const panel = b.closest('.order-ship');
+    items.forEach(it=>{ if(!it.warehouseConfirm) it.warehouseConfirm = DEFAULT_WAREHOUSE_CONFIRM; });
     const needSm = items.some(it=> !it.shipMethod && !it.stockPreDeducted);
     const needWc = items.some(it=> !it.warehouseConfirm && !it.stockPreDeducted);
     if(needSm || needWc){
@@ -3362,7 +3369,8 @@ function boxingPanelHtml(order, item){
   const c = item.checklist || {};
   const done = ['c1','c2','c3','c4'].filter(k=>c[k]).length;
   const names = releaseByNames();
-  const rb = item.releaseBy || '';
+  const rb = item.releaseBy || DEFAULT_RELEASE_BY;
+  if(!names.includes(DEFAULT_RELEASE_BY)) names.unshift(DEFAULT_RELEASE_BY);
   const isCustom = rb && !names.includes(rb);
   return '<div class="ship-inline box-inline">' +
     '<div class="bx-head"><span class="si-label" style="margin:0;">出貨前檢查 <span style="color:var(--red);">*</span> <b style="color:' + (done === 4 ? 'var(--green)' : 'var(--amber)') + ';">' + done + '/4</b></span>' +
@@ -3714,6 +3722,8 @@ function renderList(){
       }
       // 包裝日期沒選的話，預設今天
       if(item.status === 'refill' && !item.packagingDate) item.packagingDate = todayMMDD();
+      if(item.status === 'boxing' && !item.releaseBy) item.releaseBy = DEFAULT_RELEASE_BY;
+      if(item.status === 'shipped' && !item.warehouseConfirm && !item.stockPreDeducted) item.warehouseConfirm = DEFAULT_WAREHOUSE_CONFIRM;
       if(item.status === 'boxing' && (!item.releaseBy || !isChecklistComplete(item))){
         const missing = [];
         if(!isChecklistComplete(item)) missing.push('出貨前檢查項目');
@@ -4610,9 +4620,9 @@ function openSheet(order, item){
   updateIrradiationConfirmVisibility();
   document.getElementById('fIrradiationDestination').value = item ? (item.irradiationDestination || '') : '';
   document.getElementById('fNote').value = item ? (item.note || '') : (firstItem ? (firstItem.note || '') : '');
-  setPickerValue('fReleaseBy', 'fReleaseByCustom', item ? (item.releaseBy || '') : '');
+  setPickerValue('fReleaseBy', 'fReleaseByCustom', item ? (item.releaseBy || ((item.status === 'boxing' || item.status === 'shipped') ? DEFAULT_RELEASE_BY : '')) : '');
   setPickerValue('fFilledBy', 'fFilledByCustom', item ? (item.filledBy || '') : (firstItem ? (firstItem.filledBy || '') : ''));
-  setPickerValue('fWarehouseConfirm', 'fWarehouseConfirmCustom', item ? (item.warehouseConfirm || '') : '');
+  setPickerValue('fWarehouseConfirm', 'fWarehouseConfirmCustom', item ? (item.warehouseConfirm || (item.status === 'shipped' ? DEFAULT_WAREHOUSE_CONFIRM : '')) : '');
 
   selectedPriority = item ? item.priority : (firstItem ? firstItem.priority : 'normal');
   updatePriorityUI();
