@@ -3151,6 +3151,8 @@ function formatOrderCreated(order){
 // 預設人員：裝箱確認及放行人員、倉管會計出貨確認（沒選的話自動用這兩位，可以改）
 const DEFAULT_RELEASE_BY = '楊秋燕';
 const DEFAULT_FILLED_BY = '呂思穎'; // 訂單確認的填寫人員
+// 出貨確認時「需要COA但還沒有COA確認人員」要不要擋住：先關掉（false），之後要恢復改成 true
+const COA_BLOCK_SHIP = false;
 const DEFAULT_WAREHOUSE_CONFIRM = '潘麗娟';
 // 出貨確認：出貨方式、倉管會計出貨確認、實際出貨日期直接在卡片上填，不用點進表單
 function warehouseConfirmNames(){
@@ -3196,7 +3198,7 @@ function orderShipPanelHtml(order){
   const names = warehouseConfirmNames();
   if(!names.includes(DEFAULT_WAREHOUSE_CONFIRM)) names.unshift(DEFAULT_WAREHOUSE_CONFIRM);
   const methods = [['today','🚚 寄貨'],['tomorrow','📦 送貨'],['pickup','🙋 自取']];
-  const coaWait = items.filter(it=> needsCoa(it) && !it.coaConfirmBy).length;
+  const coaWait = COA_BLOCK_SHIP ? items.filter(it=> needsCoa(it) && !it.coaConfirmBy).length : 0;
   return '<div class="ship-inline order-ship">' +
     '<div class="si-label" style="font-size:16px; color:var(--teal);">🚚 整張訂單一次出貨確認（' + items.length + ' 個品項）</div>' +
     '<div class="si-label">出貨方式 <span style="color:var(--red);">*</span>' + (sm === '__mixed' ? '<span style="color:var(--amber); font-weight:700;">（目前各品項不一樣，選了會全部改成一樣）</span>' : '') + '</div>' +
@@ -3243,7 +3245,7 @@ function wireOrderShipPanels(root){
       if(panel){ panel.classList.remove('si-flash'); void panel.offsetWidth; panel.classList.add('si-flash'); }
       return;
     }
-    const ready = items.filter(it=> !(needsCoa(it) && !it.coaConfirmBy));
+    const ready = COA_BLOCK_SHIP ? items.filter(it=> !(needsCoa(it) && !it.coaConfirmBy)) : items.slice();
     const waiting = items.length - ready.length;
     if(!ready.length){ showToast('這些品項都還需要填 COA 確認人員，請先到品管COA填寫'); return; }
     const okc = await showConfirm('「' + o.customer + '」這張訂單的 ' + ready.length + ' 個品項要一起完成出貨確認嗎？' + (waiting ? '\n（另外 ' + waiting + ' 項還沒有 COA 確認人員，會先留在出貨確認）' : ''), '整張訂單出貨確認');
@@ -3744,7 +3746,7 @@ function renderList(){
         const missing = [];
         if(!item.warehouseConfirm && !item.stockPreDeducted) missing.push('倉管會計出貨確認');
         if(!item.shipMethod && !item.stockPreDeducted) missing.push('出貨方式');
-        if(needsCoa(item) && !item.coaConfirmBy) missing.push('COA確認人員');
+        if(COA_BLOCK_SHIP && needsCoa(item) && !item.coaConfirmBy) missing.push('COA確認人員');
         if(missing.length > 0){
           const onlyInline = missing.every(m=> m === '倉管會計出貨確認' || m === '出貨方式');
           if(onlyInline){
