@@ -3346,7 +3346,7 @@ function refillBatchBarHtml(){
       '<span><button type="button" class="split-btn rf-b-all" style="width:auto; padding:5px 10px; font-size:14px;">全選（' + vis.length + '）</button> ' +
       '<button type="button" class="split-btn rf-b-none" style="width:auto; padding:5px 10px; font-size:14px;">清除</button></span></div>' +
     '<div class="si-row">' +
-      '<div class="si-col"><div class="si-label">包裝人員</div><select class="rf-b-staff"><option value="">請選擇</option>' + names.map(x=>'<option value="' + escapeHtml(x) + '">' + escapeHtml(x) + '</option>').join('') + '<option value="__custom">自訂（輸入其他姓名）</option></select></div>' +
+      '<div class="si-col"><div class="si-label">包裝人員</div><select class="rf-b-staff"><option value="__zone" selected>依各產線預設（安娜、陳鶯…）</option><option value="">請選擇</option>' + names.map(x=>'<option value="' + escapeHtml(x) + '">' + escapeHtml(x) + '</option>').join('') + '<option value="__custom">自訂（輸入其他姓名）</option></select></div>' +
       '<div class="si-col"><div class="si-label">包裝日期</div><div style="display:flex; gap:6px;">' +
         '<select class="rf-b-month" style="flex:1;">' + Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0')).map(m=>opt(m, pd.slice(0,2))).join('') + '</select><span style="align-self:center;">月</span>' +
         '<select class="rf-b-day" style="flex:1;">' + Array.from({length:31},(_,i)=>String(i+1).padStart(2,'0')).map(d=>opt(d, pd.slice(2,4))).join('') + '</select><span style="align-self:center;">日</span></div></div>' +
@@ -3375,7 +3375,7 @@ function wireRefillBatch(root){
   bar.querySelector('.rf-b-none').onclick = ()=>{ refillSel.clear(); renderList(); };
   const fl = root.querySelector('.rf-float');
   if(fl) fl.onclick = ()=>{
-    if(!staffSel.value || staffSel.value === '__custom'){
+    if(!staffSel.value || staffSel.value === '__custom'){ // __zone（依各產線預設）可以直接送出
       bar.scrollIntoView({ behavior:'smooth', block:'center' });
       showToast('請在上面選包裝人員');
       bar.classList.remove('si-flash'); void bar.offsetWidth; bar.classList.add('si-flash');
@@ -3385,14 +3385,20 @@ function wireRefillBatch(root){
   };
   bar.querySelector('.rf-b-go').onclick = async ()=>{
     const staff = staffSel.value;
+    if(staff === '__zone'){
+      const picked0 = refillVisibleItems().filter(x=> refillSel.has(x.item.id));
+      const noDef = picked0.filter(x=> !x.item.packagingStaff && !defaultPackagingStaff(x.item));
+      if(noDef.length){ showToast(noDef.length + ' 個品項的產線沒有預設包裝人員，請選一位'); bar.classList.remove('si-flash'); void bar.offsetWidth; bar.classList.add('si-flash'); return; }
+    }
     if(!staff || staff === '__custom'){ showToast('請先選包裝人員'); bar.classList.remove('si-flash'); void bar.offsetWidth; bar.classList.add('si-flash'); return; }
     const picked = refillVisibleItems().filter(x=> refillSel.has(x.item.id));
     if(!picked.length) return;
     const date = m.value + d.value;
-    const ok = await showConfirm('包裝人員「' + staff + '」、包裝日期 ' + date + '\n這 ' + picked.length + ' 個品項一起完成充填包裝？\n' + picked.map(x=> '・' + x.order.customer + '　' + x.item.product + (x.item.spec ? '（' + x.item.spec + '）' : '') + ' x' + x.item.qty).join('\n'), '一起充填包裝完成');
+    const staffOf = (it)=> staff === '__zone' ? (it.packagingStaff || defaultPackagingStaff(it)) : staff;
+    const ok = await showConfirm((staff === '__zone' ? '包裝人員依各產線預設' : '包裝人員「' + staff + '」') + '、包裝日期 ' + date + '\n這 ' + picked.length + ' 個品項一起完成充填包裝？\n' + picked.map(x=> '・' + x.order.customer + '　' + x.item.product + (x.item.spec ? '（' + x.item.spec + '）' : '') + ' x' + x.item.qty + (staff === '__zone' ? '　→ ' + staffOf(x.item) : '')).join('\n'), '一起充填包裝完成');
     if(!ok) return;
     const prev = picked.map(x=> ({ s:x.item.status, p:x.item.packagingStaff, d:x.item.packagingDate }));
-    picked.forEach(x=>{ x.item.packagingStaff = staff; x.item.packagingDate = date; x.item.status = 'boxing'; });
+    picked.forEach(x=>{ x.item.packagingStaff = staffOf(x.item); x.item.packagingDate = date; x.item.status = 'boxing'; });
     render();
     const saved = await saveOrders();
     if(!saved){ picked.forEach((x,i)=>{ x.item.status = prev[i].s; x.item.packagingStaff = prev[i].p; x.item.packagingDate = prev[i].d; }); render(); return; }
@@ -3404,7 +3410,7 @@ function refillPanelHtml(order, item){
   if(currentTab !== 'refill' || item.status !== 'refill') return '';
   const ids = 'data-rf-oid="' + order.id + '" data-rf-iid="' + item.id + '"';
   const names = packagingStaffNames(item);
-  const ps = item.packagingStaff || '';
+  const ps = item.packagingStaff || defaultPackagingStaff(item);
   const isCustom = ps && !names.includes(ps);
   const pd = (item.packagingDate && item.packagingDate.length === 4) ? item.packagingDate : todayMMDD();
   const mm = pd.slice(0,2), dd = pd.slice(2,4);
@@ -3809,6 +3815,7 @@ function renderList(){
         pendingAdvanceItemId = item.id; openSheet(order, item);
         return;
       }
+      if(item.status === 'refill' && !item.packagingStaff && defaultPackagingStaff(item)) item.packagingStaff = defaultPackagingStaff(item);
       if(item.status === 'refill' && !item.packagingStaff){
         const panel = btn.closest('.item-row') && btn.closest('.item-row').querySelector('.refill-inline');
         if(panel){
@@ -4588,6 +4595,21 @@ const PACKAGING_STAFF_BY_ZONE = {
   '原料產線': ['李燕束'],
   '半成品產線': ['陳張葵珠']
 };
+// 各產線的預設包裝人員（充填包裝時沒選就用這位，可以改）
+const DEFAULT_PACKAGING_STAFF_BY_ZONE = {
+  '自動包裝區產線':'安娜', '大包裝區產線':'陳鶯', '小包裝區產線':'亞哥', '滷包包裝區產線':'陳金安', '醬料包裝區產線':'張梅瓊',
+  '清真包裝區產線':'Sonia', '調味粉攪拌產線':'劉美足', '半成品產線':'陳張葵珠', '原料產線':'李燕束'
+};
+// 預設人員也放進該產線的選單（排第一個）
+Object.keys(DEFAULT_PACKAGING_STAFF_BY_ZONE).forEach(z=>{
+  const n = DEFAULT_PACKAGING_STAFF_BY_ZONE[z];
+  const list = PACKAGING_STAFF_BY_ZONE[z] = (PACKAGING_STAFF_BY_ZONE[z] || []).filter(x=> x !== n);
+  list.unshift(n);
+});
+function defaultPackagingStaff(item){
+  const z = (item && item.productionZones || []).find(z=> DEFAULT_PACKAGING_STAFF_BY_ZONE[z]);
+  return z ? DEFAULT_PACKAGING_STAFF_BY_ZONE[z] : '';
+}
 function populatePackagingStaffOptions(zones, currentValue){
   const select = document.getElementById('fPackagingStaff');
   const zoneList = zones || [];
@@ -4698,7 +4720,7 @@ function openSheet(order, item){
     setFlexDateValue('fActualShipDate', (item && item.actualShipDate) ? item.actualShipDate : (actualShipDateVisible ? todayStr() : ''));
   }
   setProductionZoneCheckboxes(item ? (item.productionZones || []) : (firstItem ? (firstItem.productionZones || []) : []));
-  populatePackagingStaffOptions(item ? (item.productionZones || []) : [], item ? (item.packagingStaff || '') : '');
+  populatePackagingStaffOptions(item ? (item.productionZones || []) : [], item ? (item.packagingStaff || (item.status === 'refill' ? defaultPackagingStaff(item) : '')) : '');
   document.getElementById('fCoa').value = item ? (item.coa || '') : (firstItem ? (firstItem.coa || '') : '');
   setPickerValue('fCoaConfirmBy', 'fCoaConfirmByCustom', item ? (item.coaConfirmBy || '') : (firstItem ? (firstItem.coaConfirmBy || '') : ''));
   document.getElementById('fCoaMoisture').value = item ? (item.coaMoisture || '') : '';
