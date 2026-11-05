@@ -3153,6 +3153,9 @@ const DEFAULT_RELEASE_BY = '楊秋燕';
 const DEFAULT_FILLED_BY = '呂思穎'; // 訂單確認的填寫人員
 // 出貨確認時「需要COA但還沒有COA確認人員」要不要擋住：先關掉（false），之後要恢復改成 true
 const COA_BLOCK_SHIP = false;
+// 裝箱確認的 4 個出貨前檢查項目：預設全部打勾（有人手動改過就照改過的）
+const ALL_CHECKED = { c1:true, c2:true, c3:true, c4:true };
+function effectiveChecklist(item){ return item.checklistTouched ? Object.assign({ c1:false, c2:false, c3:false, c4:false }, item.checklist || {}) : Object.assign({}, ALL_CHECKED); }
 const DEFAULT_WAREHOUSE_CONFIRM = '潘麗娟';
 // 出貨確認：出貨方式、倉管會計出貨確認、實際出貨日期直接在卡片上填，不用點進表單
 function warehouseConfirmNames(){
@@ -3371,7 +3374,7 @@ function releaseByNames(){
 function boxingPanelHtml(order, item){
   if(currentTab !== 'boxing' || item.status !== 'boxing') return '';
   const ids = 'data-bx-oid="' + order.id + '" data-bx-iid="' + item.id + '"';
-  const c = item.checklist || {};
+  const c = effectiveChecklist(item);
   const done = ['c1','c2','c3','c4'].filter(k=>c[k]).length;
   const names = releaseByNames();
   const rb = item.releaseBy || DEFAULT_RELEASE_BY;
@@ -3390,19 +3393,21 @@ function wireBoxingPanels(root){
   const find = (el)=>{ const o = orders.find(x=>x.id === el.dataset.bxOid); return o && (o.items||[]).find(i=>i.id === el.dataset.bxIid); };
   root.querySelectorAll('[data-bx-chk]').forEach(b=> b.onclick = async ()=>{
     const item = find(b); if(!item) return;
-    const prev = Object.assign({ c1:false, c2:false, c3:false, c4:false }, item.checklist || {});
+    const prev = effectiveChecklist(item), prevTouched = item.checklistTouched, prevRaw = item.checklist;
     item.checklist = Object.assign({}, prev, { [b.dataset.bxChk]: !prev[b.dataset.bxChk] });
+    item.checklistTouched = true;
     const ok = await saveOrders();
-    if(!ok) item.checklist = prev;
+    if(!ok){ item.checklist = prevRaw; item.checklistTouched = prevTouched; }
     renderList();
   });
   root.querySelectorAll('[data-bx-all]').forEach(b=> b.onclick = async ()=>{
     const item = find(b); if(!item) return;
-    const prev = Object.assign({ c1:false, c2:false, c3:false, c4:false }, item.checklist || {});
+    const prev = effectiveChecklist(item), prevTouched = item.checklistTouched, prevRaw = item.checklist;
     if(prev.c1 && prev.c2 && prev.c3 && prev.c4) return; // 已經全部確認
     item.checklist = { c1:true, c2:true, c3:true, c4:true };
+    item.checklistTouched = true;
     const ok = await saveOrders();
-    if(!ok) item.checklist = prev;
+    if(!ok){ item.checklist = prevRaw; item.checklistTouched = prevTouched; }
     renderList();
     if(ok) showToast('4 項檢查都已確認');
   });
@@ -3729,6 +3734,7 @@ function renderList(){
       // 包裝日期沒選的話，預設今天
       if(item.status === 'refill' && !item.packagingDate) item.packagingDate = todayMMDD();
       if(item.status === 'boxing' && !item.releaseBy) item.releaseBy = DEFAULT_RELEASE_BY;
+      if(item.status === 'boxing' && !item.checklistTouched) item.checklist = effectiveChecklist(item);
       if(item.status === 'shipped' && !item.warehouseConfirm && !item.stockPreDeducted) item.warehouseConfirm = DEFAULT_WAREHOUSE_CONFIRM;
       if(item.status === 'boxing' && (!item.releaseBy || !isChecklistComplete(item))){
         const missing = [];
@@ -4633,7 +4639,7 @@ function openSheet(order, item){
   selectedPriority = item ? item.priority : (firstItem ? firstItem.priority : 'normal');
   updatePriorityUI();
 
-  checklistState = (item && item.checklist) ? Object.assign({c1:false,c2:false,c3:false,c4:false}, item.checklist) : {c1:false,c2:false,c3:false,c4:false};
+  checklistState = (item && (item.status === 'boxing')) ? effectiveChecklist(item) : ((item && item.checklist) ? Object.assign({c1:false,c2:false,c3:false,c4:false}, item.checklist) : {c1:false,c2:false,c3:false,c4:false});
   updateChecklistUI();
 
   currentEditingStage = item ? item.status : 'pending';
@@ -5138,7 +5144,8 @@ async function handleSaveOrder(){
     priority: selectedPriority,
     shipMethod, actualShipDate,
     productionZones, packagingStaff,
-    checklist: Object.assign({}, checklistState)
+    checklist: Object.assign({}, checklistState),
+    ...((editingItemId && (()=>{ const o = orders.find(x=>x.id===editingOrderId); const it = o && (o.items||[]).find(i=>i.id===editingItemId); return it && it.status === 'boxing'; })()) ? { checklistTouched: true } : {})
   };
 
   if(!editingOrderId){
