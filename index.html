@@ -552,6 +552,8 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 @media (max-width:480px){ .cv-grid{ grid-template-columns:repeat(2, 1fr); } }
 .coa-vals .cb-btn{ width:100%; padding:9px; font-size:15.5px; font-weight:800; border-radius:10px; border:2px solid var(--green); background:var(--panel); color:var(--green); cursor:pointer; }
 .coa-vals:not(.ok) .cb-btn{ border-color:#9b7fd1; color:#b9a3e6; }
+.due-btn{ margin-left:6px; padding:2px 9px; font-size:13.5px; font-weight:800; border-radius:999px; border:1.5px solid var(--blue); background:transparent; color:var(--blue); cursor:pointer; vertical-align:1px; }
+.due-changed{ margin-left:4px; padding:1px 7px; font-size:12.5px; font-weight:800; border-radius:6px; background:rgba(242,183,5,0.15); color:var(--amber); border:1px solid var(--amber); white-space:nowrap; }
 </style>
 </head>
 <body>
@@ -2079,6 +2081,27 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
   </div>
 </div>
 
+<div class="overlay" id="dueChangeOverlay" style="z-index:48;">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>📅 修改交期</h2>
+    <div class="report-updated" id="dcSub"></div>
+    <div class="field"><label>新的出貨日期 <span style="color:var(--red);">*</span></label><input type="date" id="dcNewDue"></div>
+    <div class="field" id="dcScopeWrap">
+      <label>要改哪些品項</label>
+      <label class="halal-sub" style="margin-bottom:6px;"><input type="radio" name="dcScope" value="item" checked> 只改這個品項</label>
+      <label class="halal-sub"><input type="radio" name="dcScope" value="order"> <span id="dcScopeOrderLabel">整張訂單一起改</span></label>
+    </div>
+    <div class="field"><label>改期原因（選填）</label><input type="text" id="dcReason" placeholder="例如：客戶 12/15 來電要求延後" autocomplete="off"></div>
+    <div id="dcHistory" style="font-size:14px; color:var(--ink-dim); line-height:1.6;"></div>
+    <div style="font-size:13.5px; color:var(--ink-dim); margin-top:6px;">只會改出貨日期，生產進度（目前在哪個階段）、批號、庫存都不會變。</div>
+    <div class="sheet-actions" style="margin-top:14px;">
+      <button type="button" class="btn-secondary" id="dcCancel">取消</button>
+      <button type="button" class="btn-primary" id="dcSave">儲存新交期</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="confirmOverlay" style="z-index:60;">
   <div class="sheet" style="padding-bottom:24px;">
     <div class="sheet-handle"></div>
@@ -3383,6 +3406,59 @@ function wireShipConfirmPanels(root){
     if(inp.value && inp.value !== item.actualShipDate) save(item, 'actualShipDate', inp.value, item.actualShipDate || '');
   }));
 }
+// ---- 修改交期：任何階段都可以改出貨日期（不影響生產進度），並留下改期紀錄 ----
+function fmtMD(d){ if(!d) return ''; const p = d.split('-'); return (p[0] !== String(new Date().getFullYear()) ? p[0] + '/' : '') + parseInt(p[1],10) + '/' + parseInt(p[2],10); }
+function dueChangedTag(item){
+  const h = item.dueHistory || [];
+  if(!h.length) return '';
+  return ' <span class="due-changed" title="' + escapeHtml(h.map(x=> x.from + ' → ' + x.to + (x.reason ? '（' + x.reason + '）' : '')).join('\n')) + '">已改期・原 ' + escapeHtml(fmtMD(item.originalDue || h[0].from)) + '</span>';
+}
+function dueChangeBtn(order, item){
+  if(item.status === 'qc') return '';
+  return ' <button type="button" class="due-btn" data-due-oid="' + order.id + '" data-due-iid="' + item.id + '">📅 改交期</button>';
+}
+let dcTarget = null;
+function openDueChange(order, item){
+  dcTarget = { orderId: order.id, itemId: item.id };
+  const others = (order.items || []).filter(it=> !it.deleted && it.status !== 'qc');
+  document.getElementById('dcSub').innerHTML = escapeHtml(order.customer || '') + '　' + escapeHtml(item.product) + (item.spec ? '（' + escapeHtml(item.spec) + '）' : '') + '<br>目前交期 <b style="color:var(--ink);">' + escapeHtml(item.due || '未填') + '</b>　目前階段 <span class="badge stage st-' + item.status + '">' + STATUS_LABEL[item.status] + '</span>';
+  document.getElementById('dcNewDue').value = item.due || '';
+  document.getElementById('dcReason').value = '';
+  document.querySelector('input[name="dcScope"][value="item"]').checked = true;
+  const wrap = document.getElementById('dcScopeWrap');
+  wrap.style.display = others.length > 1 ? '' : 'none';
+  document.getElementById('dcScopeOrderLabel').textContent = '整張訂單一起改（' + others.length + ' 個未完成品項）';
+  const h = item.dueHistory || [];
+  document.getElementById('dcHistory').innerHTML = h.length ? '<b>改期紀錄</b><br>' + h.map(x=> escapeHtml(x.from + ' → ' + x.to) + (x.reason ? '　' + escapeHtml(x.reason) : '') + '　<span style="opacity:.8;">' + escapeHtml(x.by || '') + ' ' + new Date(x.at).toLocaleDateString('zh-TW') + '</span>').join('<br>') : '';
+  document.getElementById('dueChangeOverlay').classList.add('show');
+}
+document.getElementById('dcCancel').onclick = ()=> document.getElementById('dueChangeOverlay').classList.remove('show');
+document.getElementById('dcSave').onclick = async ()=>{
+  if(!dcTarget) return;
+  const order = orders.find(o=> o.id === dcTarget.orderId);
+  const item = order && (order.items || []).find(i=> i.id === dcTarget.itemId);
+  if(!item) return;
+  const newDue = document.getElementById('dcNewDue').value;
+  if(!newDue){ showToast('請選新的出貨日期'); return; }
+  const scope = document.querySelector('input[name="dcScope"]:checked').value;
+  const targets = scope === 'order' ? (order.items || []).filter(it=> !it.deleted && it.status !== 'qc') : [item];
+  const changing = targets.filter(it=> it.due !== newDue);
+  if(!changing.length){ showToast('交期沒有變動'); return; }
+  const reason = document.getElementById('dcReason').value.trim();
+  const by = (typeof currentUserEmail !== 'undefined' && currentUserEmail) || '';
+  const prev = changing.map(it=> ({ due: it.due, originalDue: it.originalDue, dueHistory: it.dueHistory }));
+  changing.forEach(it=>{
+    if(!it.originalDue) it.originalDue = it.due || '';
+    it.dueHistory = (it.dueHistory || []).concat([{ from: it.due || '', to: newDue, reason, by, at: Date.now() }]);
+    it.due = newDue;
+  });
+  const ok = await saveOrders();
+  if(!ok){ changing.forEach((it, i)=> Object.assign(it, prev[i])); return; }
+  document.getElementById('dueChangeOverlay').classList.remove('show');
+  render();
+  showToast('已把 ' + changing.length + ' 個品項的交期改成 ' + newDue + '，生產進度不變');
+};
+
 // 品管COA頁：品管確認的數值顯示在卡片上
 function coaValuesHtml(order, item){
   if(currentTab !== 'coa') return '';
@@ -3767,7 +3843,7 @@ function renderList(){
       if(item.actualYieldQty !== undefined && item.actualYieldQty !== null && item.actualYieldQty !== '' && Number(item.actualYieldQty) !== Number(item.qty)){
         metaBits.push('<div class="meta-item">實際產出 <b style="color:var(--orange);">' + item.actualYieldQty + '</b></div>');
       }
-      metaBits.push('<div class="meta-item">出貨日 <b>' + item.due + '</b></div>');
+      metaBits.push('<div class="meta-item">出貨日 <b>' + item.due + '</b>' + dueChangedTag(item) + dueChangeBtn(order, item) + '</div>');
       if(item.origin) metaBits.push('<div class="meta-item">產地 <b>' + escapeHtml(item.origin) + '</b></div>');
 
       const splitBtnHtml = (item.qty > 1 && item.status !== 'shipped')
@@ -3844,7 +3920,7 @@ function renderList(){
             '<div class="simple-name">' + escapeHtml(item.product) + (item.spec ? '<div class="simple-spec">' + escapeHtml(item.spec) + '</div>' : '') + '</div>' +
             '<div class="simple-qty"><span>數量</span>' + escapeHtml(String(item.qty)) + '</div>' +
           '</div>' +
-          '<div class="simple-sub">出貨日 <b>' + escapeHtml((item.due || '').slice(5).replace('-', '/')) + '</b>' + zonesTxt + (tags.length ? '　' + tags.join(' ') : '') + '</div>' +
+          '<div class="simple-sub">出貨日 <b>' + escapeHtml((item.due || '').slice(0,4) === String(new Date().getFullYear()) ? (item.due || '').slice(5).replace('-', '/') : (item.due || '').replace(/-/g, '/')) + '</b>' + dueChangedTag(item) + dueChangeBtn(order, item) + zonesTxt + (tags.length ? '　' + tags.join(' ') : '') + '</div>' +
           (showBatch ? ((tab === 'done' && item.status === 'done')
             ? doneEditHtml
             : bigBatch
@@ -3908,6 +3984,12 @@ function renderList(){
   });
 
   wireShipConfirmPanels(wrap);
+  wrap.querySelectorAll('[data-due-oid]').forEach(b=> b.onclick = (e)=>{
+    e.stopPropagation();
+    const o = orders.find(x=> x.id === b.dataset.dueOid);
+    const it = o && (o.items || []).find(i=> i.id === b.dataset.dueIid);
+    if(it) openDueChange(o, it);
+  });
   wireDoneBatchEdit(wrap);
   wireLabelingEdit(wrap);
   wireOrderShipPanels(wrap);
