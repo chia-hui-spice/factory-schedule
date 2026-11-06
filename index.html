@@ -3146,11 +3146,13 @@ function itemMatchesTabSearch(item, order){
   // 多個關鍵字用空白分開時，每個都要符合（例如「王 孜然」）
   return tabSearchKeyword.split(/\s+/).filter(Boolean).every(kw=>hay.includes(kw));
 }
+// 品管COA 是否已確認完成：要按「品管COA確認完成」才算（舊資料：只要有 COA確認人員就算完成）
+function coaComplete(item){ return item.coaDone === true || (item.coaDone === undefined && !!item.coaConfirmBy); }
 function itemBelongsToTab(item, tab){
   if(item.deleted) return false;
   if(tab === 'coa'){
     // 品管COA分頁:跨階段顯示需要COA但還沒確認完成的品項，不管實際在哪個生產階段
-    return needsCoa(item) && !item.coaConfirmBy;
+    return needsCoa(item) && !coaComplete(item);
   }
   return item.status === tab;
 }
@@ -3814,7 +3816,12 @@ function renderList(){
       const idx = STATUS.indexOf(item.status);
       const canBack = idx > 0;
       let actionsHtml = '';
-      if(item.status !== 'qc'){
+      if(currentTab === 'coa'){
+        // 品管COA頁：只做品管確認，不動生產階段
+        actionsHtml =
+          '<button class="btn btn-forward st-qc" data-act="coadone" data-oid="'+order.id+'" data-iid="'+item.id+'">✅ 品管COA確認完成</button>' +
+          '<button class="btn btn-edit" data-act="edit" data-oid="'+order.id+'" data-iid="'+item.id+'">✎</button>';
+      }else if(item.status !== 'qc'){
         actionsHtml =
           (canBack ? '<button class="btn btn-back" data-act="back" data-oid="'+order.id+'" data-iid="'+item.id+'">‹</button>' : '') +
           '<button class="btn btn-forward st-' + STATUS[idx+1] + '" data-act="forward" data-oid="'+order.id+'" data-iid="'+item.id+'">' + ((currentTab === 'coa' && item.status === 'shipped') ? '品管COA確認完成' : STATUS_FORWARD_LABEL[item.status]) + '</button>' +
@@ -3984,6 +3991,28 @@ function renderList(){
   });
 
   wireShipConfirmPanels(wrap);
+  wrap.querySelectorAll('[data-act="coadone"]').forEach(btn=> btn.onclick = async ()=>{
+    const order = orders.find(o=> o.id === btn.dataset.oid);
+    const item = order && (order.items || []).find(i=> i.id === btn.dataset.iid);
+    if(!item) return;
+    if(!item.coaConfirmBy){
+      showToast('請先填「COA確認人員」');
+      openSheet(order, item);
+      setTimeout(()=>{ const el = document.getElementById('fCoaConfirmBy'); if(el) el.scrollIntoView({ block:'center', behavior:'smooth' }); }, 250);
+      return;
+    }
+    const empty = [['水分','coaMoisture'],['水活性','coaWaterActivity'],['總生菌數','coaTotalPlateCount'],['大腸桿菌群','coaColiform'],['大腸桿菌','coaEcoli']].filter(([,k])=> !String(item[k] || '').trim()).map(([l])=> l);
+    if(empty.length){
+      const ok = await showConfirm('還沒填：' + empty.join('、') + '\n確定要完成品管COA確認嗎？', '有數值還沒填');
+      if(!ok) return;
+    }
+    const prev = { d: item.coaDone, at: item.coaDoneAt };
+    item.coaDone = true; item.coaDoneAt = Date.now();
+    render();
+    const saved = await saveOrders();
+    if(!saved){ item.coaDone = prev.d; item.coaDoneAt = prev.at; render(); return; }
+    showToast('「' + item.product + '」品管COA確認完成');
+  });
   wrap.querySelectorAll('[data-due-oid]').forEach(b=> b.onclick = (e)=>{
     e.stopPropagation();
     const o = orders.find(x=> x.id === b.dataset.dueOid);
@@ -4421,7 +4450,7 @@ document.getElementById('sortModeSelect').addEventListener('change', function(){
 function updateQuickStatBadges(){
   const all = allActiveItems();
   const coaFillableIdx = STATUS.indexOf('done');
-  const coaCount = all.filter(x => needsCoa(x.item) && STATUS.indexOf(x.item.status) >= coaFillableIdx && !x.item.coaConfirmBy).length;
+  const coaCount = all.filter(x => needsCoa(x.item) && STATUS.indexOf(x.item.status) >= coaFillableIdx && !coaComplete(x.item)).length;
   const todayRiskCount = all.filter(x => isTodayAtRisk(x.item)).length;
   const combinedCount = coaCount + todayRiskCount;
 
@@ -5447,6 +5476,9 @@ async function handleSaveOrder(){
   const irradiationLabelConfirm = document.getElementById('fIrradiationLabelConfirm').checked;
   const irradiationDestination = document.getElementById('fIrradiationDestination').value;
   const coaConfirmBy = getPickerValue('fCoaConfirmBy', 'fCoaConfirmByCustom');
+  // 存檔時還沒按過「品管COA確認完成」的，維持未完成，品項會留在品管COA頁
+  const editingItemNow = editingItemId ? (orders.find(o=>o.id===editingOrderId)?.items || []).find(i=>i.id===editingItemId) : null;
+  const coaDone = editingItemNow ? coaComplete(editingItemNow) : false;
   const coaMoisture = document.getElementById('fCoaMoisture').value.trim();
   const coaWaterActivity = document.getElementById('fCoaWaterActivity').value.trim();
   const coaTotalPlateCount = document.getElementById('fCoaTotalPlateCount').value.trim();
@@ -5467,7 +5499,7 @@ async function handleSaveOrder(){
   if(missing.length > 0){ showToast('請填寫：' + missing.join('、')); return; }
 
   const itemPayload = {
-    product, spec, qty, actualYieldQty, due, origin, productExpDate, productMfgDate, productBatchNo, packagingDate, trayBatchNo, manualMaterialBatches, coa, coaConfirmBy, needsIrradiation, irradiationLabelConfirm, irradiationDestination, note,
+    product, spec, qty, actualYieldQty, due, origin, productExpDate, productMfgDate, productBatchNo, packagingDate, trayBatchNo, manualMaterialBatches, coa, coaConfirmBy, coaDone, needsIrradiation, irradiationLabelConfirm, irradiationDestination, note,
     coaMoisture, coaWaterActivity, coaTotalPlateCount, coaColiform, coaEcoli,
     fillFormDate, fillFormTime,
     releaseBy, filledBy, warehouseConfirm,
@@ -5666,7 +5698,7 @@ function computeStats(){
     if(isTodayAtRisk(it) || (!isShippedOrLater(it) && it.due === today)) stats.today++;
     if(isTomorrowRisk(it)) stats.tomorrow++;
     if(it.priority === 'urgent' && !isShippedOrLater(it)) stats.urgent++;
-    if(needsCoa(it) && STATUS.indexOf(it.status) >= STATUS.indexOf('done') && !it.coaConfirmBy) stats.coa++;
+    if(needsCoa(it) && STATUS.indexOf(it.status) >= STATUS.indexOf('done') && !coaComplete(it)) stats.coa++;
     if(it.status === 'pending') stats.pending++;
     if(it.status === 'inprogress') stats.inprogress++;
     if(it.status === 'labeling') stats.labeling++;
@@ -5716,8 +5748,8 @@ function renderCoaPendingList(){
   const all = allActiveItems();
   const coaFillableIdx = STATUS.indexOf('done'); // 排程生產完成(標籤印製)後才算可以填
   const relevant = all.filter(x => needsCoa(x.item) && STATUS.indexOf(x.item.status) >= coaFillableIdx);
-  const pending = relevant.filter(x => !x.item.coaConfirmBy);
-  const done = relevant.filter(x => !!x.item.coaConfirmBy);
+  const pending = relevant.filter(x => !coaComplete(x.item));
+  const done = relevant.filter(x => coaComplete(x.item));
 
   function rowHtml(x){
     const coaTypeTag = '<span class="ship-list-tag">' + escapeHtml(x.item.coa) + '</span>';
