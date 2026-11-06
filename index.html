@@ -3757,7 +3757,7 @@ function orderProgressHtml(order){
 // 排程生產：整張訂單的品項總表（品項、規格、數量、目前階段），點一列跳到那個品項
 function orderSummaryHtml(order){
   const items = (order.items || []).filter(it=> !it.deleted);
-  if(items.length < 2) return '';
+  if(!items.length) return ''; // 一個品項也顯示，比較清楚
   const here = items.filter(it=> it.status === currentTab);
   const sorted = items.slice().sort((a,b)=> (b.status === currentTab) - (a.status === currentTab) || STATUS.indexOf(a.status) - STATUS.indexOf(b.status));
   const rows = sorted.map(it=>{
