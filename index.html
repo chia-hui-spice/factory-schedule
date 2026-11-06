@@ -554,6 +554,9 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .coa-vals:not(.ok) .cb-btn{ border-color:#9b7fd1; color:#b9a3e6; }
 .due-btn{ margin-left:6px; padding:2px 9px; font-size:13.5px; font-weight:800; border-radius:999px; border:1.5px solid var(--blue); background:transparent; color:var(--blue); cursor:pointer; vertical-align:1px; }
 .due-changed{ margin-left:4px; padding:1px 7px; font-size:12.5px; font-weight:800; border-radius:6px; background:rgba(242,183,5,0.15); color:var(--amber); border:1px solid var(--amber); white-space:nowrap; }
+.cv-confirm select{ width:100%; margin-top:2px; padding:4px 6px; font-size:15px; font-weight:800; border-radius:6px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); }
+.cv-confirm.missing{ border-color:var(--red) !important; }
+.cv-confirm.si-flash{ animation:siFlash 1.2s ease 1; }
 </style>
 </head>
 <body>
@@ -3199,6 +3202,9 @@ function formatOrderCreated(order){
 // 預設人員：裝箱確認及放行人員、倉管會計出貨確認（沒選的話自動用這兩位，可以改）
 const DEFAULT_RELEASE_BY = '楊秋燕';
 const DEFAULT_FILLED_BY = '呂思穎'; // 訂單確認的填寫人員
+const DEFAULT_COA_CONFIRM_BY = '劉敏祝'; // 品管COA確認人員
+// 卡片／表單上顯示的 COA確認人員：有填用填的；沒填且沒被刻意清空 → 預設劉敏祝
+function effectiveCoaConfirmBy(item){ return item.coaConfirmBy || (item.coaConfirmByCleared ? '' : DEFAULT_COA_CONFIRM_BY); }
 // 出貨確認時「需要COA但還沒有COA確認人員」要不要擋住：先關掉（false），之後要恢復改成 true
 const COA_BLOCK_SHIP = false;
 // 裝箱確認的 4 個出貨前檢查項目：預設全部打勾（有人手動改過就照改過的）
@@ -3473,7 +3479,14 @@ function coaValuesHtml(order, item){
       const v = String(item[k] || '').trim();
       return '<div><span>' + label + '</span>' + (v ? '<b>' + escapeHtml(v) + '</b>' : '<i>未填</i>') + '</div>';
     }).join('') +
-    '<div><span>COA確認人員</span>' + (item.coaConfirmBy ? '<b>' + escapeHtml(item.coaConfirmBy) + '</b>' : '<i>未填</i>') + '</div>' +
+    (function(){
+      const cur = effectiveCoaConfirmBy(item);
+      const names = Array.from(document.getElementById('fCoaConfirmBy').options).map(o=>o.value).filter(v=> v && v !== '自訂');
+      orders.forEach(o=> (o.items||[]).forEach(it=>{ if(it.coaConfirmBy && !names.includes(it.coaConfirmBy)) names.push(it.coaConfirmBy); }));
+      if(cur && !names.includes(cur)) names.push(cur);
+      return '<div class="cv-confirm' + (cur ? '' : ' missing') + '"><span>COA確認人員 <b style="color:var(--red);">*</b></span><select class="cv-by" data-cv-oid="' + order.id + '" data-cv-iid="' + item.id + '">' +
+        '<option value=""' + (cur ? '' : ' selected') + '>請選擇</option>' + names.map(n=>'<option value="' + escapeHtml(n) + '"' + (cur === n ? ' selected' : '') + '>' + escapeHtml(n) + '</option>').join('') + '<option value="__custom">自訂</option></select></div>';
+    })() +
     '</div>' +
     '<button type="button" class="cb-btn" data-act="edit" data-scroll-to="fCoaMoisture" data-oid="' + order.id + '" data-iid="' + item.id + '" style="margin-top:8px;">✏️ ' + (filled ? '修改品管數值' : '填寫品管數值') + '</button>' +
   '</div>';
@@ -3991,16 +4004,32 @@ function renderList(){
   });
 
   wireShipConfirmPanels(wrap);
+  wrap.querySelectorAll('select.cv-by').forEach(sel=> sel.onchange = async ()=>{
+    const order = orders.find(o=> o.id === sel.dataset.cvOid);
+    const item = order && (order.items || []).find(i=> i.id === sel.dataset.cvIid);
+    if(!item) return;
+    let v = sel.value;
+    if(v === '__custom'){ v = (window.prompt('請輸入 COA確認人員姓名') || '').trim(); if(!v){ renderList(); return; } }
+    const prev = { b: item.coaConfirmBy, c: item.coaConfirmByCleared };
+    item.coaConfirmBy = v; item.coaConfirmByCleared = !v;
+    const ok = await saveOrders();
+    if(!ok){ item.coaConfirmBy = prev.b; item.coaConfirmByCleared = prev.c; }
+    renderList();
+    if(ok) showToast('已儲存');
+  });
   wrap.querySelectorAll('[data-act="coadone"]').forEach(btn=> btn.onclick = async ()=>{
     const order = orders.find(o=> o.id === btn.dataset.oid);
     const item = order && (order.items || []).find(i=> i.id === btn.dataset.iid);
     if(!item) return;
-    if(!item.coaConfirmBy){
-      showToast('請先填「COA確認人員」');
-      openSheet(order, item);
-      setTimeout(()=>{ const el = document.getElementById('fCoaConfirmBy'); if(el) el.scrollIntoView({ block:'center', behavior:'smooth' }); }, 250);
+    // 防呆：COA確認人員沒有填，不能完成
+    const by = effectiveCoaConfirmBy(item);
+    if(!by){
+      showToast('請先選「COA確認人員」才能完成品管COA確認');
+      const box = btn.closest('.item-row') && btn.closest('.item-row').querySelector('.cv-confirm');
+      if(box){ box.classList.remove('si-flash'); void box.offsetWidth; box.classList.add('si-flash'); }
       return;
     }
+    if(!item.coaConfirmBy) item.coaConfirmBy = by; // 用預設的人
     const empty = [['水分','coaMoisture'],['水活性','coaWaterActivity'],['總生菌數','coaTotalPlateCount'],['大腸桿菌群','coaColiform'],['大腸桿菌','coaEcoli']].filter(([,k])=> !String(item[k] || '').trim()).map(([l])=> l);
     if(empty.length){
       const ok = await showConfirm('還沒填：' + empty.join('、') + '\n確定要完成品管COA確認嗎？', '有數值還沒填');
@@ -4970,7 +4999,7 @@ function openSheet(order, item){
   setProductionZoneCheckboxes(item ? (item.productionZones || []) : (firstItem ? (firstItem.productionZones || []) : []));
   populatePackagingStaffOptions(item ? (item.productionZones || []) : [], item ? (item.packagingStaff || (item.status === 'refill' ? defaultPackagingStaff(item) : '')) : '');
   document.getElementById('fCoa').value = item ? (item.coa || '') : (firstItem ? (firstItem.coa || '') : '');
-  setPickerValue('fCoaConfirmBy', 'fCoaConfirmByCustom', item ? (item.coaConfirmBy || '') : (firstItem ? (firstItem.coaConfirmBy || '') : ''));
+  setPickerValue('fCoaConfirmBy', 'fCoaConfirmByCustom', item ? ((currentTab === 'coa' && needsCoa(item) && !coaComplete(item)) ? effectiveCoaConfirmBy(item) : (item.coaConfirmBy || '')) : '');
   document.getElementById('fCoaMoisture').value = item ? (item.coaMoisture || '') : '';
   document.getElementById('fCoaWaterActivity').value = item ? (item.coaWaterActivity || '') : '';
   document.getElementById('fCoaTotalPlateCount').value = item ? (item.coaTotalPlateCount || '') : '';
@@ -5479,6 +5508,7 @@ async function handleSaveOrder(){
   // 存檔時還沒按過「品管COA確認完成」的，維持未完成，品項會留在品管COA頁
   const editingItemNow = editingItemId ? (orders.find(o=>o.id===editingOrderId)?.items || []).find(i=>i.id===editingItemId) : null;
   const coaDone = editingItemNow ? coaComplete(editingItemNow) : false;
+  const coaConfirmByCleared = currentTab === 'coa' ? !coaConfirmBy : !!(editingItemNow && editingItemNow.coaConfirmByCleared); // 在品管COA頁刻意清空 → 卡片上也不再自動帶預設
   const coaMoisture = document.getElementById('fCoaMoisture').value.trim();
   const coaWaterActivity = document.getElementById('fCoaWaterActivity').value.trim();
   const coaTotalPlateCount = document.getElementById('fCoaTotalPlateCount').value.trim();
@@ -5499,7 +5529,7 @@ async function handleSaveOrder(){
   if(missing.length > 0){ showToast('請填寫：' + missing.join('、')); return; }
 
   const itemPayload = {
-    product, spec, qty, actualYieldQty, due, origin, productExpDate, productMfgDate, productBatchNo, packagingDate, trayBatchNo, manualMaterialBatches, coa, coaConfirmBy, coaDone, needsIrradiation, irradiationLabelConfirm, irradiationDestination, note,
+    product, spec, qty, actualYieldQty, due, origin, productExpDate, productMfgDate, productBatchNo, packagingDate, trayBatchNo, manualMaterialBatches, coa, coaConfirmBy, coaConfirmByCleared, coaDone, needsIrradiation, irradiationLabelConfirm, irradiationDestination, note,
     coaMoisture, coaWaterActivity, coaTotalPlateCount, coaColiform, coaEcoli,
     fillFormDate, fillFormTime,
     releaseBy, filledBy, warehouseConfirm,
