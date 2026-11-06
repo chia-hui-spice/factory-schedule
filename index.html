@@ -573,6 +573,9 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .os-toggle-all{ flex:0 0 auto; padding:5px 12px; font-size:14px; font-weight:800; border-radius:999px; border:1.5px solid var(--teal); background:transparent; color:var(--teal); cursor:pointer; }
 .os-caret{ flex:0 0 14px; color:var(--teal); font-weight:900; }
 .os-row.open{ background:rgba(63,184,175,0.25); }
+.os-batch{ display:block; margin-top:3px; font-size:14px; font-weight:600; color:var(--ink-dim); }
+.os-batch b{ color:var(--ink); font-weight:800; }
+.os-miss{ font-style:normal; color:var(--red); font-weight:800; }
 </style>
 </head>
 <body>
@@ -3759,7 +3762,8 @@ function orderProgressHtml(order){
     rows + '</details>';
 }
 // 排程生產：整張訂單的品項總表（品項、規格、數量、目前階段），點一列展開／收合那個品項
-const labelingExpanded = new Set();
+const labelingExpanded = new Set(); // 排程生產、標籤印製共用：展開中的品項
+const SUMMARY_TABS = ['labeling','done'];
 function orderSummaryHtml(order){
   const items = (order.items || []).filter(it=> !it.deleted);
   if(!items.length) return ''; // 一個品項也顯示，比較清楚
@@ -3770,16 +3774,22 @@ function orderSummaryHtml(order){
     const open = isHere && labelingExpanded.has(it.id);
     return '<div class="os-row' + (isHere ? ' here' : '') + (open ? ' open' : '') + '"' + (isHere ? ' data-jump-item="' + it.id + '"' : '') + '>' +
       '<span class="os-caret">' + (isHere ? (open ? '▾' : '▸') : '') + '</span>' +
-      '<span class="os-name">' + escapeHtml(it.product || '') + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + '</span>' : '') + '</span>' +
+      '<span class="os-name">' + escapeHtml(it.product || '') + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + '</span>' : '') +
+        (currentTab === 'done' ? (function(){
+          const miss = '<i class="os-miss">未填</i>';
+          const d = (v)=> v ? '<b>' + escapeHtml(String(v).replace(/-/g,'/')) + '</b>' : miss;
+          return '<span class="os-batch">批號 ' + (it.productBatchNo ? '<b>' + escapeHtml(it.productBatchNo) + '</b>' : miss) + '　製造 ' + d(it.productMfgDate) + '　有效 ' + d(it.productExpDate) +
+            (it.needsIrradiation ? '　<span style="color:' + (it.irradiationLabelConfirm ? 'var(--green)' : 'var(--amber)') + '; font-weight:800;">☢️ 照射標籤' + (it.irradiationLabelConfirm ? '已確認' : '未確認') + '</span>' : '') + '</span>';
+        })() : '') + '</span>' +
       '<span class="os-qty">' + escapeHtml(String(it.qty ?? '')) + '</span>' +
       '<span class="badge stage st-' + it.status + '">' + STATUS_LABEL[it.status] + '</span>' +
     '</div>';
   }).join('');
   const allOpen = here.length && here.every(it=> labelingExpanded.has(it.id));
   return '<div class="order-summary">' +
-    '<div class="os-title"><span><b>📋 這張訂單全部品項（' + items.length + ' 項）</b>　在排程生產 <b style="color:var(--teal);">' + here.length + '</b> 項</span>' +
+    '<div class="os-title"><span><b>📋 這張訂單全部品項（' + items.length + ' 項）</b>　在' + STATUS_LABEL[currentTab] + ' <b style="color:var(--teal);">' + here.length + '</b> 項</span>' +
       (here.length ? '<button type="button" class="os-toggle-all" data-os-all="' + order.id + '" data-open="' + (allOpen ? '1' : '') + '">' + (allOpen ? '全部收合' : '全部展開') + '</button>' : '') + '</div>' +
-    '<div style="font-size:13px; color:var(--ink-dim); margin:-2px 0 4px;">點品項那一列可以展開，填批號、日期、按排程生產完成</div>' +
+    '<div style="font-size:13px; color:var(--ink-dim); margin:-2px 0 4px;">' + (currentTab === 'done' ? '點品項那一列可以展開，修改批號、日期、確認照射標籤、按標籤印製完成' : '點品項那一列可以展開，填批號、日期、按排程生產完成') + '</div>' +
     '<div class="os-row os-headrow"><span class="os-caret"></span><span class="os-name">品項 / 規格</span><span class="os-qty">數量</span><span style="min-width:72px; text-align:center;">階段</span></div>' +
     rows + '</div>';
 }
@@ -3842,7 +3852,7 @@ function renderList(){
     let itemsHtml = '';
     activeItems.forEach(item=>{
       // 排程生產：預設只看總表，點總表那一列才展開品項明細
-      if(currentTab === 'labeling' && !labelingExpanded.has(item.id)) return;
+      if(SUMMARY_TABS.includes(currentTab) && !labelingExpanded.has(item.id)) return;
       const overdue = isOverdue(item);
       const todayRisk = isTodayAtRisk(item);
       let badges = '';
@@ -4039,7 +4049,7 @@ function renderList(){
         '</div>' +
       '</div>' +
       (currentTab === 'boxing' ? orderProgressHtml(order) : '') +
-      (currentTab === 'labeling' ? orderSummaryHtml(order) : '') +
+      (SUMMARY_TABS.includes(currentTab) ? orderSummaryHtml(order) : '') +
       orderShipPanelHtml(order) +
       itemsHtml +
       '<button class="add-item-btn" data-act="additem" data-oid="' + order.id + '">+ 新增品項</button>';
@@ -4059,7 +4069,7 @@ function renderList(){
   });
   wrap.querySelectorAll('[data-os-all]').forEach(b=> b.onclick = ()=>{
     const o = orders.find(x=> x.id === b.dataset.osAll); if(!o) return;
-    const ids = (o.items || []).filter(it=> !it.deleted && it.status === 'labeling').map(it=> it.id);
+    const ids = (o.items || []).filter(it=> !it.deleted && it.status === currentTab).map(it=> it.id);
     if(b.dataset.open) ids.forEach(id=> labelingExpanded.delete(id)); else ids.forEach(id=> labelingExpanded.add(id));
     renderList();
   });
