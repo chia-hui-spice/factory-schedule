@@ -577,6 +577,18 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .os-batch b{ color:var(--ink); font-weight:800; }
 .os-miss{ font-style:normal; color:var(--red); font-weight:800; }
 .os-go{ flex:0 0 auto; min-width:72px; padding:7px 12px; font-size:15px; font-weight:900; border-radius:999px; border:none; background:var(--green); color:#0d1f14; cursor:pointer; }
+.gs-box{ margin:8px 14px 0; border:2px solid var(--amber); border-radius:12px; padding:8px 10px; background:rgba(242,183,5,0.07); }
+.gs-head{ display:flex; justify-content:space-between; align-items:center; font-size:15.5px; cursor:pointer; }
+.gs-caret{ font-size:13.5px; font-weight:800; color:var(--amber); }
+.gs-chips{ display:flex; flex-wrap:wrap; gap:5px; margin:6px 0 2px; }
+.gs-list{ margin-top:6px; max-height:46vh; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+.gs-row{ display:flex; align-items:center; gap:8px; padding:7px 4px; border-top:1px solid var(--line); }
+.gs-row.here{ background:rgba(63,184,175,0.10); border-radius:8px; }
+.gs-main{ flex:1; min-width:0; }
+.gs-cust{ font-size:15px; font-weight:800; }
+.gs-prod{ font-size:15px; }
+.gs-go{ flex:0 0 auto; padding:7px 14px; font-size:15px; font-weight:900; border-radius:999px; border:none; background:var(--amber); color:#1d1600; cursor:pointer; }
+.gs-here{ flex:0 0 auto; font-size:13px; color:var(--teal); font-weight:800; padding:0 6px; }
 </style>
 </head>
 <body>
@@ -632,11 +644,12 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
   </div>
   <div id="tabSearchBar" style="display:flex; align-items:center; gap:8px; padding:8px 14px 0 14px;">
     <div style="flex:1; position:relative;">
-      <input type="search" id="tabSearchInput" placeholder="🔍 搜尋這個分頁：客戶、產品、規格、批號、備註…" autocomplete="off" style="width:100%; padding:10px 40px 10px 12px; font-size:17px; border-radius:10px; border:2px solid var(--line); background:var(--panel); color:var(--ink);">
+      <input type="search" id="tabSearchInput" placeholder="🔍 搜尋未完成訂單（所有步驟）：客戶、產品、規格、批號…" autocomplete="off" style="width:100%; padding:10px 40px 10px 12px; font-size:17px; border-radius:10px; border:2px solid var(--line); background:var(--panel); color:var(--ink);">
       <button type="button" id="tabSearchClear" aria-label="清除搜尋" style="display:none; position:absolute; right:6px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--ink-dim); font-size:20px; padding:4px 8px; cursor:pointer;">✕</button>
     </div>
   </div>
   <div id="tabSearchResultHint" style="display:none; padding:6px 14px 0 14px; font-size:14.5px; color:var(--amber); font-weight:700;"></div>
+  <div id="globalSearchResults" style="display:none;"></div>
   <div id="listArea"></div>
 </main>
 
@@ -3180,12 +3193,57 @@ function itemBelongsToTab(item, tab){
   return item.status === tab;
 }
 
+// 搜尋時，同時列出「所有步驟」裡符合的未完成品項（不管現在在哪一個分頁），點「前往」就跳到那個步驟
+let globalSearchOpen = true;
+function renderGlobalSearchResults(){
+  const box = document.getElementById('globalSearchResults');
+  if(!tabSearchKeyword){ box.style.display = 'none'; box.innerHTML = ''; return; }
+  const hits = [];
+  orders.forEach(o=> (o.items||[]).forEach(it=>{
+    if(it.deleted || it.status === 'qc') return;
+    if(itemMatchesTabSearch(it, o)) hits.push({ order:o, item:it });
+  }));
+  hits.sort((a,b)=> STATUS.indexOf(a.item.status) - STATUS.indexOf(b.item.status) || String(a.item.due||'').localeCompare(String(b.item.due||'')));
+  const byStage = {};
+  hits.forEach(h=> byStage[h.item.status] = (byStage[h.item.status] || 0) + 1);
+  const chips = STATUS.filter(st=> byStage[st]).map(st=> '<span class="badge stage st-' + st + '">' + STATUS_LABEL[st] + ' ' + byStage[st] + '</span>').join(' ');
+  box.style.display = '';
+  box.innerHTML = '<div class="gs-box">' +
+    '<div class="gs-head" id="gsToggle"><b>🔎 所有步驟中符合的未完成品項：' + hits.length + ' 項</b> <span class="gs-caret">' + (globalSearchOpen ? '▾ 收起' : '▸ 展開') + '</span></div>' +
+    (hits.length ? '<div class="gs-chips">' + chips + '</div>' : '<div style="font-size:14px; color:var(--ink-dim);">沒有符合的未完成品項</div>') +
+    (globalSearchOpen && hits.length ? '<div class="gs-list">' + hits.slice(0, 60).map(h=>{
+      const it = h.item, here = it.status === currentTab;
+      return '<div class="gs-row' + (here ? ' here' : '') + '">' +
+        '<div class="gs-main"><div class="gs-cust">' + escapeHtml(h.order.customer || '') + (h.order.orderNo ? ' <span style="color:var(--ink-dim); font-weight:600; font-size:13px;">' + escapeHtml(h.order.orderNo) + '</span>' : '') + '</div>' +
+          '<div class="gs-prod">' + escapeHtml(it.product || '') + (it.spec ? ' <span class="os-spec">' + escapeHtml(it.spec) + '</span>' : '') + '　<b style="color:var(--amber);">x' + escapeHtml(String(it.qty ?? '')) + '</b>　<span style="color:var(--ink-dim); font-size:13.5px;">出貨日 ' + escapeHtml((it.due || '').replace(/-/g,'/')) + '</span></div></div>' +
+        '<span class="badge stage st-' + it.status + '">' + STATUS_LABEL[it.status] + '</span>' +
+        (here ? '<span class="gs-here">在這頁</span>' : '<button type="button" class="gs-go" data-gs-oid="' + h.order.id + '" data-gs-iid="' + it.id + '">前往</button>') +
+      '</div>';
+    }).join('') + (hits.length > 60 ? '<div style="font-size:13px; color:var(--ink-dim); padding:6px;">只列出前 60 項，請多打幾個字縮小範圍</div>' : '') + '</div>' : '') +
+  '</div>';
+  document.getElementById('gsToggle').onclick = ()=>{ globalSearchOpen = !globalSearchOpen; renderGlobalSearchResults(); };
+  box.querySelectorAll('[data-gs-iid]').forEach(b=> b.onclick = ()=>{
+    const o = orders.find(x=> x.id === b.dataset.gsOid);
+    const it = o && (o.items||[]).find(i=> i.id === b.dataset.gsIid);
+    if(!it) return;
+    currentTab = it.status;
+    currentZoneFilter = null;
+    if(typeof SUMMARY_TABS !== 'undefined' && SUMMARY_TABS.includes(currentTab)) labelingExpanded.add(it.id);
+    render();
+    setTimeout(()=>{
+      const btn = document.querySelector('#orderList [data-iid="' + it.id + '"]');
+      const row = btn && (btn.closest('.item-row') || btn.closest('.order-card'));
+      if(row){ row.scrollIntoView({ behavior:'smooth', block:'center' }); row.classList.remove('si-flash'); void row.offsetWidth; row.classList.add('si-flash'); }
+    }, 80);
+  });
+}
 function updateTabSearchHint(matchingOrders){
   const hintEl = document.getElementById('tabSearchResultHint');
+  renderGlobalSearchResults();
   if(!tabSearchKeyword){ hintEl.style.display = 'none'; return; }
   let n = 0;
   matchingOrders.forEach(o=> (o.items||[]).forEach(it=>{ if(itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it) && itemMatchesTabSearch(it, o)) n++; }));
-  hintEl.textContent = '🔍 搜尋中：找到 ' + n + ' 個品項（按 ✕ 清除搜尋）';
+  hintEl.textContent = '🔍 這個分頁（' + STATUS_LABEL[currentTab] + '）找到 ' + n + ' 個品項（按 ✕ 清除搜尋）';
   hintEl.style.display = 'block';
 }
 (function setupTabSearch(){
