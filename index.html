@@ -3764,7 +3764,7 @@ function orderProgressHtml(order){
 }
 // 排程生產：整張訂單的品項總表（品項、規格、數量、目前階段），點一列展開／收合那個品項
 const labelingExpanded = new Set(); // 排程生產、標籤印製共用：展開中的品項
-const SUMMARY_TABS = ['labeling','done'];
+const SUMMARY_TABS = ['labeling','done','refill','boxing'];
 function orderSummaryHtml(order){
   const items = (order.items || []).filter(it=> !it.deleted);
   if(!items.length) return ''; // 一個品項也顯示，比較清楚
@@ -3776,24 +3776,31 @@ function orderSummaryHtml(order){
     return '<div class="os-row' + (isHere ? ' here' : '') + (open ? ' open' : '') + '"' + (isHere ? ' data-jump-item="' + it.id + '"' : '') + '>' +
       '<span class="os-caret">' + (isHere ? (open ? '▾' : '▸') : '') + '</span>' +
       '<span class="os-name">' + escapeHtml(it.product || '') + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + '</span>' : '') +
-        (currentTab === 'done' ? (function(){
+        ((currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing') ? (function(){
           const miss = '<i class="os-miss">未填</i>';
           const d = (v)=> v ? '<b>' + escapeHtml(String(v).replace(/-/g,'/')) + '</b>' : miss;
           return '<span class="os-batch">批號 ' + (it.productBatchNo ? '<b>' + escapeHtml(it.productBatchNo) + '</b>' : miss) + '　製造 ' + d(it.productMfgDate) + '　有效 ' + d(it.productExpDate) +
-            (it.needsIrradiation ? '　<span style="color:' + (it.irradiationLabelConfirm ? 'var(--green)' : 'var(--amber)') + '; font-weight:800;">☢️ 照射標籤' + (it.irradiationLabelConfirm ? '已確認' : '未確認') + '</span>' : '') + '</span>';
+            ((currentTab === 'done' && it.needsIrradiation) ? '　<span style="color:' + (it.irradiationLabelConfirm ? 'var(--green)' : 'var(--amber)') + '; font-weight:800;">☢️ 照射標籤' + (it.irradiationLabelConfirm ? '已確認' : '未確認') + '</span>' : '') +
+            ((currentTab === 'boxing' && it.status === 'boxing') ? (function(){
+              const c = effectiveChecklist(it); const n = ['c1','c2','c3','c4'].filter(k=>c[k]).length;
+              const rb = it.releaseBy || DEFAULT_RELEASE_BY;
+              return '<br>出貨前檢查 <b style="color:' + (n === 4 ? 'var(--green)' : 'var(--red)') + ';">' + n + '/4</b>　放行 <b>' + escapeHtml(rb) + '</b>' + (it.releaseBy ? '' : '（預設）');
+            })() : '') +
+            ((currentTab === 'refill' && it.status === 'refill') ? (function(){ const ps = it.packagingStaff || defaultPackagingStaff(it); return '<br>包裝人員 ' + (ps ? '<b>' + escapeHtml(ps) + '</b>' + (it.packagingStaff ? '' : '（預設）') : '<i class="os-miss">未選</i>'); })() : '') + '</span>';
         })() : '') + '</span>' +
       '<span class="os-qty">' + escapeHtml(String(it.qty ?? '')) + '</span>' +
-      ((isHere && currentTab === 'done')
+      ((isHere && (currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing'))
         ? '<button type="button" class="os-go" data-act="forward" data-oid="' + order.id + '" data-iid="' + it.id + '">完成</button>'
         : '<span class="badge stage st-' + it.status + '">' + STATUS_LABEL[it.status] + '</span>') +
     '</div>';
   }).join('');
   const allOpen = here.length && here.every(it=> labelingExpanded.has(it.id));
   return '<div class="order-summary">' +
-    '<div class="os-title"><span><b>📋 這張訂單全部品項（' + items.length + ' 項）</b>　在' + STATUS_LABEL[currentTab] + ' <b style="color:var(--teal);">' + here.length + '</b> 項</span>' +
+    '<div class="os-title"><span><b>📋 這張訂單全部品項（' + items.length + ' 項）</b>　在' + STATUS_LABEL[currentTab] + ' <b style="color:var(--teal);">' + here.length + '</b> 項' +
+      (currentTab === 'boxing' ? (function(){ const behind = items.filter(it=> STATUS.indexOf(it.status) < STATUS.indexOf('boxing')).length; return behind ? '　<b style="color:var(--amber);">⏳ 還有 ' + behind + ' 項在前面階段</b>' : '　<b style="color:var(--green);">✅ 全部到齊</b>'; })() : '') + '</span>' +
       (here.length ? '<button type="button" class="os-toggle-all" data-os-all="' + order.id + '" data-open="' + (allOpen ? '1' : '') + '">' + (allOpen ? '全部收合' : '全部展開') + '</button>' : '') + '</div>' +
-    ((currentTab === 'done' && here.length >= 2) ? '<button type="button" class="os-done os-group-done" data-os-donegroup="' + order.id + '" style="margin:2px 0 8px;">✅ 這張訂單 ' + here.length + ' 項一起標籤印製完成</button>' : '') +
-    '<div style="font-size:13px; color:var(--ink-dim); margin:-2px 0 4px;">' + (currentTab === 'done' ? '點品項那一列可以展開，修改批號、日期、確認照射標籤、按標籤印製完成' : '點品項那一列可以展開，填批號、日期、按排程生產完成') + '</div>' +
+    (((currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing') && here.length >= 2) ? '<button type="button" class="os-done os-group-done" data-os-donegroup="' + order.id + '" style="margin:2px 0 8px;">✅ 這張訂單 ' + here.length + ' 項一起' + STATUS_LABEL[currentTab] + '完成</button>' : '') +
+    '<div style="font-size:13px; color:var(--ink-dim); margin:-2px 0 4px;">' + (currentTab === 'done' ? '點品項那一列可以展開，修改批號、日期、確認照射標籤' : currentTab === 'refill' ? '點品項那一列可以展開，修改包裝人員、包裝日期' : currentTab === 'boxing' ? '點品項那一列可以展開，修改出貨前檢查、放行人員' : '點品項那一列可以展開，填批號、日期、按排程生產完成') + '</div>' +
     '<div class="os-row os-headrow"><span class="os-caret"></span><span class="os-name">品項 / 規格</span><span class="os-qty">數量</span><span style="min-width:72px; text-align:center;">階段</span></div>' +
     rows + '</div>';
 }
@@ -4052,7 +4059,6 @@ function renderList(){
           '<button class="icon-btn" data-act="delorder" data-oid="' + order.id + '" title="刪除整張訂單">🗑</button>' +
         '</div>' +
       '</div>' +
-      (currentTab === 'boxing' ? orderProgressHtml(order) : '') +
       (SUMMARY_TABS.includes(currentTab) ? orderSummaryHtml(order) : '') +
       orderShipPanelHtml(order) +
       itemsHtml +
@@ -4074,18 +4080,31 @@ function renderList(){
   });
   wrap.querySelectorAll('[data-os-donegroup]').forEach(b=> b.onclick = async ()=>{
     const o = orders.find(x=> x.id === b.dataset.osDonegroup); if(!o) return;
-    const items = (o.items || []).filter(it=> !it.deleted && it.status === 'done');
-    const blocked = items.filter(it=> it.needsIrradiation && !it.irradiationLabelConfirm);
+    const tab = currentTab, next = tab === 'done' ? 'refill' : tab === 'refill' ? 'boxing' : 'shipped';
+    const items = (o.items || []).filter(it=> !it.deleted && it.status === tab);
+    const blocked = tab === 'done'
+      ? items.filter(it=> it.needsIrradiation && !it.irradiationLabelConfirm)
+      : tab === 'refill' ? items.filter(it=> !it.packagingStaff && !defaultPackagingStaff(it))
+      : items.filter(it=> !isChecklistComplete({ checklist: effectiveChecklist(it) }));
     const ready = items.filter(it=> !blocked.includes(it));
-    if(!ready.length){ showToast('這些品項都需要先確認「照射滅菌」標籤'); return; }
-    const ok = await showConfirm('「' + o.customer + '」這張訂單 ' + ready.length + ' 項一起標籤印製完成，移到「充填包裝」？\n' + ready.map(it=> '・' + it.product + (it.spec ? '（' + it.spec + '）' : '') + ' x' + it.qty).join('\n') +
-      (blocked.length ? '\n\n☢️ 另外 ' + blocked.length + ' 項還沒確認照射滅菌標籤，會先留在標籤印製：' + blocked.map(it=> it.product).join('、') : ''), '一起標籤印製完成');
+    const why = tab === 'done' ? '還沒確認照射滅菌標籤' : tab === 'refill' ? '還沒選包裝人員（產線沒有預設）' : '出貨前檢查沒有全部打勾';
+    if(!ready.length){ showToast('這些品項都' + why); return; }
+    const ok = await showConfirm('「' + o.customer + '」這張訂單 ' + ready.length + ' 項一起' + STATUS_LABEL[tab] + '完成，移到「' + STATUS_LABEL[next] + '」？\n' +
+      ready.map(it=> '・' + it.product + (it.spec ? '（' + it.spec + '）' : '') + ' x' + it.qty + (tab === 'refill' ? '　包裝 ' + (it.packagingStaff || defaultPackagingStaff(it)) : tab === 'boxing' ? '　放行 ' + (it.releaseBy || DEFAULT_RELEASE_BY) : '')).join('\n') +
+      (blocked.length ? '\n\n⚠ 另外 ' + blocked.length + ' 項' + why + '，會先留著：' + blocked.map(it=> it.product).join('、') : ''), '一起' + STATUS_LABEL[tab] + '完成');
     if(!ok) return;
-    ready.forEach(it=>{ it.status = 'refill'; });
+    const prev = ready.map(it=> ({ s: it.status, p: it.packagingStaff, d: it.packagingDate, r: it.releaseBy, c: it.checklist, sa: it.shippedAt }));
+    ready.forEach(it=>{
+      if(tab === 'refill'){ if(!it.packagingStaff) it.packagingStaff = defaultPackagingStaff(it); if(!it.packagingDate) it.packagingDate = todayMMDD(); }
+      if(tab === 'boxing'){ if(!it.releaseBy) it.releaseBy = DEFAULT_RELEASE_BY; if(!it.checklistTouched) it.checklist = effectiveChecklist(it); it.shippedAt = Date.now(); }
+      it.status = next;
+    });
     render();
     const saved = await saveOrders();
-    if(!saved){ ready.forEach(it=>{ it.status = 'done'; }); render(); return; }
-    showToast('已完成 ' + ready.length + ' 項，移至「充填包裝」' + (blocked.length ? '；' + blocked.length + ' 項待確認照射標籤' : ''));
+    if(!saved){ ready.forEach((it, i)=>{ it.status = prev[i].s; it.packagingStaff = prev[i].p; it.packagingDate = prev[i].d; it.releaseBy = prev[i].r; it.checklist = prev[i].c; it.shippedAt = prev[i].sa; }); render(); return; }
+    // 裝箱確認 → 出貨確認：跟單項一樣扣成品庫存
+    if(tab === 'boxing'){ for(const it of ready){ if(!it.stockPreDeducted) await deductFinishedGoodStock(it, false, o); } }
+    showToast('已完成 ' + ready.length + ' 項，移至「' + STATUS_LABEL[next] + '」' + (blocked.length ? '；' + blocked.length + ' 項' + why : ''));
   });
   wrap.querySelectorAll('[data-os-all]').forEach(b=> b.onclick = ()=>{
     const o = orders.find(x=> x.id === b.dataset.osAll); if(!o) return;
@@ -4196,6 +4215,12 @@ function renderList(){
         if(panel){
           showToast('請先在卡片上選「包裝人員」才能進入裝箱確認');
           panel.classList.remove('si-flash'); void panel.offsetWidth; panel.classList.add('si-flash');
+        }else if(currentTab === 'refill'){
+          showToast('請先選「包裝人員」才能進入裝箱確認');
+          labelingExpanded.add(item.id); renderList();
+          const p2 = document.querySelector('#orderList .refill-inline select.rf-staff[data-rf-iid="' + item.id + '"]');
+          const box = p2 && p2.closest('.refill-inline');
+          if(box){ box.scrollIntoView({ behavior:'smooth', block:'center' }); box.classList.remove('si-flash'); void box.offsetWidth; box.classList.add('si-flash'); }
         }else{
           showToast('請先填寫「包裝人員」才能進入裝箱確認');
           pendingAdvanceItemId = item.id; openSheet(order, item);
@@ -4215,6 +4240,12 @@ function renderList(){
         showToast('請先在卡片上完成「' + missing.join('、') + '」才能進入出貨確認');
         const panel = btn.closest('.item-row') && btn.closest('.item-row').querySelector('.box-inline');
         if(panel){ panel.classList.remove('si-flash'); void panel.offsetWidth; panel.classList.add('si-flash'); }
+        else if(currentTab === 'boxing'){
+          labelingExpanded.add(item.id); renderList();
+          const b2 = document.querySelector('#orderList [data-bx-iid="' + item.id + '"]');
+          const box = b2 && b2.closest('.box-inline');
+          if(box){ box.scrollIntoView({ behavior:'smooth', block:'center' }); box.classList.remove('si-flash'); void box.offsetWidth; box.classList.add('si-flash'); }
+        }
         else { pendingAdvanceItemId = item.id; openSheet(order, item); }
         return;
       }
