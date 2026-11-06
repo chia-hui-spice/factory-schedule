@@ -3365,6 +3365,7 @@ async function updateDoneItemBatch(order, item, changes){
   }
   const prev = { b: item.productBatchNo, m: item.productMfgDate, e: item.productExpDate };
   item.productBatchNo = next.batchNo; item.productMfgDate = next.mfg; item.productExpDate = next.exp;
+  { const b = document.querySelector('input.db-batch[data-db-iid="' + item.id + '"]'); if(b && document.activeElement !== b) b.value = next.batchNo; }
   const ok = await saveOrders();
   if(!ok){ item.productBatchNo = prev.b; item.productMfgDate = prev.m; item.productExpDate = prev.e; renderList(); return; }
   if(fgChanged){ await saveBomData(true); if(typeof renderFinishedGoodList === 'function') renderFinishedGoodList(); }
@@ -3377,20 +3378,22 @@ function wireLabelingEdit(root){
   const save = async (item, changes)=>{
     const prev = {}; Object.keys(changes).forEach(k=> prev[k] = item[k]);
     Object.assign(item, changes);
+    // 畫面可能因為正在打字而延後重畫：先把自動帶出的批號直接填進旁邊的欄位，避免接著打字時用到舊值
+    if(changes.productBatchNo !== undefined){ const b = document.querySelector('input.lb-batch[data-lb-iid="' + item.id + '"]'); if(b && document.activeElement !== b) b.value = changes.productBatchNo; }
     const ok = await saveOrders();
     if(!ok) Object.assign(item, prev);
     renderList();
     if(ok) showToast('已儲存');
   };
   root.querySelectorAll('input.lb-mfg').forEach(inp=> inp.addEventListener('change', ()=>{
-    const item = find(inp); if(!item || inp.value === (item.productMfgDate || '')) return;
+    const item = find(inp); if(!item || !inp.value || inp.value === (item.productMfgDate || '')) return; // 打字中清空不存
     const changes = { productMfgDate: inp.value };
     // 批號空白或是照舊製造日期自動帶的 → 跟著新的製造日期
     const oldAuto = (item.productMfgDate || '').replace(/-/g,'');
     if(!item.productBatchNo || item.productBatchNo === oldAuto) changes.productBatchNo = inp.value.replace(/-/g,'');
     save(item, changes);
   }));
-  root.querySelectorAll('input.lb-exp').forEach(inp=> inp.addEventListener('change', ()=>{ const item = find(inp); if(item && inp.value !== (item.productExpDate || '')) save(item, { productExpDate: inp.value }); }));
+  root.querySelectorAll('input.lb-exp').forEach(inp=> inp.addEventListener('change', ()=>{ const item = find(inp); if(item && inp.value && inp.value !== (item.productExpDate || '')) save(item, { productExpDate: inp.value }); }));
   [['input.lb-batch','productBatchNo'], ['input.lb-tray','trayBatchNo']].forEach(([sel, field])=>{
     root.querySelectorAll(sel).forEach(inp=>{
       inp.addEventListener('change', ()=>{ const item = find(inp); if(item && inp.value.trim() !== (item[field] || '')) save(item, { [field]: inp.value.trim() }); });
@@ -3405,8 +3408,8 @@ function wireDoneBatchEdit(root){
     inp.addEventListener('change', commit);
     inp.addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); inp.blur(); } });
   });
-  root.querySelectorAll('input.db-mfg').forEach(inp=> inp.addEventListener('change', ()=>{ const { order, item } = find(inp); if(item && inp.value !== (item.productMfgDate || '')) updateDoneItemBatch(order, item, { mfg: inp.value }); }));
-  root.querySelectorAll('input.db-exp').forEach(inp=> inp.addEventListener('change', ()=>{ const { order, item } = find(inp); if(item && inp.value !== (item.productExpDate || '')) updateDoneItemBatch(order, item, { exp: inp.value }); }));
+  root.querySelectorAll('input.db-mfg').forEach(inp=> inp.addEventListener('change', ()=>{ const { order, item } = find(inp); if(item && inp.value && inp.value !== (item.productMfgDate || '')) updateDoneItemBatch(order, item, { mfg: inp.value }); }));
+  root.querySelectorAll('input.db-exp').forEach(inp=> inp.addEventListener('change', ()=>{ const { order, item } = find(inp); if(item && inp.value && inp.value !== (item.productExpDate || '')) updateDoneItemBatch(order, item, { exp: inp.value }); }));
 }
 function wireShipConfirmPanels(root){
   const find = (el)=>{ const o = orders.find(x=>x.id === el.dataset.scOid); return { order:o, item: o && (o.items||[]).find(i=>i.id === el.dataset.scIid) }; };
@@ -3826,7 +3829,19 @@ document.getElementById('simpleViewToggle').onclick = ()=>{
   try{ localStorage.setItem(SIMPLE_VIEW_TABS[currentTab], simpleViewOn[currentTab] ? '1' : '0'); }catch(e){}
   renderList();
 };
+// iPad 打字時不要重畫清單：重畫會把輸入框換掉，鍵盤就會跳掉。等離開這個欄位再重畫
+let deferredListRender = false;
 function renderList(){
+  const ae = document.activeElement;
+  const area = document.getElementById('listArea');
+  if(ae && area && area.contains(ae) && (ae.tagName === 'TEXTAREA' || (ae.tagName === 'INPUT' && !/^(checkbox|radio|button)$/.test(ae.type)))){
+    if(!deferredListRender){
+      deferredListRender = true;
+      ae.addEventListener('blur', ()=> setTimeout(()=>{ deferredListRender = false; renderList(); }, 0), { once:true });
+    }
+    return;
+  }
+  deferredListRender = false;
   updateSimpleViewToggle();
   const listEl = document.getElementById('listArea');
   const matchingOrders = orders.filter(o => (o.items||[]).some(it => itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it) && itemMatchesTabSearch(it, o)));
@@ -8417,9 +8432,16 @@ function buildStocktakeSnapshot(){
 }
 function stRowKey(r){ return r.kind + '|' + r.itemId + '|' + (r.batchNo||''); }
 
+let deferredStocktakeRender = false;
 function renderStocktakePanel(){
   const wrap = document.getElementById('stocktakePanel');
   if(!wrap) return;
+  // 盤點數量正在打字時，別台裝置存檔也不要重畫（不然鍵盤會跳掉），等離開欄位再更新
+  const ae = document.activeElement;
+  if(ae && wrap.contains(ae) && ae.tagName === 'INPUT' && !/^(checkbox|radio|button|file)$/.test(ae.type)){
+    if(!deferredStocktakeRender){ deferredStocktakeRender = true; ae.addEventListener('blur', ()=> setTimeout(()=>{ deferredStocktakeRender = false; renderStocktakePanel(); }, 0), { once:true }); }
+    return;
+  }
   const open = stOpen();
   let html = '';
   if(!open){
