@@ -3240,7 +3240,7 @@ function warehouseConfirmNames(){
 function shipConfirmPanelHtml(order, item){
   // 只在「出貨確認」頁顯示（含用現有庫存直接送來的品項）
   if(currentTab !== 'shipped' || item.status !== 'shipped') return ''; // 品管COA頁不顯示
-  if(currentTab === 'shipped' && orderShippedItems(order).length >= 2) return ''; // 整張訂單一次確認時，品項上就不重複顯示
+  if(currentTab === 'shipped' && orderShippedItems(order).length >= 1) return ''; // 出貨確認改用訂單上方的整張設定，品項上就不重複顯示
   const ids = 'data-sc-oid="' + order.id + '" data-sc-iid="' + item.id + '"';
   const methods = [['today','🚚 寄貨'],['tomorrow','📦 送貨'],['pickup','🙋 自取']];
   const names = warehouseConfirmNames();
@@ -3265,11 +3265,12 @@ function orderShippedItems(order){ return (order.items || []).filter(it=> !it.de
 function orderShipPanelHtml(order){
   if(currentTab !== 'shipped') return '';
   const items = orderShippedItems(order);
-  if(items.length < 2) return '';
+  if(items.length < 1) return ''; // 一個品項也用訂單上方的設定（收合時也能選）
   const ids = 'data-os-oid="' + order.id + '"';
   const pick = (f)=>{ const vals = [...new Set(items.map(it=> it[f] || ''))]; return vals.length === 1 ? vals[0] : '__mixed'; };
   const sm = pick('shipMethod');
-  let wc = pick('warehouseConfirm'); if(!wc) wc = DEFAULT_WAREHOUSE_CONFIRM;
+  // 沒填的當作預設潘麗娟，才不會因為有的品項已存預設、有的還沒存，就被當成「各品項不一樣」
+  let wc = (function(){ const vals = [...new Set(items.map(it=> it.warehouseConfirm || DEFAULT_WAREHOUSE_CONFIRM))]; return vals.length === 1 ? vals[0] : '__mixed'; })();
   const dates = [...new Set(items.map(it=> it.actualShipDate || ''))];
   const dateVal = dates.length === 1 && dates[0] ? dates[0] : todayStr();
   const names = warehouseConfirmNames();
@@ -3277,7 +3278,7 @@ function orderShipPanelHtml(order){
   const methods = [['today','🚚 寄貨'],['tomorrow','📦 送貨'],['pickup','🙋 自取']];
   const coaWait = COA_BLOCK_SHIP ? items.filter(it=> needsCoa(it) && !it.coaConfirmBy).length : 0;
   return '<div class="ship-inline order-ship">' +
-    '<div class="si-label" style="font-size:16px; color:var(--teal);">🚚 整張訂單一次出貨確認（' + items.length + ' 個品項）</div>' +
+    '<div class="si-label" style="font-size:16px; color:var(--teal);">🚚 ' + (items.length > 1 ? '整張訂單一次出貨確認（' + items.length + ' 個品項）' : '出貨確認') + '</div>' +
     '<div class="si-label">出貨方式 <span style="color:var(--red);">*</span>' + (sm === '__mixed' ? '<span style="color:var(--amber); font-weight:700;">（目前各品項不一樣，選了會全部改成一樣）</span>' : '') + '</div>' +
     '<div class="si-methods">' + methods.map(([v,l])=>'<button type="button" class="si-method' + (sm === v ? ' on' : '') + '" ' + ids + ' data-os-method="' + v + '">' + l + '</button>').join('') + '</div>' +
     '<div class="si-row">' +
@@ -3764,7 +3765,7 @@ function orderProgressHtml(order){
 }
 // 排程生產：整張訂單的品項總表（品項、規格、數量、目前階段），點一列展開／收合那個品項
 const labelingExpanded = new Set(); // 排程生產、標籤印製共用：展開中的品項
-const SUMMARY_TABS = ['labeling','done','refill','boxing'];
+const SUMMARY_TABS = ['labeling','done','refill','boxing','shipped'];
 function orderSummaryHtml(order){
   const items = (order.items || []).filter(it=> !it.deleted);
   if(!items.length) return ''; // 一個品項也顯示，比較清楚
@@ -3776,7 +3777,7 @@ function orderSummaryHtml(order){
     return '<div class="os-row' + (isHere ? ' here' : '') + (open ? ' open' : '') + '"' + (isHere ? ' data-jump-item="' + it.id + '"' : '') + '>' +
       '<span class="os-caret">' + (isHere ? (open ? '▾' : '▸') : '') + '</span>' +
       '<span class="os-name">' + escapeHtml(it.product || '') + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + '</span>' : '') +
-        ((currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing') ? (function(){
+        ((currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing' || currentTab === 'shipped') ? (function(){
           const miss = '<i class="os-miss">未填</i>';
           const d = (v)=> v ? '<b>' + escapeHtml(String(v).replace(/-/g,'/')) + '</b>' : miss;
           return '<span class="os-batch">批號 ' + (it.productBatchNo ? '<b>' + escapeHtml(it.productBatchNo) + '</b>' : miss) + '　製造 ' + d(it.productMfgDate) + '　有效 ' + d(it.productExpDate) +
@@ -3786,10 +3787,14 @@ function orderSummaryHtml(order){
               const rb = it.releaseBy || DEFAULT_RELEASE_BY;
               return '<br>出貨前檢查 <b style="color:' + (n === 4 ? 'var(--green)' : 'var(--red)') + ';">' + n + '/4</b>　放行 <b>' + escapeHtml(rb) + '</b>' + (it.releaseBy ? '' : '（預設）');
             })() : '') +
+            ((currentTab === 'shipped' && it.status === 'shipped') ? (function(){
+              const sm = { today:'🚚 寄貨', tomorrow:'📦 送貨', pickup:'🙋 自取' }[it.shipMethod] || '';
+              return '<br>出貨方式 ' + (sm ? '<b>' + sm + '</b>' : '<i class="os-miss">未選</i>') + '　倉管會計 <b>' + escapeHtml(it.warehouseConfirm || DEFAULT_WAREHOUSE_CONFIRM) + '</b>' + (it.warehouseConfirm ? '' : '（預設）');
+            })() : '') +
             ((currentTab === 'refill' && it.status === 'refill') ? (function(){ const ps = it.packagingStaff || defaultPackagingStaff(it); return '<br>包裝人員 ' + (ps ? '<b>' + escapeHtml(ps) + '</b>' + (it.packagingStaff ? '' : '（預設）') : '<i class="os-miss">未選</i>'); })() : '') + '</span>';
         })() : '') + '</span>' +
       '<span class="os-qty">' + escapeHtml(String(it.qty ?? '')) + '</span>' +
-      ((isHere && (currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing'))
+      ((isHere && (currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing' || currentTab === 'shipped'))
         ? '<button type="button" class="os-go" data-act="forward" data-oid="' + order.id + '" data-iid="' + it.id + '">完成</button>'
         : '<span class="badge stage st-' + it.status + '">' + STATUS_LABEL[it.status] + '</span>') +
     '</div>';
@@ -3800,7 +3805,7 @@ function orderSummaryHtml(order){
       (currentTab === 'boxing' ? (function(){ const behind = items.filter(it=> STATUS.indexOf(it.status) < STATUS.indexOf('boxing')).length; return behind ? '　<b style="color:var(--amber);">⏳ 還有 ' + behind + ' 項在前面階段</b>' : '　<b style="color:var(--green);">✅ 全部到齊</b>'; })() : '') + '</span>' +
       (here.length ? '<button type="button" class="os-toggle-all" data-os-all="' + order.id + '" data-open="' + (allOpen ? '1' : '') + '">' + (allOpen ? '全部收合' : '全部展開') + '</button>' : '') + '</div>' +
     (((currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing') && here.length >= 2) ? '<button type="button" class="os-done os-group-done" data-os-donegroup="' + order.id + '" style="margin:2px 0 8px;">✅ 這張訂單 ' + here.length + ' 項一起' + STATUS_LABEL[currentTab] + '完成</button>' : '') +
-    '<div style="font-size:13px; color:var(--ink-dim); margin:-2px 0 4px;">' + (currentTab === 'done' ? '點品項那一列可以展開，修改批號、日期、確認照射標籤' : currentTab === 'refill' ? '點品項那一列可以展開，修改包裝人員、包裝日期' : currentTab === 'boxing' ? '點品項那一列可以展開，修改出貨前檢查、放行人員' : '點品項那一列可以展開，填批號、日期、按排程生產完成') + '</div>' +
+    '<div style="font-size:13px; color:var(--ink-dim); margin:-2px 0 4px;">' + (currentTab === 'done' ? '點品項那一列可以展開，修改批號、日期、確認照射標籤' : currentTab === 'refill' ? '點品項那一列可以展開，修改包裝人員、包裝日期' : currentTab === 'boxing' ? '點品項那一列可以展開，修改出貨前檢查、放行人員' : currentTab === 'shipped' ? '出貨方式、倉管會計在上面一次選好，可以每項按「完成」或整張一起完成' : '點品項那一列可以展開，填批號、日期、按排程生產完成') + '</div>' +
     '<div class="os-row os-headrow"><span class="os-caret"></span><span class="os-name">品項 / 規格</span><span class="os-qty">數量</span><span style="min-width:72px; text-align:center;">階段</span></div>' +
     rows + '</div>';
 }
@@ -4260,7 +4265,7 @@ function renderList(){
           if(onlyInline){
             // 這兩項在卡片上就能填，不用打開表單
             showToast('請先在卡片上選「' + missing.join('、') + '」');
-            const panel = btn.closest('.item-row') && btn.closest('.item-row').querySelector('.ship-inline');
+            const panel = (btn.closest('.item-row') && btn.closest('.item-row').querySelector('.ship-inline')) || (btn.closest('.order-card') && btn.closest('.order-card').querySelector('.order-ship'));
             if(panel){ panel.classList.remove('si-flash'); void panel.offsetWidth; panel.classList.add('si-flash'); }
             return;
           }
