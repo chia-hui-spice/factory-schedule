@@ -557,6 +557,18 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .cv-confirm select{ width:100%; margin-top:2px; padding:4px 6px; font-size:15px; font-weight:800; border-radius:6px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); }
 .cv-confirm.missing{ border-color:var(--red) !important; }
 .cv-confirm.si-flash{ animation:siFlash 1.2s ease 1; }
+.order-summary{ margin:8px 0 12px; border:2px solid var(--teal); border-radius:12px; padding:8px 12px; background:var(--panel-raised); }
+.order-summary summary{ cursor:pointer; font-size:16px; line-height:1.6; margin-bottom:4px; }
+.os-row{ display:flex; align-items:center; gap:10px; padding:8px 6px; border-top:1px solid var(--line); }
+.os-row.here{ background:rgba(63,184,175,0.12); border-radius:8px; cursor:pointer; }
+.os-row:not(.here):not(.os-headrow){ opacity:0.6; }
+.os-headrow{ font-size:13px; color:var(--ink-dim); border-top:none; padding-top:2px; padding-bottom:2px; }
+.os-name{ flex:1; min-width:0; font-size:18px; font-weight:800; }
+.os-headrow .os-name, .os-headrow .os-qty{ font-size:13px; font-weight:600; color:var(--ink-dim); }
+.os-spec{ display:inline-block; margin-left:8px; font-size:15px; font-weight:600; color:var(--ink-dim); }
+.os-qty{ flex:0 0 auto; min-width:56px; text-align:right; font-size:22px; font-weight:900; color:var(--amber); }
+.os-row .badge{ flex:0 0 auto; min-width:72px; text-align:center; }
+.item-row.si-flash{ animation:siFlash 1.2s ease 1; }
 </style>
 </head>
 <body>
@@ -3742,6 +3754,25 @@ function orderProgressHtml(order){
     '<div class="op-bar"><div style="width:' + pct + '%; background:' + (allReady ? 'var(--green)' : 'var(--amber)') + ';"></div></div>' +
     rows + '</details>';
 }
+// 排程生產：整張訂單的品項總表（品項、規格、數量、目前階段），點一列跳到那個品項
+function orderSummaryHtml(order){
+  const items = (order.items || []).filter(it=> !it.deleted);
+  if(items.length < 2) return '';
+  const here = items.filter(it=> it.status === currentTab);
+  const sorted = items.slice().sort((a,b)=> (b.status === currentTab) - (a.status === currentTab) || STATUS.indexOf(a.status) - STATUS.indexOf(b.status));
+  const rows = sorted.map(it=>{
+    const isHere = it.status === currentTab;
+    return '<div class="os-row' + (isHere ? ' here' : '') + '"' + (isHere ? ' data-jump-item="' + it.id + '"' : '') + '>' +
+      '<span class="os-name">' + escapeHtml(it.product || '') + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + '</span>' : '') + '</span>' +
+      '<span class="os-qty">' + escapeHtml(String(it.qty ?? '')) + '</span>' +
+      '<span class="badge stage st-' + it.status + '">' + STATUS_LABEL[it.status] + '</span>' +
+    '</div>';
+  }).join('');
+  return '<details class="order-summary" open>' +
+    '<summary><b>📋 這張訂單全部品項（' + items.length + ' 項）</b>　在排程生產 <b style="color:var(--teal);">' + here.length + '</b> 項</summary>' +
+    '<div class="os-row os-headrow"><span class="os-name">品項 / 規格</span><span class="os-qty">數量</span><span style="min-width:72px; text-align:center;">階段</span></div>' +
+    rows + '</details>';
+}
 // 各分頁：作業員用的「簡潔顯示」（預設開啟，每個分頁、每台裝置各自記住）
 const SIMPLE_VIEW_TABS = { pending:'simpleViewPending', inprogress:'simpleViewInprogress', labeling:'simpleViewLabeling', done:'simpleViewDone', refill:'simpleViewRefill', boxing:'simpleViewBoxing', shipped:'simpleViewShipped', coa:'simpleViewCoa' };
 const simpleViewOn = {}; Object.keys(SIMPLE_VIEW_TABS).forEach(t=> simpleViewOn[t] = true);
@@ -3996,6 +4027,7 @@ function renderList(){
         '</div>' +
       '</div>' +
       (currentTab === 'boxing' ? orderProgressHtml(order) : '') +
+      (currentTab === 'labeling' ? orderSummaryHtml(order) : '') +
       orderShipPanelHtml(order) +
       itemsHtml +
       '<button class="add-item-btn" data-act="additem" data-oid="' + order.id + '">+ 新增品項</button>';
@@ -4004,6 +4036,11 @@ function renderList(){
   });
 
   wireShipConfirmPanels(wrap);
+  wrap.querySelectorAll('[data-jump-item]').forEach(r=> r.onclick = ()=>{
+    const btn = wrap.querySelector('[data-act="forward"][data-iid="' + r.dataset.jumpItem + '"]');
+    const row = btn && btn.closest('.item-row');
+    if(row){ row.scrollIntoView({ behavior:'smooth', block:'center' }); row.classList.remove('si-flash'); void row.offsetWidth; row.classList.add('si-flash'); }
+  });
   wrap.querySelectorAll('select.cv-by').forEach(sel=> sel.onchange = async ()=>{
     const order = orders.find(o=> o.id === sel.dataset.cvOid);
     const item = order && (order.items || []).find(i=> i.id === sel.dataset.cvIid);
