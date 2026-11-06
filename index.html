@@ -576,6 +576,7 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .os-batch{ display:block; margin-top:3px; font-size:14px; font-weight:600; color:var(--ink-dim); }
 .os-batch b{ color:var(--ink); font-weight:800; }
 .os-miss{ font-style:normal; color:var(--red); font-weight:800; }
+.os-go{ flex:0 0 auto; min-width:72px; padding:7px 12px; font-size:15px; font-weight:900; border-radius:999px; border:none; background:var(--green); color:#0d1f14; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -3309,7 +3310,7 @@ function wireOrderShipPanels(root){
     if(v) applyAll(o, 'warehouseConfirm', v);
   });
   root.querySelectorAll('input.os-date').forEach(inp=> inp.addEventListener('change', ()=>{ const o = orderOf(inp); if(o && inp.value) applyAll(o, 'actualShipDate', inp.value); }));
-  root.querySelectorAll('button.os-done').forEach(b=> b.onclick = async ()=>{
+  root.querySelectorAll('button.os-done[data-os-oid]').forEach(b=> b.onclick = async ()=>{
     const o = orderOf(b); if(!o) return;
     const items = orderShippedItems(o);
     const panel = b.closest('.order-ship');
@@ -3782,13 +3783,16 @@ function orderSummaryHtml(order){
             (it.needsIrradiation ? '　<span style="color:' + (it.irradiationLabelConfirm ? 'var(--green)' : 'var(--amber)') + '; font-weight:800;">☢️ 照射標籤' + (it.irradiationLabelConfirm ? '已確認' : '未確認') + '</span>' : '') + '</span>';
         })() : '') + '</span>' +
       '<span class="os-qty">' + escapeHtml(String(it.qty ?? '')) + '</span>' +
-      '<span class="badge stage st-' + it.status + '">' + STATUS_LABEL[it.status] + '</span>' +
+      ((isHere && currentTab === 'done')
+        ? '<button type="button" class="os-go" data-act="forward" data-oid="' + order.id + '" data-iid="' + it.id + '">完成</button>'
+        : '<span class="badge stage st-' + it.status + '">' + STATUS_LABEL[it.status] + '</span>') +
     '</div>';
   }).join('');
   const allOpen = here.length && here.every(it=> labelingExpanded.has(it.id));
   return '<div class="order-summary">' +
     '<div class="os-title"><span><b>📋 這張訂單全部品項（' + items.length + ' 項）</b>　在' + STATUS_LABEL[currentTab] + ' <b style="color:var(--teal);">' + here.length + '</b> 項</span>' +
       (here.length ? '<button type="button" class="os-toggle-all" data-os-all="' + order.id + '" data-open="' + (allOpen ? '1' : '') + '">' + (allOpen ? '全部收合' : '全部展開') + '</button>' : '') + '</div>' +
+    ((currentTab === 'done' && here.length >= 2) ? '<button type="button" class="os-done os-group-done" data-os-donegroup="' + order.id + '" style="margin:2px 0 8px;">✅ 這張訂單 ' + here.length + ' 項一起標籤印製完成</button>' : '') +
     '<div style="font-size:13px; color:var(--ink-dim); margin:-2px 0 4px;">' + (currentTab === 'done' ? '點品項那一列可以展開，修改批號、日期、確認照射標籤、按標籤印製完成' : '點品項那一列可以展開，填批號、日期、按排程生產完成') + '</div>' +
     '<div class="os-row os-headrow"><span class="os-caret"></span><span class="os-name">品項 / 規格</span><span class="os-qty">數量</span><span style="min-width:72px; text-align:center;">階段</span></div>' +
     rows + '</div>';
@@ -4058,7 +4062,8 @@ function renderList(){
   });
 
   wireShipConfirmPanels(wrap);
-  wrap.querySelectorAll('[data-jump-item]').forEach(r=> r.onclick = ()=>{
+  wrap.querySelectorAll('[data-jump-item]').forEach(r=> r.onclick = (e)=>{
+    if(e.target.closest('[data-act]')) return; // 按的是「完成」按鈕，不是展開
     const id = r.dataset.jumpItem;
     if(labelingExpanded.has(id)){ labelingExpanded.delete(id); renderList(); return; }
     labelingExpanded.add(id);
@@ -4066,6 +4071,21 @@ function renderList(){
     const btn = document.querySelector('#orderList [data-act="forward"][data-iid="' + id + '"]');
     const row = btn && btn.closest('.item-row');
     if(row){ row.scrollIntoView({ behavior:'smooth', block:'nearest' }); row.classList.remove('si-flash'); void row.offsetWidth; row.classList.add('si-flash'); }
+  });
+  wrap.querySelectorAll('[data-os-donegroup]').forEach(b=> b.onclick = async ()=>{
+    const o = orders.find(x=> x.id === b.dataset.osDonegroup); if(!o) return;
+    const items = (o.items || []).filter(it=> !it.deleted && it.status === 'done');
+    const blocked = items.filter(it=> it.needsIrradiation && !it.irradiationLabelConfirm);
+    const ready = items.filter(it=> !blocked.includes(it));
+    if(!ready.length){ showToast('這些品項都需要先確認「照射滅菌」標籤'); return; }
+    const ok = await showConfirm('「' + o.customer + '」這張訂單 ' + ready.length + ' 項一起標籤印製完成，移到「充填包裝」？\n' + ready.map(it=> '・' + it.product + (it.spec ? '（' + it.spec + '）' : '') + ' x' + it.qty).join('\n') +
+      (blocked.length ? '\n\n☢️ 另外 ' + blocked.length + ' 項還沒確認照射滅菌標籤，會先留在標籤印製：' + blocked.map(it=> it.product).join('、') : ''), '一起標籤印製完成');
+    if(!ok) return;
+    ready.forEach(it=>{ it.status = 'refill'; });
+    render();
+    const saved = await saveOrders();
+    if(!saved){ ready.forEach(it=>{ it.status = 'done'; }); render(); return; }
+    showToast('已完成 ' + ready.length + ' 項，移至「充填包裝」' + (blocked.length ? '；' + blocked.length + ' 項待確認照射標籤' : ''));
   });
   wrap.querySelectorAll('[data-os-all]').forEach(b=> b.onclick = ()=>{
     const o = orders.find(x=> x.id === b.dataset.osAll); if(!o) return;
@@ -4158,7 +4178,16 @@ function renderList(){
       }
       if(item.status === 'done' && item.needsIrradiation && !item.irradiationLabelConfirm){
         showToast('這張訂單需要照射滅菌，請先確認已印有「照射滅菌」標籤才能進入充填包裝');
-        pendingAdvanceItemId = item.id; openSheet(order, item);
+        if(currentTab === 'done'){
+          // 在卡片上就能勾，不用開表單：展開這個品項
+          labelingExpanded.add(item.id); renderList();
+          const row = document.querySelector('#orderList [data-act="forward"][data-iid="' + item.id + '"]');
+          const card = row && row.closest('.item-row');
+          const chk = card && card.querySelector('.irrConfirmChk');
+          const box = chk && (chk.closest('label') || chk.parentElement);
+          if(card) card.scrollIntoView({ behavior:'smooth', block:'center' });
+          if(box){ box.classList.remove('si-flash'); void box.offsetWidth; box.classList.add('si-flash'); }
+        }else{ pendingAdvanceItemId = item.id; openSheet(order, item); }
         return;
       }
       if(item.status === 'refill' && !item.packagingStaff && defaultPackagingStaff(item)) item.packagingStaff = defaultPackagingStaff(item);
