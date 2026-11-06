@@ -541,6 +541,17 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .simple-batch.editable input::placeholder{ color:var(--red); font-weight:800; }
 .lb-grid{ margin-bottom:0; }
 .lb-grid > div{ flex:1 1 46%; }
+.coa-vals{ border:2px solid var(--purple, #9b7fd1); border-radius:12px; padding:10px 12px; margin:8px 0; background:rgba(155,127,209,0.08); }
+.coa-vals.ok{ border-color:var(--green); background:rgba(76,168,114,0.08); }
+.cv-head{ display:flex; justify-content:space-between; align-items:center; font-size:15.5px; margin-bottom:8px; }
+.cv-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; }
+.cv-grid > div{ border:1px solid var(--line); border-radius:8px; padding:5px 8px; background:var(--panel-raised); min-width:0; }
+.cv-grid span{ display:block; font-size:12.5px; color:var(--ink-dim); }
+.cv-grid b{ font-size:16px; word-break:break-all; }
+.cv-grid i{ font-style:normal; font-size:14px; color:var(--red); font-weight:700; }
+@media (max-width:480px){ .cv-grid{ grid-template-columns:repeat(2, 1fr); } }
+.coa-vals .cb-btn{ width:100%; padding:9px; font-size:15.5px; font-weight:800; border-radius:10px; border:2px solid var(--green); background:var(--panel); color:var(--green); cursor:pointer; }
+.coa-vals:not(.ok) .cb-btn{ border-color:#9b7fd1; color:#b9a3e6; }
 </style>
 </head>
 <body>
@@ -3372,6 +3383,23 @@ function wireShipConfirmPanels(root){
     if(inp.value && inp.value !== item.actualShipDate) save(item, 'actualShipDate', inp.value, item.actualShipDate || '');
   }));
 }
+// 品管COA頁：品管確認的數值顯示在卡片上
+function coaValuesHtml(order, item){
+  if(currentTab !== 'coa') return '';
+  const fields = [['水分','coaMoisture'],['水活性','coaWaterActivity'],['總生菌數','coaTotalPlateCount'],['大腸桿菌群','coaColiform'],['大腸桿菌','coaEcoli']];
+  const filled = fields.filter(([,k])=> String(item[k] || '').trim() !== '').length;
+  const all = filled === fields.length;
+  return '<div class="coa-vals' + (all ? ' ok' : '') + '">' +
+    '<div class="cv-head"><b>🧪 品管確認數值</b><span style="color:' + (all ? 'var(--green)' : filled ? 'var(--amber)' : 'var(--ink-dim)') + '; font-weight:800;">' + (all ? '✅ 已填完' : filled ? '已填 ' + filled + ' / ' + fields.length : '尚未填寫') + '</span></div>' +
+    '<div class="cv-grid">' + fields.map(([label, k])=>{
+      const v = String(item[k] || '').trim();
+      return '<div><span>' + label + '</span>' + (v ? '<b>' + escapeHtml(v) + '</b>' : '<i>未填</i>') + '</div>';
+    }).join('') +
+    '<div><span>COA確認人員</span>' + (item.coaConfirmBy ? '<b>' + escapeHtml(item.coaConfirmBy) + '</b>' : '<i>未填</i>') + '</div>' +
+    '</div>' +
+    '<button type="button" class="cb-btn" data-act="edit" data-scroll-to="fCoaMoisture" data-oid="' + order.id + '" data-iid="' + item.id + '" style="margin-top:8px;">✏️ ' + (filled ? '修改品管數值' : '填寫品管數值') + '</button>' +
+  '</div>';
+}
 // 排程生產：需要 COA 的品項提醒填寫原料批號（只提醒，不擋）
 function coaMaterialBatchHtml(order, item){
   // 排程生產頁（停在排程生產的品項）＋品管COA頁（全部需要 COA 的品項）
@@ -3807,7 +3835,7 @@ function renderList(){
         if(item.shipMethod && (tab === 'boxing' || tab === 'shipped')) tags.push('<span class="badge ship-' + item.shipMethod + '">' + shipMethodFullLabel(item) + '</span>');
         const zonesTxt = ((tab === 'labeling' || tab === 'refill') && !currentZoneFilter && item.productionZones && item.productionZones.length) ? '　' + escapeHtml(item.productionZones.join('、')) : '';
         // 出貨確認一定顯示批號／製造日期／有效日期（沒填會標紅色「未填」提醒）；其他階段有填才顯示
-        const bigBatch = ['done','refill','boxing','shipped'].includes(tab); // 這幾頁用大框一定顯示（沒填標紅色「未填」）
+        const bigBatch = ['done','refill','boxing','shipped','coa'].includes(tab); // 這幾頁用大框一定顯示（沒填標紅色「未填」）
         const showBatch = bigBatch || (['boxing','coa'].includes(tab) && (item.productBatchNo || item.productMfgDate || item.productExpDate));
         const miss = '<b style="color:var(--red);">未填</b>';
         const fmtD = (d)=> escapeHtml(String(d).replace(/-/g,'/'));
@@ -3834,6 +3862,7 @@ function renderList(){
           (item.note ? '<div class="item-note">' + escapeHtml(item.note) + '</div>' : '') +
           irrConfirmHtml +
           labelEditHtml +
+          coaValuesHtml(order, item) +
           coaMaterialBatchHtml(order, item) +
           refillPanelHtml(order, item) +
           boxingPanelHtml(order, item) +
@@ -3852,6 +3881,7 @@ function renderList(){
         ((currentTab === 'boxing' && item.status === 'boxing') ? '' : '<div class="checklist-row">' + chkHtml + '</div>') +
         (item.note ? '<div class="item-note">' + escapeHtml(item.note) + '</div>' : '') +
         irrConfirmHtml +
+        coaValuesHtml(order, item) +
         coaMaterialBatchHtml(order, item) +
         refillPanelHtml(order, item) +
         boxingPanelHtml(order, item) +
