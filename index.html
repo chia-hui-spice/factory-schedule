@@ -1691,6 +1691,10 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
     <div class="section-label i18n">可看到的功能按鈕</div>
     <div id="permButtonsCheckboxes" class="perm-checkbox-grid"></div>
 
+    <div class="section-label">刪除權限</div>
+    <label class="perm-checkbox-item" style="border-color:var(--red);"><input type="checkbox" id="permCanDelete"> 🗑 可以刪除訂單、刪除品項、在垃圾桶永久刪除</label>
+    <div style="font-size:13.5px; color:var(--ink-dim); margin:4px 0 10px;">沒有勾的帳號看不到刪除按鈕。管理者一定可以刪除。</div>
+
     <div class="section-label i18n">限定產線（只影響「排程生產」「充填包裝」分頁看到的品項）</div>
     <div class="field">
       <select id="permProductionZone">
@@ -2490,6 +2494,13 @@ function shipMethodFullLabel(item){
 }
 
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
+// 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
+function canDeleteOrders(){
+  if(isCurrentUserAdmin) return true;
+  const p = (typeof permissions !== 'undefined') && currentUserEmail && permissions[currentUserEmail];
+  return !!(p && p.canDelete === true);
+}
+function noDeletePermission(){ showAlert('你的帳號沒有「刪除訂單」的權限。\n需要刪除的話，請找管理者（或請管理者在「權限管理」幫你開啟）。', '沒有刪除權限'); }
 const HYGIENE_FEATURE_ENABLED = false; // 衛生管理功能開關：改成 true 即可恢復顯示，資料不受影響
 const PERM_BUTTON_OPTIONS = [
   { id: 'bomBtn', label: '📦 進銷存管理' },
@@ -4134,7 +4145,7 @@ function renderList(){
         '<div><div class="order-no">' + escapeHtml(order.orderNo || '') + '</div><div class="order-customer">' + escapeHtml(order.customer) + '</div>' +
           (formatOrderCreated(order) && !isSimpleView() ? '<div class="order-created">🕒 訂單成立：' + formatOrderCreated(order) + '</div>' : '') + '</div>' +
         '<div class="order-actions">' +
-          '<button class="icon-btn" data-act="delorder" data-oid="' + order.id + '" title="刪除整張訂單">🗑</button>' +
+          (canDeleteOrders() ? '<button class="icon-btn" data-act="delorder" data-oid="' + order.id + '" title="刪除整張訂單">🗑</button>' : '') +
         '</div>' +
       '</div>' +
       (SUMMARY_TABS.includes(currentTab) ? orderSummaryHtml(order) : '') +
@@ -4590,6 +4601,7 @@ function renderList(){
     btn.onclick = async ()=>{
       const order = orders.find(o=>o.id === btn.dataset.oid);
       if(!order) return;
+      if(!canDeleteOrders()){ noDeletePermission(); return; }
       const ok = await showConfirm('這張訂單裡所有品項都會移到垃圾桶，30天內可復原。', '確定要刪除整張訂單嗎？');
       if(!ok) return;
       (order.items||[]).forEach(it=>{ if(!it.deleted){ it.deleted = true; it.deletedAt = Date.now(); } });
@@ -5242,7 +5254,7 @@ function openSheet(order, item){
   updateStageVisibility(currentEditingStage);
   applyStageContentLock(item);
 
-  document.getElementById('btnDelete').style.display = item ? 'block' : 'none';
+  document.getElementById('btnDelete').style.display = (item && canDeleteOrders()) ? 'block' : 'none';
   overlay.classList.add('show');
 }
 
@@ -5792,6 +5804,7 @@ form.addEventListener('submit', function(e){ e.preventDefault(); });
 
 document.getElementById('btnDelete').onclick = async ()=>{
   if(!editingOrderId || !editingItemId) return;
+  if(!canDeleteOrders()){ noDeletePermission(); return; }
   const ok = await showConfirm('刪除後會先移到垃圾桶，30天內都能復原。', '確定要刪除這個品項嗎？');
   if(!ok) return;
   const order = orders.find(o=>o.id === editingOrderId);
@@ -7562,7 +7575,7 @@ function renderTrash(){
       '<div class="trash-item-meta">還剩 ' + daysLeft + ' 天自動清除</div>' +
       '<div class="trash-item-actions">' +
         '<button class="btn-restore" data-restore-o="'+x.order.id+'" data-restore-i="'+x.item.id+'">復原</button>' +
-        '<button class="btn-purge" data-purge-o="'+x.order.id+'" data-purge-i="'+x.item.id+'">永久刪除</button>' +
+        (canDeleteOrders() ? '<button class="btn-purge" data-purge-o="'+x.order.id+'" data-purge-i="'+x.item.id+'">永久刪除</button>' : '') +
       '</div>' +
     '</div>';
   }).join('');
@@ -7576,6 +7589,7 @@ function renderTrash(){
   });
   listEl.querySelectorAll('[data-purge-i]').forEach(btn=>{
     btn.onclick = async ()=>{
+      if(!canDeleteOrders()){ noDeletePermission(); return; }
       const ok = await showConfirm('此動作無法復原。', '確定要永久刪除嗎？');
       if(!ok) return;
       const order = orders.find(o=>o.id===btn.dataset.purgeO);
@@ -7720,17 +7734,18 @@ function renderPermCheckboxes(currentPerm){
   zoneSel.innerHTML = '<option value="">不限制（看得到所有產線）</option>' +
     PRODUCTION_ZONES.map(z=>'<option value="'+escapeHtml(z)+'">'+escapeHtml(z)+'</option>').join('');
   zoneSel.value = (currentPerm && currentPerm.productionZone) ? currentPerm.productionZone : '';
+  document.getElementById('permCanDelete').checked = !!(currentPerm && currentPerm.canDelete === true);
 }
 
 function renderPermUserList(){
   const listEl = document.getElementById('permUserList');
   const emails = Object.keys(permissions);
   if(emails.length === 0){
-    listEl.innerHTML = '<div class="ship-list-empty">目前沒有任何帳號設定限制，大家都能看到全部</div>';
+    listEl.innerHTML = '<div class="ship-list-empty">目前沒有任何帳號設定限制，大家都能看到全部（但只有管理者可以刪除訂單）</div>';
     return;
   }
   listEl.innerHTML = emails.map(email=>{
-    return '<div class="perm-user-row" data-perm-email="'+escapeHtml(email)+'"><div>'+escapeHtml(email)+'</div><div style="color:var(--ink-dim); font-size:13.9px;">點擊編輯</div></div>';
+    return '<div class="perm-user-row" data-perm-email="'+escapeHtml(email)+'"><div>'+escapeHtml(email)+(permissions[email] && permissions[email].canDelete ? ' <span style="color:var(--red); font-size:13px; font-weight:800;">🗑 可刪除</span>' : '')+'</div><div style="color:var(--ink-dim); font-size:13.9px;">點擊編輯</div></div>';
   }).join('');
   listEl.querySelectorAll('[data-perm-email]').forEach(row=>{
     row.onclick = ()=> openPermEditor(row.dataset.permEmail);
@@ -7763,7 +7778,7 @@ document.getElementById('btnSavePerm').onclick = async ()=>{
 
   if(allowedTabs.length === 0){ showToast('至少要保留一個分頁可以看'); return; }
 
-  permissions[email] = { tabs: allowedTabs, buttons: allowedButtons, productionZone: productionZone || null };
+  permissions[email] = { tabs: allowedTabs, buttons: allowedButtons, productionZone: productionZone || null, canDelete: document.getElementById('permCanDelete').checked };
   await savePermissions();
   showToast('已儲存 ' + email + ' 的權限設定');
   renderPermUserList();
