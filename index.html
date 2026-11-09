@@ -96,6 +96,11 @@
   .order-card-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
   .order-no{ font-family:var(--mono); font-size:15.7px; color:var(--ink-dim); letter-spacing:0.5px; margin-bottom:2px; }
   .order-customer{ font-size:22px; font-weight:800; }
+  .order-due-head{ margin-top:6px; font-size:16px; font-weight:700; color:var(--ink-dim); display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+  .due-chip{ display:inline-flex; align-items:baseline; gap:6px; font-size:22px; font-weight:900; color:var(--teal); border:2px solid var(--teal); border-radius:10px; padding:2px 10px; background:rgba(45,212,191,0.08); }
+  .due-chip small{ font-size:14px; font-weight:700; }
+  .due-chip.soon{ color:var(--amber); border-color:var(--amber); background:rgba(242,183,5,0.10); }
+  .due-chip.late{ color:var(--red); border-color:var(--red); background:rgba(229,72,77,0.10); }
   .order-created{ display:inline-block; margin-top:5px; font-size:15.5px; font-weight:700; color:var(--teal); background:rgba(43,182,163,0.10); border:1px solid rgba(43,182,163,0.45); border-radius:8px; padding:3px 9px; }
   .order-actions{ display:flex; gap:6px; }
   .icon-btn{ width:38px; height:38px; border-radius:9px; background:var(--panel-raised); border:1px solid var(--line); color:var(--ink-dim); font-size:19.1px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
@@ -4068,6 +4073,29 @@ function cancelReasonText(it){
   const d = c.at ? new Date(c.at) : null;
   return '🚫 ' + (CANCEL_REASONS[c.reason] || '已取消') + (c.note ? '：' + c.note : '') + (d ? '（' + (d.getMonth()+1) + '/' + d.getDate() + (c.by ? ' ' + String(c.by).split('@')[0] : '') + '）' : '');
 }
+// 簡潔顯示：訂單卡最上面放大顯示「預計出貨日」（這個分頁的品項；不同天就列出每一天）
+function fmtDueShort(d){
+  if(!d) return '';
+  const y = d.slice(0,4);
+  return (y === String(new Date().getFullYear()) ? d.slice(5) : d).replace(/-/g, '/');
+}
+function dueDiffDays(d){
+  const t = todayStr();
+  const a = new Date(d + 'T00:00:00'), b = new Date(t + 'T00:00:00');
+  return Math.round((a - b) / 86400000);
+}
+function orderDueHeadHtml(order){
+  const its = (order.items || []).filter(it=> !it.deleted && itemBelongsToTab(it, currentTab) && it.due);
+  const dues = Array.from(new Set(its.map(it=> it.due))).sort();
+  if(!dues.length) return '';
+  const chip = (d)=>{
+    const n = dueDiffDays(d);
+    const tag = n < 0 ? '已逾期 ' + (-n) + ' 天' : n === 0 ? '今天' : n === 1 ? '明天' : '還有 ' + n + ' 天';
+    const cls = n <= 0 ? 'late' : n === 1 ? 'soon' : '';
+    return '<span class="due-chip ' + cls + '">' + escapeHtml(fmtDueShort(d)) + '<small>' + tag + '</small></span>';
+  };
+  return '<div class="order-due-head">📅 預計出貨 ' + dues.map(chip).join(' ') + '</div>';
+}
 function cancelledBoxHtml(order){
   const list = (order.items || []).filter(it=> !it.deleted && it.status === 'cancelled');
   if(!list.length) return '';
@@ -4080,6 +4108,7 @@ function orderSummaryHtml(order){
   if(!items.length) return ''; // 一個品項也顯示，比較清楚
   const here = items.filter(it=> it.status === currentTab);
   const nCancelled = items.filter(it=> it.status === 'cancelled').length;
+  const multiDue = new Set(items.filter(it=> it.status !== 'cancelled' && it.due).map(it=> it.due)).size > 1;
   const sorted = items.slice().sort((a,b)=> (a.status === 'cancelled') - (b.status === 'cancelled') || (b.status === currentTab) - (a.status === currentTab) || STATUS.indexOf(a.status) - STATUS.indexOf(b.status));
   const rows = sorted.map(it=>{
     if(it.status === 'cancelled'){
@@ -4093,6 +4122,7 @@ function orderSummaryHtml(order){
     return '<div class="os-row' + (isHere ? ' here' : '') + (open ? ' open' : '') + '"' + (isHere ? ' data-jump-item="' + it.id + '"' : '') + '>' +
       '<span class="os-caret">' + (isHere ? (open ? '▾' : '▸') : '') + '</span>' +
       '<span class="os-name">' + escapeHtml(it.product || '') + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + '</span>' : '') +
+        ((multiDue && it.due) ? '<span class="os-spec" style="color:' + (dueDiffDays(it.due) <= 0 ? 'var(--red)' : dueDiffDays(it.due) === 1 ? 'var(--amber)' : 'var(--teal)') + '; font-weight:800;">📅 ' + escapeHtml(fmtDueShort(it.due)) + '</span>' : '') +
         ((currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing' || currentTab === 'shipped') ? (function(){
           const miss = '<i class="os-miss">未填</i>';
           const d = (v)=> v ? '<b>' + escapeHtml(String(v).replace(/-/g,'/')) + '</b>' : miss;
@@ -4394,6 +4424,7 @@ function renderList(){
     card.innerHTML =
       '<div class="order-card-top">' +
         '<div><div class="order-no">' + escapeHtml(order.orderNo || '') + '</div><div class="order-customer">' + escapeHtml(order.customer) + '</div>' +
+          (isSimpleView() ? orderDueHeadHtml(order) : '') +
           (formatOrderCreated(order) && !isSimpleView() ? '<div class="order-created">🕒 訂單成立：' + formatOrderCreated(order) + '</div>' : '') + '</div>' +
         '<div class="order-actions">' +
           (canDeleteOrders() ? '<button class="icon-btn" data-act="delorder" data-oid="' + order.id + '" title="刪除整張訂單">🗑</button>' : '') +
