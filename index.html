@@ -605,7 +605,7 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .os-batch{ display:block; margin-top:3px; font-size:14px; font-weight:600; color:var(--ink-dim); }
 .os-batch b{ color:var(--ink); font-weight:800; }
 .os-miss{ font-style:normal; color:var(--red); font-weight:800; }
-.os-go{ flex:0 0 auto; min-width:72px; padding:7px 12px; font-size:15px; font-weight:900; border-radius:999px; border:none; background:var(--green); color:#0d1f14; cursor:pointer; }
+.os-go{ flex:0 0 auto; min-width:72px; padding:7px 12px; font-size:15px; font-weight:900; border-radius:999px; border:none; background:var(--green); color:#0d1f14; cursor:pointer; line-height:1.15; }
 .gs-box{ margin:8px 14px 0; border:2px solid var(--amber); border-radius:12px; padding:8px 10px; background:rgba(242,183,5,0.07); }
 .gs-head{ display:flex; justify-content:space-between; align-items:center; font-size:15.5px; cursor:pointer; }
 .gs-caret{ font-size:13.5px; font-weight:800; color:var(--amber); }
@@ -4066,6 +4066,22 @@ function qtyWithUnit(qty, item, fg, withTotal){
   return t;
 }
 
+// 庫存確認：品項還沒選生產線時，用「同一個產品上一次的生產線」當預設
+function lastZonesForProduct(product, exceptId){
+  let best = null, bestAt = -1;
+  orders.forEach(o=> (o.items || []).forEach(it=>{
+    if(it.deleted || it.id === exceptId || it.product !== product || !it.productionZones || !it.productionZones.length) return;
+    const at = o.createdAt || 0;
+    if(at > bestAt){ bestAt = at; best = it.productionZones; }
+  }));
+  return best ? normalizeZoneList(best.slice()) : null;
+}
+function effectiveZones(it){
+  if(it.productionZones && it.productionZones.length) return { zones: it.productionZones, isDefault:false };
+  const z = lastZonesForProduct(it.product, it.id);
+  return z ? { zones: z, isDefault:true } : { zones: [], isDefault:false };
+}
+
 // ---- 取消品項（不出貨，但保留在訂單上）----
 const CANCEL_REASONS = { discontinued:'客人不再使用這個產品', once:'客人這次不要了', quality:'品質問題，不能出貨', other:'其他原因' };
 function cancelReasonText(it){
@@ -4128,8 +4144,10 @@ function orderSummaryHtml(order){
           const stock = fg ? finishedGoodTotalStock(fg) : 0;
           const need = Math.max(Math.round(((parseFloat(it.qty)||0) - stock) * 1000) / 1000, 0);
           const u = orderUnit(it, fg);
+          const ez = effectiveZones(it);
           return '<span class="os-batch">成品庫存 <b>' + escapeHtml(fmtStock(stock, it.spec, u)) + '</b>　' +
-            (need > 0 ? '還需要生產 <b style="color:var(--red);">' + escapeHtml(fmtStock(need, it.spec, u)) + '</b>' : '<b style="color:var(--green);">✅ 庫存足夠</b>') + '</span>';
+            (need > 0 ? '還需要生產 <b style="color:var(--red);">' + escapeHtml(fmtStock(need, it.spec, u)) + '</b>' : '<b style="color:var(--green);">✅ 庫存足夠</b>') +
+            '<br>生產線 ' + (ez.zones.length ? '<b>' + escapeHtml(ez.zones.join('、')) + '</b>' + (ez.isDefault ? '（上次）' : '') : '<i class="os-miss">未選</i>') + '</span>';
         })() : '') +
         ((currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing' || currentTab === 'shipped') ? (function(){
           const miss = '<i class="os-miss">未填</i>';
@@ -4148,8 +4166,8 @@ function orderSummaryHtml(order){
             ((currentTab === 'refill' && it.status === 'refill') ? (function(){ const ps = it.packagingStaff || defaultPackagingStaff(it); return '<br>包裝人員 ' + (ps ? '<b>' + escapeHtml(ps) + '</b>' + (it.packagingStaff ? '' : '（預設）') : '<i class="os-miss">未選</i>'); })() : '') + '</span>';
         })() : '') + '</span>' +
       '<span class="os-qty">' + escapeHtml(qtyWithUnit(it.qty, it)) + '</span>' +
-      ((isHere && (currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing' || currentTab === 'shipped'))
-        ? '<button type="button" class="os-go" data-act="forward" data-oid="' + order.id + '" data-iid="' + it.id + '">完成</button>'
+      ((isHere && (currentTab === 'inprogress' || currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing' || currentTab === 'shipped'))
+        ? '<button type="button" class="os-go" data-act="forward" data-oid="' + order.id + '" data-iid="' + it.id + '">' + (currentTab === 'inprogress' ? '無庫存<br>請生產' : '完成') + '</button>'
         : '<span class="badge stage st-' + it.status + '">' + STATUS_LABEL[it.status] + '</span>') +
     '</div>';
   }).join('');
@@ -4160,7 +4178,8 @@ function orderSummaryHtml(order){
       (currentTab === 'boxing' ? (function(){ const behind = items.filter(it=> it.status !== 'cancelled' && STATUS.indexOf(it.status) < STATUS.indexOf('boxing')).length; return behind ? '　<b style="color:var(--amber);">⏳ 還有 ' + behind + ' 項在前面階段</b>' : '　<b style="color:var(--green);">✅ 全部到齊</b>'; })() : '') + '</span>' +
       (here.length ? '<button type="button" class="os-toggle-all" data-os-all="' + order.id + '" data-open="' + (allOpen ? '1' : '') + '">' + (allOpen ? '全部收合' : '全部展開') + '</button>' : '') + '</div>' +
     (((currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing') && here.length >= 2) ? '<button type="button" class="os-done os-group-done" data-os-donegroup="' + order.id + '" style="margin:2px 0 8px;">✅ 這張訂單 ' + here.length + ' 項一起' + STATUS_LABEL[currentTab] + '完成</button>' : '') +
-    '<div style="font-size:13px; color:var(--ink-dim); margin:-2px 0 4px;">' + (currentTab === 'done' ? '點品項那一列可以展開，修改批號、日期、確認照射標籤' : currentTab === 'refill' ? '點品項那一列可以展開，修改包裝人員、包裝日期' : currentTab === 'boxing' ? '點品項那一列可以展開，修改出貨前檢查、放行人員' : currentTab === 'shipped' ? '出貨方式、倉管會計在上面一次選好，可以每項按「完成」或整張一起完成' : currentTab === 'inprogress' ? '點品項那一列可以展開，看庫存批號、按「庫存確認無庫存請生產」或用現有庫存出貨' : '點品項那一列可以展開，填批號、日期、按排程生產完成') + '</div>' +
+    ((currentTab === 'inprogress' && here.length >= 2) ? '<button type="button" class="os-done os-group-done" data-os-donegroup="' + order.id + '" style="margin:2px 0 8px;">🏭 這張訂單 ' + here.length + ' 項一起「庫存確認無庫存請生產」</button>' : '') +
+    '<div style="font-size:13px; color:var(--ink-dim); margin:-2px 0 4px;">' + (currentTab === 'done' ? '點品項那一列可以展開，修改批號、日期、確認照射標籤' : currentTab === 'refill' ? '點品項那一列可以展開，修改包裝人員、包裝日期' : currentTab === 'boxing' ? '點品項那一列可以展開，修改出貨前檢查、放行人員' : currentTab === 'shipped' ? '出貨方式、倉管會計在上面一次選好，可以每項按「完成」或整張一起完成' : currentTab === 'inprogress' ? '收合時可以直接按「無庫存請生產」；點品項那一列展開，可以看庫存批號、改生產線、用現有庫存出貨' : '點品項那一列可以展開，填批號、日期、按排程生產完成') + '</div>' +
     '<div class="os-row os-headrow"><span class="os-caret"></span><span class="os-name">品項 / 規格</span><span class="os-qty">數量</span><span style="min-width:72px; text-align:center;">階段</span></div>' +
     rows + '</div>';
 }
@@ -4459,8 +4478,28 @@ function renderList(){
   });
   wrap.querySelectorAll('[data-os-donegroup]').forEach(b=> b.onclick = async ()=>{
     const o = orders.find(x=> x.id === b.dataset.osDonegroup); if(!o) return;
-    const tab = currentTab, next = tab === 'done' ? 'refill' : tab === 'refill' ? 'boxing' : 'shipped';
+    const tab = currentTab, next = tab === 'inprogress' ? 'labeling' : tab === 'done' ? 'refill' : tab === 'refill' ? 'boxing' : 'shipped';
     const items = (o.items || []).filter(it=> !it.deleted && it.status === tab);
+    if(tab === 'inprogress'){
+      const blockedZ = items.filter(it=> !effectiveZones(it).zones.length);
+      const readyZ = items.filter(it=> !blockedZ.includes(it));
+      if(!readyZ.length){ showToast('這些品項都還沒選生產線，請點開品項選生產線'); return; }
+      const stockOf = (it)=>{ const fg = finishedGoods.find(f=>f.product === it.product && (f.spec||'') === (it.spec||'')); return fg ? finishedGoodTotalStock(fg) : 0; };
+      const enough = readyZ.filter(it=> stockOf(it) >= (parseFloat(it.qty)||0) && (parseFloat(it.qty)||0) > 0);
+      const ok = await showConfirm('「' + o.customer + '」這張訂單 ' + readyZ.length + ' 項一起「庫存確認無庫存請生產」，移到「排程生產」？（會扣原料庫存）\n' +
+        readyZ.map(it=> '・' + it.product + (it.spec ? '（' + it.spec + '）' : '') + ' ' + qtyWithUnit(it.qty, it) + '　產線 ' + effectiveZones(it).zones.join('、') + (enough.includes(it) ? '　⚠ 成品庫存足夠' : '')).join('\n') +
+        (enough.length ? '\n\n⚠ 有 ' + enough.length + ' 項成品庫存其實足夠，如果要用現有庫存出貨，請先取消、點開那個品項按「⚡ 用現有庫存」' : '') +
+        (blockedZ.length ? '\n\n⚠ 另外 ' + blockedZ.length + ' 項還沒選生產線，會先留著：' + blockedZ.map(it=> it.product).join('、') : ''), '一起送排程生產');
+      if(!ok) return;
+      const prevZ = readyZ.map(it=> ({ s: it.status, z: it.productionZones }));
+      readyZ.forEach(it=>{ if(!it.productionZones || !it.productionZones.length) it.productionZones = effectiveZones(it).zones; it.status = 'labeling'; labelingExpanded.delete(it.id); });
+      render();
+      const savedZ = await saveOrders();
+      if(!savedZ){ readyZ.forEach((it, i)=>{ it.status = prevZ[i].s; it.productionZones = prevZ[i].z; }); render(); return; }
+      for(const it of readyZ){ await deductStockForItem(it, o); }
+      showToast('已送 ' + readyZ.length + ' 項到「排程生產」' + (blockedZ.length ? '；' + blockedZ.length + ' 項還沒選生產線' : ''));
+      return;
+    }
     const blocked = tab === 'done'
       ? items.filter(it=> it.needsIrradiation && !it.irradiationLabelConfirm)
       : tab === 'refill' ? items.filter(it=> !it.packagingStaff && !defaultPackagingStaff(it))
@@ -4557,6 +4596,10 @@ function renderList(){
         showToast('請先填寫「' + missing.join('、') + '」才能進入庫存確認');
         pendingAdvanceItemId = item.id; openSheet(order, item);
         return;
+      }
+      if(item.status === 'inprogress' && (!item.productionZones || item.productionZones.length === 0)){
+        const ez = effectiveZones(item);
+        if(ez.zones.length) item.productionZones = ez.zones;
       }
       if(item.status === 'inprogress' && (!item.productionZones || item.productionZones.length === 0)){
         showToast('請先選擇至少一個「生產線」才能進入排程生產');
