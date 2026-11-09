@@ -133,7 +133,11 @@
   .stock-info-row b{ color:var(--ink); font-family:var(--mono); }
   .stock-info-row .si-line{ flex:0 0 100%; font-size:16.5px; line-height:1.6; }
   .stock-info-row .si-line b{ font-size:19px; }
-  .stock-info-row b.need{ color:var(--red); }
+  .stock-info-row b.need, .stock-info-row .need b{ color:var(--red); }
+  .stock-info-row .enough b{ color:var(--teal); }
+  .fb-boxpack{ display:flex; gap:8px; align-items:center; }
+  .fb-boxpack input{ flex:1 1 0; min-width:0; font-size:18px; }
+  .fb-boxpack span{ font-size:17px; font-weight:700; }
   .stock-info-row b.enough{ color:var(--teal); }
   .stock-info-edit{ margin-left:auto; font-size:13.3px; color:var(--amber); white-space:nowrap; }
   .stock-batch-list{ margin:-2px 0 8px 0; }
@@ -3974,6 +3978,33 @@ function orderUnit(item, fg){
   if(u) return u;
   return (fg && fg.unit) || '';
 }
+// 規格是「1kg/包 10包/箱」這種「一箱裝幾包」的 → 庫存以「箱」計，零頭用小數存（10箱3包 = 10.3箱），顯示成「10 箱 3 包」
+const NON_COUNT_UNIT_RE = /^(k?g|公斤|克|台斤|斤|兩|ml|l|cc|公升|毫升|oz|lb)$/i;
+function boxPack(spec){
+  const i = parseSpecUnit(spec);
+  if(i.unit && i.perUnit && i.perUnit !== i.unit && !NON_COUNT_UNIT_RE.test(i.perUnit) && Number.isInteger(i.perQty) && i.perQty > 1) return i;
+  return null;
+}
+// 用現有庫存直接出貨：一箱裝幾包的產品只能出整箱
+function fastFulfillQty(item, currentStock){
+  let q = Math.min(currentStock, item.qty);
+  if(boxPack(item.spec)) q = Math.floor(q + 1e-6);
+  return q > 0 ? q : 0;
+}
+function fmtStock(qty, spec, fallbackUnit){
+  const q = Number(qty) || 0;
+  const bp = boxPack(spec);
+  const u = parseSpecUnit(spec).unit || fallbackUnit || '';
+  if(!bp) return (Math.round(q * 1000) / 1000) + (u ? ' ' + u : '');
+  const totalLoose = Math.round(q * bp.perQty);
+  const neg = totalLoose < 0, t = Math.abs(totalLoose);
+  const boxes = Math.floor(t / bp.perQty), loose = t % bp.perQty;
+  let out = '';
+  if(boxes) out += boxes + ' ' + bp.unit;
+  if(loose) out += (out ? ' ' : '') + loose + ' ' + bp.perUnit;
+  if(!out) out = '0 ' + bp.unit;
+  return (neg ? '-' : '') + out;
+}
 // 「2 箱（共 1000 包）」
 function qtyWithUnit(qty, item, fg, withTotal){
   const info = parseSpecUnit(item && item.spec);
@@ -4175,23 +4206,25 @@ function renderList(){
         const fg = finishedGoods.find(f=>f.product === item.product && (f.spec||'') === (item.spec||''));
         const currentStock = fg ? finishedGoodTotalStock(fg) : 0;
         const unit = orderUnit(item, fg);
-        const stillNeed = Math.max(item.qty - currentStock, 0);
+        const stillNeed = Math.max(Math.round((item.qty - currentStock) * 1000) / 1000, 0);
         const sInfo = parseSpecUnit(item.spec);
-        const totalTxt = (n)=> (sInfo.perQty && sInfo.perUnit && sInfo.perUnit !== unit && n > 0) ? '<span style="font-size:0.85em; opacity:.8;">（共 ' + (Math.round(n * sInfo.perQty * 1000) / 1000) + ' ' + escapeHtml(sInfo.perUnit) + '）</span>' : '';
-        const fulfillQty = Math.min(currentStock, item.qty);
+        const isBP = !!boxPack(item.spec);
+        const fs = (n)=> isBP ? escapeHtml(fmtStock(n, item.spec)).replace(/(\d+)/g, '<b>$1</b>') : '<b>' + n + '</b>' + (unit?' '+escapeHtml(unit):'');
+        const totalTxt = (n)=> (sInfo.perQty && sInfo.perUnit && sInfo.perUnit !== unit && n > 0 && !(boxPack(item.spec) && n < 1)) ? '<span style="font-size:0.85em; opacity:.8;">（共 ' + (Math.round(n * sInfo.perQty * 1000) / 1000) + ' ' + escapeHtml(sInfo.perUnit) + '）</span>' : '';
+        const fulfillQty = fastFulfillQty(item, currentStock);
         const fastTrackBtn = fulfillQty > 0
-          ? '<button type="button" class="fast-track-btn" data-act="faststock" data-oid="'+order.id+'" data-iid="'+item.id+'">⚡ 用現有庫存 '+fulfillQty+(unit?' '+escapeHtml(unit):'')+' 直接送出貨確認</button>'
+          ? '<button type="button" class="fast-track-btn" data-act="faststock" data-oid="'+order.id+'" data-iid="'+item.id+'">⚡ 用現有庫存 '+escapeHtml(fmtStock(fulfillQty, item.spec, unit))+' 直接送出貨確認</button>'
           : '';
         const activeBatches = fg ? finishedGoodBatchesSorted(fg).filter(b=>(b.stock||0) > 0) : [];
         const batchListHtml = activeBatches.length > 0
           ? '<div class="stock-batch-list">' + activeBatches.map(b=>
-              '<div class="stock-batch-item">批號 <b>' + escapeHtml(b.batchNo||'未命名') + '</b>　剩 <b>' + b.stock + '</b>' + (unit?' '+escapeHtml(unit):'') + (b.expDate ? '　有效期限 ' + b.expDate : '') + '</div>'
+              '<div class="stock-batch-item">批號 <b>' + escapeHtml(b.batchNo||'未命名') + '</b>　剩 ' + fs(b.stock) + (b.expDate ? '　有效期限 ' + b.expDate : '') + '</div>'
             ).join('') + '</div>'
           : '';
         stockInfoHtml = '<div class="stock-info-row" data-stock-product="'+escapeHtml(item.product)+'" data-stock-spec="'+escapeHtml(item.spec||'')+'">' +
           '<span class="si-line">🧾 訂單數量 <b>' + item.qty + '</b>' + (unit?' '+escapeHtml(unit):'') + totalTxt(item.qty) + '</span>' +
-          '<span class="si-line">📦 目前成品庫存 <b>' + currentStock + '</b>' + (unit?' '+escapeHtml(unit):'') + totalTxt(currentStock) + '</span>' +
-          '<span class="si-line">🏭 還需要生產 <b class="' + (stillNeed > 0 ? 'need' : 'enough') + '">' + stillNeed + '</b>' + (unit?' '+escapeHtml(unit):'') + totalTxt(stillNeed) + '</span>' +
+          '<span class="si-line">📦 目前成品庫存 ' + fs(currentStock) + totalTxt(currentStock) + '</span>' +
+          '<span class="si-line">🏭 還需要生產 <span class="' + (stillNeed > 0 ? 'need' : 'enough') + '">' + fs(stillNeed) + '</span>' + totalTxt(stillNeed) + '</span>' +
           '<span class="stock-info-edit">✎ 點擊修改庫存</span></div>' + batchListHtml + fastTrackBtn +
           '<button type="button" class="split-btn" data-act="matpreview" data-oid="'+order.id+'" data-iid="'+item.id+'" style="margin-top:8px;">📋 預計用料（生產前試算會用到哪些批號）</button>';
       }
@@ -4637,12 +4670,12 @@ function renderList(){
 
       const fg = findOrCreateFinishedGood(item.product, item.spec);
       const currentStock = finishedGoodTotalStock(fg);
-      const fulfillQty = Math.min(currentStock, item.qty);
-      if(fulfillQty <= 0){ showToast('目前沒有可用的成品庫存'); return; }
+      const fulfillQty = fastFulfillQty(item, currentStock);
+      if(fulfillQty <= 0){ showToast(boxPack(item.spec) ? '目前庫存不到 1 整箱，不能直接出貨' : '目前沒有可用的成品庫存'); return; }
 
       const isFullCover = fulfillQty >= item.qty;
       const msg = isFullCover
-        ? '這張品項需要 ' + item.qty + ' ' + orderUnit(item, fg) + '，庫存現有 ' + currentStock + ' ' + orderUnit(item, fg) + '，足夠全部直接送去出貨確認，不用再走生產流程與裝箱前檢查。確定嗎？'
+        ? '這張品項需要 ' + item.qty + ' ' + orderUnit(item, fg) + '，庫存現有 ' + fmtStock(currentStock, item.spec, orderUnit(item, fg)) + '，足夠全部直接送去出貨確認，不用再走生產流程與裝箱前檢查。確定嗎？'
         : '用現有庫存 ' + fulfillQty + ' ' + orderUnit(item, fg) + ' 拆成新品項直接送去出貨確認，剩下 ' + (item.qty - fulfillQty) + ' ' + orderUnit(item, fg) + ' 留在這裡繼續走生產流程。確定嗎？';
       const ok = await showConfirm(msg, '用現有庫存直接出貨？');
       if(!ok) return;
@@ -10105,9 +10138,9 @@ function renderFinishedGoodList(){
     const metaLine = activeBatches.length === 0 ? ''
       : '<div class="material-item-meta">' + (activeBatches.length === 1
           ? ('批號 ' + escapeHtml(activeBatches[0].batchNo||'－') + '　有效期限 ' + (activeBatches[0].expDate||'－'))
-          : (activeBatches.length + ' 個批次：' + activeBatches.map(b=>escapeHtml(b.batchNo||'未命名')+'('+b.stock+')').join('、'))) + '</div>';
+          : (activeBatches.length + ' 個批次：' + activeBatches.map(b=>escapeHtml(b.batchNo||'未命名')+'('+escapeHtml(boxPack(f.spec) ? fmtStock(b.stock, f.spec) : String(b.stock))+')').join('、'))) + '</div>';
     return '<div class="material-item" data-fgid="'+f.id+'">' +
-      '<div class="material-item-top"><div class="material-item-name">'+(f.code ? escapeHtml(f.code)+(f.halal && f.halalCode ? '／'+escapeHtml(f.halalCode) : '')+' ・ ' : '<span style="color:var(--amber); font-size:13px; border:1px solid var(--amber); border-radius:6px; padding:1px 5px; margin-right:6px;">未設料號</span>')+escapeHtml(f.product)+(f.spec ? '<span class="item-spec"> ・ '+escapeHtml(f.spec)+'</span>' : '')+(f.halal ? ' 🕌清真' : '')+'</div><div class="material-item-stock">'+ total +' '+escapeHtml(f.unit||'')+'</div></div>' +
+      '<div class="material-item-top"><div class="material-item-name">'+(f.code ? escapeHtml(f.code)+(f.halal && f.halalCode ? '／'+escapeHtml(f.halalCode) : '')+' ・ ' : '<span style="color:var(--amber); font-size:13px; border:1px solid var(--amber); border-radius:6px; padding:1px 5px; margin-right:6px;">未設料號</span>')+escapeHtml(f.product)+(f.spec ? '<span class="item-spec"> ・ '+escapeHtml(f.spec)+'</span>' : '')+(f.halal ? ' 🕌清真' : '')+'</div><div class="material-item-stock">'+ escapeHtml(fmtStock(total, f.spec, f.unit||'')) +'</div></div>' +
       metaLine +
       '<button type="button" class="split-btn" data-log-kind="finishedGood" data-log-id="'+f.id+'" style="margin-top:8px; width:100%;">📋 出入庫紀錄</button>' +
     '</div>';
@@ -10136,6 +10169,27 @@ function findOrCreateFinishedGood(productName, spec){
   return f;
 }
 
+function fgFormSpec(){ try{ return getPickerValue('fgSpec', 'fgSpecCustom') || ''; }catch(e){ return ''; } }
+function fbStockFieldHtml(stock){
+  const bp = boxPack(fgFormSpec());
+  const v = Number(stock) || 0;
+  if(!bp) return '<div class="field"><label>這批剩餘庫存</label><input type="number" class="fbStock" step="any" value="'+(stock ?? 0)+'"></div>';
+  const totalLoose = Math.max(Math.round(v * bp.perQty), 0);
+  const boxes = Math.floor(totalLoose / bp.perQty), loose = totalLoose % bp.perQty;
+  return '<div class="field"><label>這批剩餘庫存（每' + escapeHtml(bp.unit) + ' ' + bp.perQty + ' ' + escapeHtml(bp.perUnit) + '，零頭打在右邊）</label>' +
+    '<div class="fb-boxpack"><input type="number" class="fbBox" inputmode="numeric" min="0" step="1" value="' + boxes + '"><span>' + escapeHtml(bp.unit) + '</span>' +
+    '<input type="number" class="fbLoose" inputmode="numeric" min="0" step="1" value="' + loose + '"><span>' + escapeHtml(bp.perUnit) + '</span></div></div>';
+}
+function readFbStock(row){
+  const bx = row.querySelector('.fbBox');
+  if(bx){
+    const bp = boxPack(fgFormSpec());
+    const per = bp ? bp.perQty : 1;
+    const boxes = parseFloat(bx.value) || 0, loose = parseFloat(row.querySelector('.fbLoose').value) || 0;
+    return Math.round((boxes + loose / per) * 1e6) / 1e6;
+  }
+  return parseFloat(row.querySelector('.fbStock').value) || 0;
+}
 function renderFgBatchLotList(batches){
   const list = (batches && batches.length > 0) ? batches : [];
   const container = document.getElementById('fgBatchList');
@@ -10150,7 +10204,7 @@ function renderFgBatchLotList(batches){
         '<div class="field"><label>製造日期</label><input type="date" class="fbMfgDate" value="'+escapeHtml(b.mfgDate||'')+'"></div>' +
         '<div class="field"><label>有效日期</label><input type="date" class="fbExpDate" value="'+escapeHtml(b.expDate||'')+'"></div>' +
       '</div>' +
-      '<div class="field"><label>這批剩餘庫存</label><input type="number" class="fbStock" step="any" value="'+(b.stock ?? 0)+'"></div>' +
+      fbStockFieldHtml(b.stock) +
       '<button type="button" class="material-batch-remove-btn">✕ 移除這個批次</button>' +
     '</div>';
   }).join('');
@@ -10163,7 +10217,7 @@ function renderFgBatchLotList(batches){
       updateFgStockTotalDisplay();
     };
   });
-  container.querySelectorAll('.fbStock').forEach(el=>{
+  container.querySelectorAll('.fbStock, .fbBox, .fbLoose').forEach(el=>{
     el.addEventListener('input', updateFgStockTotalDisplay);
   });
 }
@@ -10172,12 +10226,44 @@ function getFgBatchLotsFromForm(){
     batchNo: row.querySelector('.fbBatchNo').value.trim(),
     mfgDate: row.querySelector('.fbMfgDate').value,
     expDate: row.querySelector('.fbExpDate').value,
-    stock: parseFloat(row.querySelector('.fbStock').value) || 0
+    stock: readFbStock(row)
   }));
 }
 function updateFgStockTotalDisplay(){
   const total = getFgBatchLotsFromForm().reduce((sum,b)=>sum+(b.stock||0), 0);
-  document.getElementById('fgStockTotal').value = (Math.round(total*1000)/1000) + (document.getElementById('fgUnit').value ? ' ' + document.getElementById('fgUnit').value.trim() : '');
+  const sp = fgFormSpec();
+  document.getElementById('fgStockTotal').value = boxPack(sp) ? fmtStock(total, sp) : (Math.round(total*1000)/1000) + (document.getElementById('fgUnit').value ? ' ' + document.getElementById('fgUnit').value.trim() : '');
+}
+// 規格改了 → 批次庫存欄位要跟著換成「箱＋包」或一般數字
+function refreshFgBatchStockFields(){
+  const cur = getFgBatchLotsFromForm();
+  renderFgBatchLotList(cur);
+  const bp = boxPack(fgFormSpec());
+  const unitEl = document.getElementById('fgUnit');
+  if(bp && unitEl.value.trim() !== bp.unit) unitEl.value = bp.unit;
+  updateFgStockTotalDisplay();
+}
+let _fgSpecPrev = '';
+document.getElementById('fgSpec').addEventListener('change', ()=>{ refreshFgBatchStockFieldsKeep(); });
+document.getElementById('fgSpecCustom').addEventListener('change', ()=>{ refreshFgBatchStockFieldsKeep(); });
+// 換規格時，先用「舊規格」讀出畫面上的數字，再用新規格重畫
+function refreshFgBatchStockFieldsKeep(){
+  const rows = Array.from(document.querySelectorAll('#fgBatchList .material-batch-row'));
+  const newSpec = fgFormSpec();
+  const oldBp = boxPack(_fgSpecPrev);
+  const lots = rows.map(row=>{
+    let stock;
+    const bx = row.querySelector('.fbBox');
+    if(bx){ const per = oldBp ? oldBp.perQty : 1; stock = (parseFloat(bx.value)||0) + (parseFloat(row.querySelector('.fbLoose').value)||0) / per; }
+    else stock = parseFloat(row.querySelector('.fbStock').value) || 0;
+    return { batchNo: row.querySelector('.fbBatchNo').value.trim(), mfgDate: row.querySelector('.fbMfgDate').value, expDate: row.querySelector('.fbExpDate').value, stock: Math.round(stock * 1e6) / 1e6 };
+  });
+  _fgSpecPrev = newSpec;
+  renderFgBatchLotList(lots);
+  const bp = boxPack(newSpec);
+  const unitEl = document.getElementById('fgUnit');
+  if(bp && unitEl.value.trim() !== bp.unit) unitEl.value = bp.unit;
+  updateFgStockTotalDisplay();
 }
 document.getElementById('btnAddFgBatchLot').onclick = ()=>{
   const current = getFgBatchLotsFromForm();
@@ -10206,6 +10292,8 @@ function openFgForm(f){
   document.getElementById('fgProduct').value = f ? f.product : '';
   populateSpecSelect('fgSpec', 'fgSpecCustom', f ? f.product : '', f ? (f.spec||'') : '');
   document.getElementById('fgUnit').value = f ? (f.unit||'') : '';
+  { const bp0 = boxPack(fgFormSpec()); if(bp0) document.getElementById('fgUnit').value = bp0.unit; }
+  _fgSpecPrev = fgFormSpec();
   fillHalalBox('fg', f, false);
   renderFgBatchLotList(f ? (f.batches||[]) : []);
   updateFgStockTotalDisplay();
@@ -11780,6 +11868,7 @@ document.getElementById('fProduct').addEventListener('input', function(){
 document.getElementById('fgProduct').addEventListener('input', function(){
   const currentSpec = getPickerValue('fgSpec', 'fgSpecCustom');
   populateSpecSelect('fgSpec', 'fgSpecCustom', this.value.trim(), currentSpec);
+  if(fgFormSpec() !== _fgSpecPrev) refreshFgBatchStockFieldsKeep();
 });
 
 // ---- 生產完成時自動扣庫存（依配方混用原料與半成品）----
