@@ -4012,7 +4012,7 @@ function orderProgressHtml(order){
 }
 // 排程生產：整張訂單的品項總表（品項、規格、數量、目前階段），點一列展開／收合那個品項
 const labelingExpanded = new Set(); // 排程生產、標籤印製共用：展開中的品項
-const SUMMARY_TABS = ['labeling','done','refill','boxing','shipped'];
+const SUMMARY_TABS = ['inprogress','labeling','done','refill','boxing','shipped'];
 // ---- 從規格判斷訂單數量的單位 ----
 // 例：「500包/箱」→ 訂單數量單位是「箱」，每箱 500 包；「1kg/包」→ 單位「包」，每包 1kg
 // 系統的成品庫存是用「訂單數量」同一個單位在加減（標籤印製完成加 item.qty、出貨扣 item.qty），所以顯示也要用同一個單位
@@ -4123,6 +4123,14 @@ function orderSummaryHtml(order){
       '<span class="os-caret">' + (isHere ? (open ? '▾' : '▸') : '') + '</span>' +
       '<span class="os-name">' + escapeHtml(it.product || '') + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + '</span>' : '') +
         ((multiDue && it.due) ? '<span class="os-spec" style="color:' + (dueDiffDays(it.due) <= 0 ? 'var(--red)' : dueDiffDays(it.due) === 1 ? 'var(--amber)' : 'var(--teal)') + '; font-weight:800;">📅 ' + escapeHtml(fmtDueShort(it.due)) + '</span>' : '') +
+        ((currentTab === 'inprogress' && it.status === 'inprogress') ? (function(){
+          const fg = finishedGoods.find(f=>f.product === it.product && (f.spec||'') === (it.spec||''));
+          const stock = fg ? finishedGoodTotalStock(fg) : 0;
+          const need = Math.max(Math.round(((parseFloat(it.qty)||0) - stock) * 1000) / 1000, 0);
+          const u = orderUnit(it, fg);
+          return '<span class="os-batch">成品庫存 <b>' + escapeHtml(fmtStock(stock, it.spec, u)) + '</b>　' +
+            (need > 0 ? '還需要生產 <b style="color:var(--red);">' + escapeHtml(fmtStock(need, it.spec, u)) + '</b>' : '<b style="color:var(--green);">✅ 庫存足夠</b>') + '</span>';
+        })() : '') +
         ((currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing' || currentTab === 'shipped') ? (function(){
           const miss = '<i class="os-miss">未填</i>';
           const d = (v)=> v ? '<b>' + escapeHtml(String(v).replace(/-/g,'/')) + '</b>' : miss;
@@ -4152,7 +4160,7 @@ function orderSummaryHtml(order){
       (currentTab === 'boxing' ? (function(){ const behind = items.filter(it=> it.status !== 'cancelled' && STATUS.indexOf(it.status) < STATUS.indexOf('boxing')).length; return behind ? '　<b style="color:var(--amber);">⏳ 還有 ' + behind + ' 項在前面階段</b>' : '　<b style="color:var(--green);">✅ 全部到齊</b>'; })() : '') + '</span>' +
       (here.length ? '<button type="button" class="os-toggle-all" data-os-all="' + order.id + '" data-open="' + (allOpen ? '1' : '') + '">' + (allOpen ? '全部收合' : '全部展開') + '</button>' : '') + '</div>' +
     (((currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing') && here.length >= 2) ? '<button type="button" class="os-done os-group-done" data-os-donegroup="' + order.id + '" style="margin:2px 0 8px;">✅ 這張訂單 ' + here.length + ' 項一起' + STATUS_LABEL[currentTab] + '完成</button>' : '') +
-    '<div style="font-size:13px; color:var(--ink-dim); margin:-2px 0 4px;">' + (currentTab === 'done' ? '點品項那一列可以展開，修改批號、日期、確認照射標籤' : currentTab === 'refill' ? '點品項那一列可以展開，修改包裝人員、包裝日期' : currentTab === 'boxing' ? '點品項那一列可以展開，修改出貨前檢查、放行人員' : currentTab === 'shipped' ? '出貨方式、倉管會計在上面一次選好，可以每項按「完成」或整張一起完成' : '點品項那一列可以展開，填批號、日期、按排程生產完成') + '</div>' +
+    '<div style="font-size:13px; color:var(--ink-dim); margin:-2px 0 4px;">' + (currentTab === 'done' ? '點品項那一列可以展開，修改批號、日期、確認照射標籤' : currentTab === 'refill' ? '點品項那一列可以展開，修改包裝人員、包裝日期' : currentTab === 'boxing' ? '點品項那一列可以展開，修改出貨前檢查、放行人員' : currentTab === 'shipped' ? '出貨方式、倉管會計在上面一次選好，可以每項按「完成」或整張一起完成' : currentTab === 'inprogress' ? '點品項那一列可以展開，看庫存批號、按「庫存確認無庫存請生產」或用現有庫存出貨' : '點品項那一列可以展開，填批號、日期、按排程生產完成') + '</div>' +
     '<div class="os-row os-headrow"><span class="os-caret"></span><span class="os-name">品項 / 規格</span><span class="os-qty">數量</span><span style="min-width:72px; text-align:center;">階段</span></div>' +
     rows + '</div>';
 }
