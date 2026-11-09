@@ -124,6 +124,19 @@
   .badge.stage.st-boxing{ color:var(--pink); border-color:var(--pink); }
   .badge.stage.st-shipped{ color:var(--teal); border-color:var(--teal); }
   .badge.stage.st-qc{ color:var(--cyan); border-color:var(--cyan); }
+  .badge.stage.st-cancelled{ color:var(--red); border-color:var(--red); }
+  .os-row.cancelled .os-name > :not(.os-cancel-why), .os-row.cancelled .os-qty{ text-decoration:line-through; opacity:.55; }
+  .os-row.cancelled .os-name{ text-decoration:none; }
+  .os-cancel-why, .op-cancel-why{ display:block; font-size:13px; color:var(--red); text-decoration:none !important; opacity:1 !important; }
+  .op-row.cancelled .op-name, .op-row.cancelled .op-qty{ text-decoration:line-through; opacity:.55; }
+  .cancelled-box{ border:1.5px dashed var(--red); border-radius:10px; padding:8px 12px; margin:6px 0 10px; font-size:14.5px; color:var(--ink-dim); line-height:1.6; }
+  .cancelled-box b{ color:var(--ink); }
+  .cancelled-box .cx-name{ text-decoration:line-through; }
+  .cancel-banner{ border:2px solid var(--red); background:rgba(229,72,77,0.1); border-radius:10px; padding:10px 12px; margin-bottom:12px; font-size:15px; line-height:1.6; }
+  .btn-cancel-item{ width:100%; margin-top:10px; padding:12px; border-radius:10px; border:1.5px solid var(--amber); background:transparent; color:var(--amber); font-size:16px; font-weight:700; cursor:pointer; }
+  .btn-restore-item{ width:100%; margin-top:10px; padding:12px; border-radius:10px; border:1.5px solid var(--teal); background:transparent; color:var(--teal); font-size:16px; font-weight:700; cursor:pointer; }
+  .qo-pick-row.discontinued{ opacity:.55; }
+  .disc-tag{ font-size:12.5px; color:var(--red); border:1px solid var(--red); border-radius:6px; padding:0 5px; }
 
   .item-meta{ display:flex; gap:8px 12px; flex-wrap:wrap; margin-bottom:8px; }
   .stock-info-row{
@@ -994,6 +1007,8 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
         <button type="button" class="i18n btn-secondary" id="btnCancel">取消</button>
         <button type="button" class="i18n btn-primary" id="btnSave">儲存</button>
       </div>
+      <button type="button" class="btn-cancel-item" id="btnCancelItem" style="display:none;">🚫 取消此品項（不出貨，但保留在訂單上）</button>
+      <button type="button" class="btn-restore-item" id="btnRestoreItem" style="display:none;">↩️ 復原此品項（回到取消前的步驟）</button>
       <button type="button" class="i18n btn-delete" id="btnDelete" style="display:none;">刪除此品項</button>
     </form>
   </div>
@@ -2156,6 +2171,28 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
   </div>
 </div>
 
+<div class="overlay" id="cancelItemOverlay" style="z-index:55;">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>🚫 取消這個品項</h2>
+    <div class="report-updated" id="ciSub"></div>
+    <div class="field">
+      <label>取消原因 <span style="color:var(--red);">*</span></label>
+      <label class="halal-sub" style="margin-bottom:6px;"><input type="radio" name="ciReason" value="discontinued"> 客人不再使用這個產品（以後下單會標示「已不再使用」）</label>
+      <label class="halal-sub" style="margin-bottom:6px;"><input type="radio" name="ciReason" value="once"> 客人這次不要了（以後還會訂）</label>
+      <label class="halal-sub" style="margin-bottom:6px;"><input type="radio" name="ciReason" value="quality"> 品質問題，不能出貨</label>
+      <label class="halal-sub"><input type="radio" name="ciReason" value="other"> 其他原因</label>
+    </div>
+    <div class="field"><label>補充說明（選填）</label><input type="text" id="ciNote" placeholder="例如：11/9 客人來電，改用其他產品" autocomplete="off"></div>
+    <div id="ciStock" style="font-size:14.5px; line-height:1.6; margin-bottom:6px;"></div>
+    <div style="font-size:13.5px; color:var(--ink-dim);">取消後品項會留在訂單上，畫上刪除線、標示「已取消」，不會再出現在各步驟的分頁裡。同一張訂單的其他品項照常往下走。按錯了可以在品項裡按「↩️ 復原此品項」。</div>
+    <div class="sheet-actions" style="margin-top:14px;">
+      <button type="button" class="btn-secondary" id="ciCancel">返回</button>
+      <button type="button" class="btn-primary" id="ciOk" style="background:var(--red);">確定取消這個品項</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="confirmOverlay" style="z-index:60;">
   <div class="sheet" style="padding-bottom:24px;">
     <div class="sheet-handle"></div>
@@ -2458,8 +2495,8 @@ function t(zh){
 function makeI18nProxy(target){
   return new Proxy(target, { get(obj, key){ return t(obj[key]); } });
 }
-const STATUS_LABEL_RAW = { pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'已完成', coa:'品管COA' };
-const STATUS_LABEL = makeI18nProxy({ pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'已完成', coa:'品管COA' });
+const STATUS_LABEL_RAW = { pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'已完成', coa:'品管COA', cancelled:'已取消' };
+const STATUS_LABEL = makeI18nProxy({ pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'已完成', coa:'品管COA', cancelled:'🚫 已取消' });
 const STATUS_FORWARD_LABEL = makeI18nProxy({ pending:'訂單確認完成', inprogress:'庫存確認無庫存請生產', labeling:'排程生產完成', done:'標籤印製完成', refill:'充填包裝完成', boxing:'裝箱確認完成', shipped:'出貨確認完成' });
 const CHK_LABELS = makeI18nProxy(CHK_LABELS_ZH);
 const SHIP_METHOD_LABEL = makeI18nProxy(SHIP_METHOD_LABEL_ZH);
@@ -3258,7 +3295,8 @@ async function saveOrders(){
   }
 }
 
-function isShippedOrLater(item){ return item.status === 'shipped' || item.status === 'qc'; }
+// 已取消的品項也當作「不用再追」：不跳逾期／今天／明天出貨提醒
+function isShippedOrLater(item){ return item.status === 'shipped' || item.status === 'qc' || item.status === 'cancelled'; }
 function isOverdue(item){ return !isShippedOrLater(item) && item.due < todayStr(); }
 function isChecklistComplete(item){
   const c = item.checklist || {};
@@ -3322,6 +3360,7 @@ function itemMatchesTabSearch(item, order){
 function coaComplete(item){ return item.coaDone === true || (item.coaDone === undefined && !!item.coaConfirmBy); }
 function itemBelongsToTab(item, tab){
   if(item.deleted) return false;
+  if(item.status === 'cancelled') return false;
   if(tab === 'coa'){
     // 品管COA分頁:跨階段顯示需要COA但還沒確認完成的品項，不管實際在哪個生產階段
     return needsCoa(item) && !coaComplete(item);
@@ -3336,7 +3375,7 @@ function renderGlobalSearchResults(){
   if(!tabSearchKeyword){ box.style.display = 'none'; box.innerHTML = ''; return; }
   const hits = [];
   orders.forEach(o=> (o.items||[]).forEach(it=>{
-    if(it.deleted || it.status === 'qc') return;
+    if(it.deleted || it.status === 'qc' || it.status === 'cancelled') return;
     if(itemMatchesTabSearch(it, o)) hits.push({ order:o, item:it });
   }));
   hits.sort((a,b)=> STATUS.indexOf(a.item.status) - STATUS.indexOf(b.item.status) || String(a.item.due||'').localeCompare(String(b.item.due||'')));
@@ -3640,13 +3679,13 @@ function dueChangedTag(item){
   return ' <span class="due-changed" title="' + escapeHtml(h.map(x=> x.from + ' → ' + x.to + (x.reason ? '（' + x.reason + '）' : '')).join('\n')) + '">已改期・原 ' + escapeHtml(fmtMD(item.originalDue || h[0].from)) + '</span>';
 }
 function dueChangeBtn(order, item){
-  if(item.status === 'qc') return '';
+  if(item.status === 'qc' || item.status === 'cancelled') return '';
   return ' <button type="button" class="due-btn" data-due-oid="' + order.id + '" data-due-iid="' + item.id + '">📅 改交期</button>';
 }
 let dcTarget = null;
 function openDueChange(order, item){
   dcTarget = { orderId: order.id, itemId: item.id };
-  const others = (order.items || []).filter(it=> !it.deleted && it.status !== 'qc');
+  const others = (order.items || []).filter(it=> !it.deleted && it.status !== 'qc' && it.status !== 'cancelled');
   document.getElementById('dcSub').innerHTML = escapeHtml(order.customer || '') + '　' + escapeHtml(item.product) + (item.spec ? '（' + escapeHtml(item.spec) + '）' : '') + '<br>目前交期 <b style="color:var(--ink);">' + escapeHtml(item.due || '未填') + '</b>　目前階段 <span class="badge stage st-' + item.status + '">' + STATUS_LABEL[item.status] + '</span>';
   document.getElementById('dcNewDue').value = item.due || '';
   document.getElementById('dcReason').value = '';
@@ -3667,7 +3706,7 @@ document.getElementById('dcSave').onclick = async ()=>{
   const newDue = document.getElementById('dcNewDue').value;
   if(!newDue){ showToast('請選新的出貨日期'); return; }
   const scope = document.querySelector('input[name="dcScope"]:checked').value;
-  const targets = scope === 'order' ? (order.items || []).filter(it=> !it.deleted && it.status !== 'qc') : [item];
+  const targets = scope === 'order' ? (order.items || []).filter(it=> !it.deleted && it.status !== 'qc' && it.status !== 'cancelled') : [item];
   const changing = targets.filter(it=> it.due !== newDue);
   if(!changing.length){ showToast('交期沒有變動'); return; }
   const reason = document.getElementById('dcReason').value.trim();
@@ -3936,7 +3975,9 @@ function wireBoxingPanels(root){
 }
 // 裝箱確認：顯示整張訂單所有品項目前在哪個階段，讓倉管知道還差哪些沒到
 function orderProgressHtml(order){
-  const items = (order.items || []).filter(it=> !it.deleted);
+  const allItems = (order.items || []).filter(it=> !it.deleted);
+  const items = allItems.filter(it=> it.status !== 'cancelled');
+  const cancelledItems = allItems.filter(it=> it.status === 'cancelled');
   if(!items.length) return '';
   const boxIdx = STATUS.indexOf('boxing');
   const reached = items.filter(it=> STATUS.indexOf(it.status) >= boxIdx).length;
@@ -3953,7 +3994,11 @@ function orderProgressHtml(order){
       '<span class="op-qty">x' + escapeHtml(String(it.qty ?? '')) + '</span>' +
       '<span class="badge stage st-' + it.status + '">' + STATUS_LABEL[it.status] + '</span>' +
     '</div>';
-  }).join('');
+  }).join('') + cancelledItems.map(it=>
+    '<div class="op-row cancelled"><span class="op-mark">🚫</span>' +
+      '<span class="op-name">' + escapeHtml(it.product || '') + (it.spec ? '<span class="item-spec"> ・ ' + escapeHtml(it.spec) + '</span>' : '') + '<span class="op-cancel-why">' + escapeHtml(cancelReasonText(it)) + '</span></span>' +
+      '<span class="op-qty">x' + escapeHtml(String(it.qty ?? '')) + '</span>' +
+      '<span class="badge stage st-cancelled">' + STATUS_LABEL.cancelled + '</span></div>').join('');
   return '<details class="order-progress" open>' +
     '<summary><b>📋 整張訂單進度</b>　已到裝箱確認或之後 <b style="color:' + (allReady ? 'var(--green)' : 'var(--amber)') + ';">' + reached + ' / ' + items.length + '</b> 項' +
       (allReady ? '　✅ 全部到齊' : '　⏳ 還有 ' + (items.length - reached) + ' 項在前面階段') + '</summary>' +
@@ -4016,12 +4061,33 @@ function qtyWithUnit(qty, item, fg, withTotal){
   return t;
 }
 
+// ---- 取消品項（不出貨，但保留在訂單上）----
+const CANCEL_REASONS = { discontinued:'客人不再使用這個產品', once:'客人這次不要了', quality:'品質問題，不能出貨', other:'其他原因' };
+function cancelReasonText(it){
+  const c = it.cancelInfo || {};
+  const d = c.at ? new Date(c.at) : null;
+  return '🚫 ' + (CANCEL_REASONS[c.reason] || '已取消') + (c.note ? '：' + c.note : '') + (d ? '（' + (d.getMonth()+1) + '/' + d.getDate() + (c.by ? ' ' + String(c.by).split('@')[0] : '') + '）' : '');
+}
+function cancelledBoxHtml(order){
+  const list = (order.items || []).filter(it=> !it.deleted && it.status === 'cancelled');
+  if(!list.length) return '';
+  return '<div class="cancelled-box">🚫 這張訂單有 <b>' + list.length + '</b> 項已取消（不出貨）：' + list.map(it=>
+    '<br>・<span class="cx-name">' + escapeHtml(it.product || '') + (it.spec ? ' ' + escapeHtml(it.spec) : '') + ' × ' + escapeHtml(qtyWithUnit(it.qty, it)) + '</span>　' + escapeHtml(cancelReasonText(it))).join('') + '</div>';
+}
+
 function orderSummaryHtml(order){
   const items = (order.items || []).filter(it=> !it.deleted);
   if(!items.length) return ''; // 一個品項也顯示，比較清楚
   const here = items.filter(it=> it.status === currentTab);
-  const sorted = items.slice().sort((a,b)=> (b.status === currentTab) - (a.status === currentTab) || STATUS.indexOf(a.status) - STATUS.indexOf(b.status));
+  const nCancelled = items.filter(it=> it.status === 'cancelled').length;
+  const sorted = items.slice().sort((a,b)=> (a.status === 'cancelled') - (b.status === 'cancelled') || (b.status === currentTab) - (a.status === currentTab) || STATUS.indexOf(a.status) - STATUS.indexOf(b.status));
   const rows = sorted.map(it=>{
+    if(it.status === 'cancelled'){
+      return '<div class="os-row cancelled"><span class="os-caret"></span>' +
+        '<span class="os-name"><span>' + escapeHtml(it.product || '') + '</span>' + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + '</span>' : '') + '<span class="os-cancel-why">' + escapeHtml(cancelReasonText(it)) + '</span></span>' +
+        '<span class="os-qty">' + escapeHtml(qtyWithUnit(it.qty, it)) + '</span>' +
+        '<span class="badge stage st-cancelled">' + STATUS_LABEL.cancelled + '</span></div>';
+    }
     const isHere = it.status === currentTab;
     const open = isHere && labelingExpanded.has(it.id);
     return '<div class="os-row' + (isHere ? ' here' : '') + (open ? ' open' : '') + '"' + (isHere ? ' data-jump-item="' + it.id + '"' : '') + '>' +
@@ -4052,7 +4118,8 @@ function orderSummaryHtml(order){
   const allOpen = here.length && here.every(it=> labelingExpanded.has(it.id));
   return '<div class="order-summary">' +
     '<div class="os-title"><span><b>📋 這張訂單全部品項（' + items.length + ' 項）</b>　在' + STATUS_LABEL[currentTab] + ' <b style="color:var(--teal);">' + here.length + '</b> 項' +
-      (currentTab === 'boxing' ? (function(){ const behind = items.filter(it=> STATUS.indexOf(it.status) < STATUS.indexOf('boxing')).length; return behind ? '　<b style="color:var(--amber);">⏳ 還有 ' + behind + ' 項在前面階段</b>' : '　<b style="color:var(--green);">✅ 全部到齊</b>'; })() : '') + '</span>' +
+      (nCancelled ? '　<b style="color:var(--red);">🚫 已取消 ' + nCancelled + ' 項</b>' : '') +
+      (currentTab === 'boxing' ? (function(){ const behind = items.filter(it=> it.status !== 'cancelled' && STATUS.indexOf(it.status) < STATUS.indexOf('boxing')).length; return behind ? '　<b style="color:var(--amber);">⏳ 還有 ' + behind + ' 項在前面階段</b>' : '　<b style="color:var(--green);">✅ 全部到齊</b>'; })() : '') + '</span>' +
       (here.length ? '<button type="button" class="os-toggle-all" data-os-all="' + order.id + '" data-open="' + (allOpen ? '1' : '') + '">' + (allOpen ? '全部收合' : '全部展開') + '</button>' : '') + '</div>' +
     (((currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing') && here.length >= 2) ? '<button type="button" class="os-done os-group-done" data-os-donegroup="' + order.id + '" style="margin:2px 0 8px;">✅ 這張訂單 ' + here.length + ' 項一起' + STATUS_LABEL[currentTab] + '完成</button>' : '') +
     '<div style="font-size:13px; color:var(--ink-dim); margin:-2px 0 4px;">' + (currentTab === 'done' ? '點品項那一列可以展開，修改批號、日期、確認照射標籤' : currentTab === 'refill' ? '點品項那一列可以展開，修改包裝人員、包裝日期' : currentTab === 'boxing' ? '點品項那一列可以展開，修改出貨前檢查、放行人員' : currentTab === 'shipped' ? '出貨方式、倉管會計在上面一次選好，可以每項按「完成」或整張一起完成' : '點品項那一列可以展開，填批號、日期、按排程生產完成') + '</div>' +
@@ -4332,7 +4399,7 @@ function renderList(){
           (canDeleteOrders() ? '<button class="icon-btn" data-act="delorder" data-oid="' + order.id + '" title="刪除整張訂單">🗑</button>' : '') +
         '</div>' +
       '</div>' +
-      (SUMMARY_TABS.includes(currentTab) ? orderSummaryHtml(order) : '') +
+      (SUMMARY_TABS.includes(currentTab) ? orderSummaryHtml(order) : cancelledBoxHtml(order)) +
       orderShipPanelHtml(order) +
       itemsHtml +
       '<button class="add-item-btn" data-act="additem" data-oid="' + order.id + '">+ 新增品項</button>';
@@ -5436,10 +5503,11 @@ function openSheet(order, item){
 
   currentEditingStage = item ? item.status : 'pending';
   showMoreFieldsExpanded = false;
-  updateStageVisibility(currentEditingStage);
+  updateStageVisibility((item && item.status === 'cancelled' && item.cancelInfo && item.cancelInfo.fromStatus) ? item.cancelInfo.fromStatus : currentEditingStage);
   applyStageContentLock(item);
 
   document.getElementById('btnDelete').style.display = (item && canDeleteOrders()) ? 'block' : 'none';
+  updateSheetCancelUI(item);
   overlay.classList.add('show');
 }
 
@@ -5473,7 +5541,7 @@ function applyStageContentLock(item){
       if(!exemptHintIds.includes('stageHintBatch')) exemptHintIds.push('stageHintBatch');
     }
   }
-  const isCompleted = (status === 'qc'); // 已完成的訂單一律鎖定禁止修改(除非是從品管COA分頁開啟補填COA，上面已經處理)
+  const isCompleted = (status === 'qc' || status === 'cancelled'); // 已完成、已取消的品項一律鎖定禁止修改(除非是從品管COA分頁開啟補填COA，上面已經處理)
   const isLocked = exemptSectionIds.length > 0 || isCompleted;
   const form = document.getElementById('orderForm');
   const exemptSections = exemptSectionIds.map(id=>document.getElementById(id)).filter(Boolean);
@@ -5502,7 +5570,7 @@ function applyStageContentLock(item){
     if(exemptSections.includes(child)){ child.style.opacity = ''; return; }
     if(exemptHintIds.includes(child.id)){ child.style.opacity = ''; return; }
     if(child.classList && child.classList.contains('sheet-actions')) return;
-    if(child.id === 'btnDelete') return;
+    if(child.id === 'btnDelete' || child.id === 'btnCancelItem' || child.id === 'btnRestoreItem' || child.id === 'cancelBanner') return;
     child.style.opacity = isLocked ? '0.55' : '';
   });
 }
@@ -5618,7 +5686,8 @@ function qoCustomerHistory(cust){
       if(!it.product) return;
       const key = it.product + '||' + (it.spec || '');
       let h = map.get(key);
-      if(!h){ h = { key, product: it.product, spec: it.spec || '', count: 0, lastQty: it.qty, lastAt: when, last: it }; map.set(key, h); }
+      if(!h){ h = { key, product: it.product, spec: it.spec || '', count: 0, lastQty: it.qty, lastAt: when, last: it,
+        discontinued: it.status === 'cancelled' && !!(it.cancelInfo && it.cancelInfo.discontinued), discAt: it.cancelInfo ? it.cancelInfo.at : 0 }; map.set(key, h); }
       h.count++;
     });
   });
@@ -5653,7 +5722,7 @@ function qoPickVisible(){
   const kw = document.getElementById('qoPickSearch').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const mode = document.getElementById('qoPickSort').value;
   let list = qoPickHist.filter(h=>{ const t = (h.product + ' ' + h.spec).toLowerCase(); return kw.every(w=> t.includes(w)); });
-  list.sort((a,b)=> mode === 'recent' ? (b.lastAt - a.lastAt) : mode === 'name' ? (a.product + a.spec).localeCompare(b.product + b.spec, 'zh-Hant', { numeric:true }) : (b.count - a.count || b.lastAt - a.lastAt));
+  list.sort((a,b)=> (!!a.discontinued - !!b.discontinued) || (mode === 'recent' ? (b.lastAt - a.lastAt) : mode === 'name' ? (a.product + a.spec).localeCompare(b.product + b.spec, 'zh-Hant', { numeric:true }) : (b.count - a.count || b.lastAt - a.lastAt)));
   return list;
 }
 function renderQoPick(){
@@ -5664,9 +5733,11 @@ function renderQoPick(){
     const on = qoPickSel.has(h.key), has = already.has(h.key);
     const d = h.lastAt ? new Date(h.lastAt) : null;
     const dTxt = d ? (d.getFullYear() + '/' + (d.getMonth()+1) + '/' + d.getDate()) : '';
-    return '<label class="qo-pick-row' + (on ? ' on' : '') + '" data-key="' + escapeHtml(h.key) + '">' +
+    const dd = h.discontinued && h.discAt ? new Date(h.discAt) : null;
+    const discTag = h.discontinued ? ' <span class="disc-tag">🚫 客人已不再使用' + (dd ? '（' + dd.getFullYear() + '/' + (dd.getMonth()+1) + '/' + dd.getDate() + ' 起）' : '') + '</span>' : '';
+    return '<label class="qo-pick-row' + (on ? ' on' : '') + (h.discontinued ? ' discontinued' : '') + '" data-key="' + escapeHtml(h.key) + '">' +
       '<input type="checkbox"' + (on ? ' checked' : '') + '>' +
-      '<div style="flex:1; min-width:0;"><div style="font-size:16.5px; font-weight:800;">' + escapeHtml(h.product) + (h.spec ? '<span class="item-spec"> ・ ' + escapeHtml(h.spec) + '</span>' : '') + (has ? ' <span style="font-size:12.5px; color:var(--teal); border:1px solid var(--teal); border-radius:6px; padding:0 5px;">已加入</span>' : '') + '</div>' +
+      '<div style="flex:1; min-width:0;"><div style="font-size:16.5px; font-weight:800;">' + escapeHtml(h.product) + (h.spec ? '<span class="item-spec"> ・ ' + escapeHtml(h.spec) + '</span>' : '') + (has ? ' <span style="font-size:12.5px; color:var(--teal); border:1px solid var(--teal); border-radius:6px; padding:0 5px;">已加入</span>' : '') + discTag + '</div>' +
       '<div style="font-size:13.5px; color:var(--ink-dim);">訂過 ' + h.count + ' 次　上次 ' + escapeHtml(String(h.lastQty ?? '')) + (dTxt ? '（' + dTxt + '）' : '') + '</div></div></label>';
   }).join('') : '<div class="ship-list-empty">沒有符合的品項</div>';
   el.querySelectorAll('.qo-pick-row').forEach(row=>{
@@ -5678,7 +5749,7 @@ function renderQoPick(){
 function updateQoPickOk(){ const b = document.getElementById('qoPickOk'); b.textContent = qoPickSel.size ? '加入勾選的 ' + qoPickSel.size + ' 項' : '加入勾選的品項'; b.disabled = !qoPickSel.size; b.style.opacity = qoPickSel.size ? '1' : '0.5'; }
 document.getElementById('qoPickSearch').addEventListener('input', renderQoPick);
 document.getElementById('qoPickSort').addEventListener('change', renderQoPick);
-document.getElementById('qoPickAll').onclick = ()=>{ qoPickVisible().forEach(h=> qoPickSel.add(h.key)); renderQoPick(); };
+document.getElementById('qoPickAll').onclick = ()=>{ qoPickVisible().forEach(h=>{ if(!h.discontinued) qoPickSel.add(h.key); }); renderQoPick(); };
 document.getElementById('qoPickNone').onclick = ()=>{ qoPickSel.clear(); renderQoPick(); };
 document.getElementById('qoPickCancel').onclick = ()=> document.getElementById('qoPickOverlay').classList.remove('show');
 document.getElementById('qoPickOk').onclick = async ()=>{
@@ -6000,6 +6071,99 @@ document.getElementById('btnDelete').onclick = async ()=>{
   showToast('已移到垃圾桶，可在垃圾桶復原');
 };
 
+// ---- 取消品項 / 復原 ----
+function updateSheetCancelUI(item){
+  const cBtn = document.getElementById('btnCancelItem'), rBtn = document.getElementById('btnRestoreItem');
+  const saveBtn = document.getElementById('btnSave');
+  const isCancelled = !!(item && item.status === 'cancelled');
+  cBtn.style.display = (item && !isCancelled && item.status !== 'qc') ? 'block' : 'none';
+  rBtn.style.display = isCancelled ? 'block' : 'none';
+  if(saveBtn) saveBtn.style.display = isCancelled ? 'none' : '';
+  let banner = document.getElementById('cancelBanner');
+  const form = document.getElementById('orderForm');
+  if(isCancelled){
+    if(!banner){ banner = document.createElement('div'); banner.id = 'cancelBanner'; banner.className = 'cancel-banner'; form.insertBefore(banner, form.firstChild); }
+    const c = item.cancelInfo || {};
+    banner.innerHTML = '<b style="color:var(--red);">🚫 這個品項已取消，不出貨</b><br>' + escapeHtml(cancelReasonText(item).replace(/^🚫 /, '原因：')) +
+      (c.fromStatus ? '<br>取消時在「' + escapeHtml(STATUS_LABEL_RAW[c.fromStatus] || c.fromStatus) + '」' : '') +
+      (c.materialsRestored ? '<br>已把扣掉的原料退回庫存' : '') + (c.fgReturned ? '<br>已把成品退回庫存' : '');
+    banner.style.display = '';
+  }else if(banner){ banner.style.display = 'none'; }
+}
+let ciTarget = null;
+document.getElementById('btnCancelItem').onclick = ()=>{
+  const order = orders.find(o=>o.id === editingOrderId);
+  const item = order && order.items.find(i=>i.id === editingItemId);
+  if(!item) return;
+  ciTarget = { orderId: order.id, itemId: item.id };
+  document.getElementById('ciSub').innerHTML = escapeHtml(order.customer || '') + '　' + escapeHtml(item.product) + (item.spec ? '（' + escapeHtml(item.spec) + '）' : '') + ' × ' + escapeHtml(qtyWithUnit(item.qty, item)) +
+    '<br>目前在 <span class="badge stage st-' + item.status + '">' + STATUS_LABEL[item.status] + '</span>';
+  document.querySelectorAll('input[name="ciReason"]').forEach(r=> r.checked = false);
+  document.getElementById('ciNote').value = '';
+  const st = item.status;
+  let h = '';
+  if(st === 'pending' || st === 'inprogress') h = '📦 這個品項還沒扣任何原料或成品庫存，直接取消就好。';
+  else if(st === 'labeling') h = '<label class="halal-sub"><input type="checkbox" id="ciRestoreMat"> 把這個品項已扣掉的原料退回庫存</label><div style="color:var(--ink-dim); font-size:13.5px;">還沒開始調配才勾；已經調配好、原料用掉了就不要勾。</div>';
+  else if(st === 'done' || st === 'refill' || st === 'boxing') h = '📦 這個品項的成品已經入庫，取消後成品會<b>留在成品庫存</b>，可以給其他訂單用（不會自動扣掉）。';
+  else if(st === 'shipped') h = '<label class="halal-sub"><input type="checkbox" id="ciReturnFg" checked> 把成品退回成品庫存（' + escapeHtml(qtyWithUnit(item.qty, item)) + '）</label><div style="color:var(--ink-dim); font-size:13.5px;">貨還沒出去才勾；已經出去了（例如客人退貨另外處理）就不要勾。</div>';
+  document.getElementById('ciStock').innerHTML = h;
+  document.getElementById('cancelItemOverlay').classList.add('show');
+};
+document.getElementById('ciCancel').onclick = ()=> document.getElementById('cancelItemOverlay').classList.remove('show');
+document.getElementById('ciOk').onclick = async ()=>{
+  if(!ciTarget) return;
+  const order = orders.find(o=>o.id === ciTarget.orderId);
+  const item = order && order.items.find(i=>i.id === ciTarget.itemId);
+  if(!item || item.status === 'cancelled' || item.status === 'qc') return;
+  const r = document.querySelector('input[name="ciReason"]:checked');
+  if(!r){ showToast('請選取消原因'); return; }
+  const note = document.getElementById('ciNote').value.trim();
+  if(r.value === 'other' && !note){ showToast('選「其他原因」請填補充說明'); document.getElementById('ciNote').focus(); return; }
+  const from = item.status;
+  const rm = document.getElementById('ciRestoreMat'), rf = document.getElementById('ciReturnFg');
+  const info = { reason: r.value, discontinued: r.value === 'discontinued', note, by: currentUserEmail || '', at: Date.now(), fromStatus: from, materialsRestored:false, fgReturned:false };
+  if(item.shippedAt) info.shippedAt = item.shippedAt;
+  if(from === 'labeling' && rm && rm.checked){
+    await restoreStockForItem(item, order);
+    info.materialsRestored = true;
+  }
+  if(from === 'shipped' && rf && rf.checked){
+    const fg = findOrCreateFinishedGood(item.product, item.spec);
+    addFinishedGoodBatchStock(fg, item.qty||0, item.productBatchNo||'', item.productMfgDate||'', item.productExpDate||'');
+    logInventoryTransaction('finishedGood', fg.id, fg.product, 'in', item.productBatchNo||'', item.qty||0, '取消品項，成品退回庫存', order);
+    info.fgReturned = true;
+    await saveBomData(true);
+    try{ renderFinishedGoodList(); }catch(e){}
+  }
+  item.cancelInfo = info;
+  item.status = 'cancelled';
+  delete item.shippedAt;
+  labelingExpanded.delete(item.id);
+  await saveOrders();
+  document.getElementById('cancelItemOverlay').classList.remove('show');
+  closeSheet(); render();
+  showToast('🚫 已取消「' + item.product + '」，保留在訂單上');
+};
+document.getElementById('btnRestoreItem').onclick = async ()=>{
+  const order = orders.find(o=>o.id === editingOrderId);
+  const item = order && order.items.find(i=>i.id === editingItemId);
+  if(!item || item.status !== 'cancelled') return;
+  const c = item.cancelInfo || {};
+  const to = STATUS.includes(c.fromStatus) ? c.fromStatus : 'pending';
+  const ok = await showConfirm('「' + item.product + '」會回到「' + STATUS_LABEL_RAW[to] + '」繼續處理。' +
+    (c.materialsRestored ? '\n取消時退回的原料會重新扣掉。' : '') + (c.fgReturned ? '\n取消時退回的成品會重新扣掉。' : ''), '復原這個品項？');
+  if(!ok) return;
+  if(c.materialsRestored) await deductStockForItem(item, order);
+  if(c.fgReturned) await deductFinishedGoodStock(item, true, order);
+  item.status = to;
+  if(c.shippedAt) item.shippedAt = c.shippedAt;
+  item.cancelHistory = (item.cancelHistory || []).concat([Object.assign({}, c, { restoredAt: Date.now(), restoredBy: currentUserEmail || '' })]);
+  delete item.cancelInfo;
+  await saveOrders();
+  closeSheet(); render();
+  showToast('↩️ 已復原，回到「' + STATUS_LABEL_RAW[to] + '」');
+};
+
 // ---- 出貨警示 ----
 let notifiedIds = new Set();
 let dismissedIds = new Set();
@@ -6271,13 +6435,14 @@ function renderOrderSearchList(){
   let summary = '<div class="coa-notice-row" style="line-height:1.7; margin-bottom:8px;">共 <b>' + results.length + '</b> 個品項，來自 <b>' + orderCount + '</b> 張訂單';
   if(productKeyword){
     const sums = {};
-    results.forEach(x=>{ const k = (x.item.product || '') + (x.item.spec ? '（' + x.item.spec + '）' : ''); sums[k] = (sums[k] || 0) + (parseFloat(x.item.qty) || 0); });
+    results.forEach(x=>{ if(x.item.status === 'cancelled') return; const k = (x.item.product || '') + (x.item.spec ? '（' + x.item.spec + '）' : ''); sums[k] = (sums[k] || 0) + (parseFloat(x.item.qty) || 0); });
     summary += '<br>數量合計：' + Object.keys(sums).sort((a,b)=>a.localeCompare(b,'zh-Hant')).map(k=> escapeHtml(k) + ' <b>' + (Math.round(sums[k]*1000)/1000) + '</b>').join('　');
   }
   summary += '</div>';
 
   listEl.innerHTML = summary + results.map(x=>{
-    const stageTag = '<span class="badge stage st-' + x.item.status + '">' + STATUS_LABEL[x.item.status] + '</span>';
+    const stageTag = '<span class="badge stage st-' + x.item.status + '">' + STATUS_LABEL[x.item.status] + '</span>' +
+      (x.item.status === 'cancelled' ? '<span class="ship-list-tag" style="color:var(--red);">' + escapeHtml(cancelReasonText(x.item)) + '</span>' : '');
     const dateTag = x.item.fillFormDate ? ('<span class="ship-list-tag">' + t('填寫日期') + ' ' + x.item.fillFormDate + '</span>') : '';
     const dueTag = x.item.due ? ('<span class="ship-list-tag">' + t('出貨日期') + ' ' + x.item.due + '</span>') : '';
     const batchBits = [];
