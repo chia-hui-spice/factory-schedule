@@ -49,6 +49,11 @@
   .subtitle{ font-size:16.2px; color:var(--ink-dim); font-family:var(--mono); margin-top:1px; }
   .sync-dot{ width:8px; height:8px; border-radius:50%; background:var(--green); display:inline-block; margin-right:5px; box-shadow:0 0 0 3px rgba(76,168,114,0.15);}
   .bell-btn{ width:46px; height:46px; border-radius:12px; background:var(--panel); border:1.5px solid var(--line); font-size:23.8px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex:0 0 46px; color:var(--ink-dim); }
+  .new-order-pop{ position:fixed; left:50%; top:16px; transform:translateX(-50%); z-index:9999; background:#1f7a3a; color:#fff; border:3px solid #ffd54a; border-radius:16px; padding:16px 20px; font-size:20px; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,.45); max-width:min(92vw,560px); width:max-content; display:none; animation:nopPulse 1s ease-in-out 3; }
+  .new-order-pop.show{ display:block; }
+  .new-order-pop .nop-list{ font-size:16px; font-weight:500; margin-top:8px; line-height:1.5; max-height:40vh; overflow:auto; }
+  .new-order-pop button{ margin-top:12px; width:100%; font-size:18px; padding:10px; border-radius:10px; border:none; background:#ffd54a; color:#222; font-weight:700; cursor:pointer; }
+  @keyframes nopPulse{ 0%,100%{ box-shadow:0 10px 30px rgba(0,0,0,.45); } 50%{ box-shadow:0 0 0 10px rgba(255,213,74,.55); } }
   .bell-btn.enabled{ border-color:var(--amber); color:var(--amber); background:rgba(242,183,5,0.1); }
   .quick-stat-btn{ position:relative; }
   .quick-badge{
@@ -126,6 +131,8 @@
     padding:6px 10px; margin-bottom:8px; cursor:pointer; display:flex; align-items:center; flex-wrap:wrap; gap:4px;
   }
   .stock-info-row b{ color:var(--ink); font-family:var(--mono); }
+  .stock-info-row .si-line{ flex:0 0 100%; font-size:16.5px; line-height:1.6; }
+  .stock-info-row .si-line b{ font-size:19px; }
   .stock-info-row b.need{ color:var(--red); }
   .stock-info-row b.enough{ color:var(--teal); }
   .stock-info-edit{ margin-left:auto; font-size:13.3px; color:var(--amber); white-space:nowrap; }
@@ -621,8 +628,10 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
     <button class="bell-btn" id="recallBtn" title="食安緊急召回查詢" style="border-color:var(--red);">🚨</button>
     <button class="bell-btn" id="langToggleBtn" title="Bahasa / 語言 / Language">🌐</button>
     <button class="i18n bell-btn" id="bellBtn" title="開啟出貨提醒通知">🔔</button>
+    <button class="bell-btn" id="soundBtn" title="新訂單聲音提醒">🔇</button>
   </div>
   <div class="alert-banner" id="alertBanner"></div>
+  <div class="new-order-pop" id="newOrderPop"><div id="newOrderPopTitle"></div><div class="nop-list" id="newOrderPopList"></div><button type="button" id="newOrderPopOk">知道了</button></div>
   <div id="testModeBanner" class="test-mode-banner" style="display:none;">
     <div>🧪 <b>測試模式</b>：目前看到的資料跟正式版完全分開，不會影響共用資料</div>
     <button type="button" id="btnMergeToProd" class="i18n">合併到正式版</button>
@@ -1693,7 +1702,8 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 
     <div class="section-label">刪除權限</div>
     <label class="perm-checkbox-item" style="border-color:var(--red);"><input type="checkbox" id="permCanDelete"> 🗑 可以刪除訂單、刪除品項、在垃圾桶永久刪除</label>
-    <div style="font-size:13.5px; color:var(--ink-dim); margin:4px 0 10px;">沒有勾的帳號看不到刪除按鈕。管理者一定可以刪除。</div>
+    <div style="font-size:13.5px; color:var(--ink-dim); margin:4px 0 10px;">沒有勾的帳號看不到刪除按鈕。管理者預設可以刪除，取消勾選再儲存就不能刪除。</div>
+    <div id="permAdminNote" style="display:none; font-size:14px; color:var(--amber); font-weight:700; margin:-4px 0 10px;">這是管理者帳號：分頁和按鈕永遠看得到全部，這裡只會設定「能不能刪除」。</div>
 
     <div class="section-label i18n">限定產線（只影響「排程生產」「充填包裝」分頁看到的品項）</div>
     <div class="field">
@@ -2496,8 +2506,9 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
 function canDeleteOrders(){
-  if(isCurrentUserAdmin) return true;
   const p = (typeof permissions !== 'undefined') && currentUserEmail && permissions[currentUserEmail];
+  // 管理者預設可以刪除，除非在權限管理把他的「可以刪除」取消勾選
+  if(isCurrentUserAdmin) return !(p && p.canDelete === false);
   return !!(p && p.canDelete === true);
 }
 function noDeletePermission(){ showAlert('你的帳號沒有「刪除訂單」的權限。\n需要刪除的話，請找管理者（或請管理者在「權限管理」幫你開啟）。', '沒有刪除權限'); }
@@ -2506,7 +2517,8 @@ const PERM_BUTTON_OPTIONS = [
   { id: 'bomBtn', label: '📦 進銷存管理' },
   { id: 'reportBtn', label: '📊 統計報表' },
   { id: 'trashBtn', label: '🗑️ 垃圾桶' },
-  { id: 'bellBtn', label: '🔔 出貨提醒通知' }
+  { id: 'bellBtn', label: '🔔 出貨提醒通知' },
+  { id: 'soundBtn', label: '🔊 新訂單聲音提醒' }
 ];
 let permissions = {}; // { [email]: { tabs:[...STATUS keys], buttons:[...button ids] } }
 let currentUserEmail = null;
@@ -2996,11 +3008,120 @@ function showToast(msg){
   setTimeout(()=> t.classList.remove('show'), 1800);
 }
 
+// ---- 新訂單確認：聲音提醒（每台裝置自己開關）----
+// 當有品項從「訂單確認」按下「訂單確認完成」進入下一步時，其他開著的裝置會響鈴＋跳出大提示。
+// 自己這台按的不會響。iPad / 手機的瀏覽器規定要先「點一下」才能出聲，所以要按一次 🔇 變成 🔊 才會開啟。
+const SOUND_PREF_KEY = 'newOrderSoundOn';
+let soundOn = false;
+try{ soundOn = localStorage.getItem(SOUND_PREF_KEY) === '1'; }catch(e){}
+let audioCtx = null;
+let soundUnlocked = false;
+let prevItemStatus = null;          // Map(itemId -> status)，上一次雲端資料
+const localConfirmedIds = new Set(); // 這台裝置自己按的訂單確認完成
+function getAudioCtx(){
+  if(!audioCtx){
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return null;
+    try{ audioCtx = new AC(); }catch(e){ return null; }
+  }
+  return audioCtx;
+}
+function unlockAudio(){
+  const ctx = getAudioCtx(); if(!ctx) return;
+  try{ if(ctx.state === 'suspended') ctx.resume(); }catch(e){}
+  try{ // 播一個無聲的音，讓 iPad 解鎖
+    const b = ctx.createBuffer(1, 1, 22050); const src = ctx.createBufferSource();
+    src.buffer = b; src.connect(ctx.destination); src.start(0);
+    soundUnlocked = true;
+  }catch(e){}
+}
+function playNewOrderSound(){
+  const ctx = getAudioCtx(); if(!ctx) return;
+  try{ if(ctx.state === 'suspended') ctx.resume(); }catch(e){}
+  const notes = [880, 1175, 1568, 0, 880, 1175, 1568, 0, 880, 1175, 1568]; // 叮咚叮 ×3
+  let t = ctx.currentTime + 0.05;
+  notes.forEach(f=>{
+    if(!f){ t += 0.25; return; }
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine'; o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.6, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(t); o.stop(t + 0.3);
+    t += 0.18;
+  });
+  try{ if(navigator.vibrate) navigator.vibrate([300,150,300]); }catch(e){}
+}
+function updateSoundBtnUI(){
+  const b = document.getElementById('soundBtn'); if(!b) return;
+  b.textContent = soundOn ? '🔊' : '🔇';
+  b.classList.toggle('enabled', soundOn);
+  b.title = soundOn ? '新訂單聲音提醒：開（點一下關閉）' : '新訂單聲音提醒：關（點一下開啟）';
+}
+document.getElementById('soundBtn').onclick = ()=>{
+  if(soundOn && soundUnlocked){
+    soundOn = false;
+    try{ localStorage.setItem(SOUND_PREF_KEY, '0'); }catch(e){}
+    updateSoundBtnUI(); showToast('🔇 已關閉這台的新訂單聲音提醒');
+    return;
+  }
+  soundOn = true;
+  try{ localStorage.setItem(SOUND_PREF_KEY, '1'); }catch(e){}
+  unlockAudio(); playNewOrderSound();
+  updateSoundBtnUI(); showToast('🔊 已開啟這台的新訂單聲音提醒（剛剛是試聽）');
+};
+// 已經設定開啟、但重新整理後 iPad 需要再點一下畫面任何地方才能出聲 → 第一次點擊時自動解鎖
+document.addEventListener('pointerdown', ()=>{ if(soundOn && !soundUnlocked) unlockAudio(); }, true);
+document.addEventListener('keydown', ()=>{ if(soundOn && !soundUnlocked) unlockAudio(); }, true);
+updateSoundBtnUI();
+const NOP_ITEMS = [];
+function showNewOrderPop(entries){
+  entries.forEach(e=> NOP_ITEMS.push(e));
+  const byOrder = new Map();
+  NOP_ITEMS.forEach(e=>{
+    const k = e.orderId;
+    if(!byOrder.has(k)) byOrder.set(k, { customer: e.customer, orderNo: e.orderNo, items: [] });
+    byOrder.get(k).items.push(e);
+  });
+  document.getElementById('newOrderPopTitle').textContent = '🔔 新訂單已確認（' + NOP_ITEMS.length + ' 個品項）';
+  document.getElementById('newOrderPopList').innerHTML = Array.from(byOrder.values()).map(g=>
+    '<div>👤 <b>' + escapeHtml(g.customer || '') + '</b>' + (g.orderNo ? '（' + escapeHtml(g.orderNo) + '）' : '') + '<br>' +
+    g.items.map(e=> '・' + escapeHtml(e.product || '') + (e.spec ? ' ' + escapeHtml(e.spec) : '') + ' × ' + (e.qty || 0) + (e.due ? '　交期 ' + escapeHtml(e.due) : '')).join('<br>') + '</div>'
+  ).join('<hr style="border:none;border-top:1px solid rgba(255,255,255,.3);margin:6px 0;">');
+  document.getElementById('newOrderPop').classList.add('show');
+}
+document.getElementById('newOrderPopOk').onclick = ()=>{
+  NOP_ITEMS.length = 0;
+  document.getElementById('newOrderPop').classList.remove('show');
+};
+function detectNewConfirmedOrders(serverList){
+  const cur = new Map();
+  (serverList || []).forEach(o=> (o.items || []).forEach(it=> cur.set(it.id, it.status)));
+  const prev = prevItemStatus;
+  prevItemStatus = cur;
+  if(!prev) return; // 第一次載入不響
+  const fresh = [];
+  (serverList || []).forEach(o=> (o.items || []).forEach(it=>{
+    const before = prev.get(it.id);
+    const justConfirmed = before === 'pending' && it.status === 'inprogress';
+    if(!justConfirmed) return;
+    if(localConfirmedIds.has(it.id)){ localConfirmedIds.delete(it.id); return; } // 自己按的不響
+    fresh.push({ orderId: o.id, customer: o.customer, orderNo: o.orderNo, product: it.product, spec: it.spec, qty: it.qty, due: it.due });
+  }));
+  if(!fresh.length) return;
+  if(soundOn) playNewOrderSound();
+  showNewOrderPop(fresh);
+  const custs = Array.from(new Set(fresh.map(f=>f.customer).filter(Boolean)));
+  fireNotification('🔔 新訂單已確認', custs.join('、') + '：' + fresh.length + ' 個品項', 'neworder-' + Date.now());
+}
+
 let firstOrdersSnapshotHandled = false;
 function loadOrders(){
   onSnapshot(ordersDocRef, async (snap)=>{
     const serverList = (snap.exists() && snap.data().list) ? snap.data().list : [];
     serverList.forEach(o=>{ if(!o.items) o.items = []; });
+    try{ detectNewConfirmedOrders(serverList); }catch(e){ console.error(e); }
     // 不直接整份取代：這台裝置還沒存進雲端的修改要保留，其他品項用雲端最新的
     applyOrdersInPlace(mergeOrderLists(serverList, orders));
     recordSyncedOrders(serverList);
@@ -3838,6 +3959,32 @@ function orderProgressHtml(order){
 // 排程生產：整張訂單的品項總表（品項、規格、數量、目前階段），點一列展開／收合那個品項
 const labelingExpanded = new Set(); // 排程生產、標籤印製共用：展開中的品項
 const SUMMARY_TABS = ['labeling','done','refill','boxing','shipped'];
+// ---- 從規格判斷訂單數量的單位 ----
+// 例：「500包/箱」→ 訂單數量單位是「箱」，每箱 500 包；「1kg/包」→ 單位「包」，每包 1kg
+// 系統的成品庫存是用「訂單數量」同一個單位在加減（標籤印製完成加 item.qty、出貨扣 item.qty），所以顯示也要用同一個單位
+function parseSpecUnit(spec){
+  const sp = String(spec || '').trim();
+  const m = sp.match(/^(.*?)\s*[\/／]\s*([^\d\s\/／]{1,3})\s*$/);
+  if(!m) return { unit:'', perQty:null, perUnit:'' };
+  const inner = m[1].match(/(\d+(?:\.\d+)?)\s*([^\d\s*xX×\/／]{1,4})\s*$/);
+  return { unit: m[2], perQty: inner ? parseFloat(inner[1]) : null, perUnit: inner ? inner[2] : '' };
+}
+function orderUnit(item, fg){
+  const u = parseSpecUnit(item && item.spec).unit;
+  if(u) return u;
+  return (fg && fg.unit) || '';
+}
+// 「2 箱（共 1000 包）」
+function qtyWithUnit(qty, item, fg, withTotal){
+  const info = parseSpecUnit(item && item.spec);
+  const u = orderUnit(item, fg);
+  let t = String(qty ?? '') + (u ? ' ' + u : '');
+  if(withTotal && info.perQty && info.perUnit && info.perUnit !== u && Number(qty) > 0){
+    t += '（共 ' + (Math.round(Number(qty) * info.perQty * 1000) / 1000) + ' ' + info.perUnit + '）';
+  }
+  return t;
+}
+
 function orderSummaryHtml(order){
   const items = (order.items || []).filter(it=> !it.deleted);
   if(!items.length) return ''; // 一個品項也顯示，比較清楚
@@ -3865,7 +4012,7 @@ function orderSummaryHtml(order){
             })() : '') +
             ((currentTab === 'refill' && it.status === 'refill') ? (function(){ const ps = it.packagingStaff || defaultPackagingStaff(it); return '<br>包裝人員 ' + (ps ? '<b>' + escapeHtml(ps) + '</b>' + (it.packagingStaff ? '' : '（預設）') : '<i class="os-miss">未選</i>'); })() : '') + '</span>';
         })() : '') + '</span>' +
-      '<span class="os-qty">' + escapeHtml(String(it.qty ?? '')) + '</span>' +
+      '<span class="os-qty">' + escapeHtml(qtyWithUnit(it.qty, it)) + '</span>' +
       ((isHere && (currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing' || currentTab === 'shipped'))
         ? '<button type="button" class="os-go" data-act="forward" data-oid="' + order.id + '" data-iid="' + it.id + '">完成</button>'
         : '<span class="badge stage st-' + it.status + '">' + STATUS_LABEL[it.status] + '</span>') +
@@ -4012,7 +4159,7 @@ function renderList(){
       const manualBatchNos = (item.manualMaterialBatches||[]).map(b=>b.batchNo).filter(Boolean);
       if(manualBatchNos.length > 0) metaBits.push('<div class="meta-item">原料批號 <b>' + escapeHtml(manualBatchNos.join('、')) + '</b></div>');
       else if(item.materialBatchNo) metaBits.push('<div class="meta-item">原料批號 <b>' + escapeHtml(item.materialBatchNo) + '</b></div>');
-      metaBits.push('<div class="meta-item">數量 <b>' + item.qty + '</b></div>');
+      metaBits.push('<div class="meta-item">數量 <b>' + escapeHtml(qtyWithUnit(item.qty, item, null, true)) + '</b></div>');
       if(item.actualYieldQty !== undefined && item.actualYieldQty !== null && item.actualYieldQty !== '' && Number(item.actualYieldQty) !== Number(item.qty)){
         metaBits.push('<div class="meta-item">實際產出 <b style="color:var(--orange);">' + item.actualYieldQty + '</b></div>');
       }
@@ -4027,8 +4174,10 @@ function renderList(){
       if(item.status === 'inprogress'){
         const fg = finishedGoods.find(f=>f.product === item.product && (f.spec||'') === (item.spec||''));
         const currentStock = fg ? finishedGoodTotalStock(fg) : 0;
-        const unit = fg ? (fg.unit||'') : '';
+        const unit = orderUnit(item, fg);
         const stillNeed = Math.max(item.qty - currentStock, 0);
+        const sInfo = parseSpecUnit(item.spec);
+        const totalTxt = (n)=> (sInfo.perQty && sInfo.perUnit && sInfo.perUnit !== unit && n > 0) ? '<span style="font-size:0.85em; opacity:.8;">（共 ' + (Math.round(n * sInfo.perQty * 1000) / 1000) + ' ' + escapeHtml(sInfo.perUnit) + '）</span>' : '';
         const fulfillQty = Math.min(currentStock, item.qty);
         const fastTrackBtn = fulfillQty > 0
           ? '<button type="button" class="fast-track-btn" data-act="faststock" data-oid="'+order.id+'" data-iid="'+item.id+'">⚡ 用現有庫存 '+fulfillQty+(unit?' '+escapeHtml(unit):'')+' 直接送出貨確認</button>'
@@ -4039,8 +4188,10 @@ function renderList(){
               '<div class="stock-batch-item">批號 <b>' + escapeHtml(b.batchNo||'未命名') + '</b>　剩 <b>' + b.stock + '</b>' + (unit?' '+escapeHtml(unit):'') + (b.expDate ? '　有效期限 ' + b.expDate : '') + '</div>'
             ).join('') + '</div>'
           : '';
-        stockInfoHtml = '<div class="stock-info-row" data-stock-product="'+escapeHtml(item.product)+'" data-stock-spec="'+escapeHtml(item.spec||'')+'">📦 目前成品庫存 <b>' + currentStock + '</b>' + (unit?' '+escapeHtml(unit):'') +
-          '　還需要生產 <b class="' + (stillNeed > 0 ? 'need' : 'enough') + '">' + stillNeed + '</b>' + (unit?' '+escapeHtml(unit):'') +
+        stockInfoHtml = '<div class="stock-info-row" data-stock-product="'+escapeHtml(item.product)+'" data-stock-spec="'+escapeHtml(item.spec||'')+'">' +
+          '<span class="si-line">🧾 訂單數量 <b>' + item.qty + '</b>' + (unit?' '+escapeHtml(unit):'') + totalTxt(item.qty) + '</span>' +
+          '<span class="si-line">📦 目前成品庫存 <b>' + currentStock + '</b>' + (unit?' '+escapeHtml(unit):'') + totalTxt(currentStock) + '</span>' +
+          '<span class="si-line">🏭 還需要生產 <b class="' + (stillNeed > 0 ? 'need' : 'enough') + '">' + stillNeed + '</b>' + (unit?' '+escapeHtml(unit):'') + totalTxt(stillNeed) + '</span>' +
           '<span class="stock-info-edit">✎ 點擊修改庫存</span></div>' + batchListHtml + fastTrackBtn +
           '<button type="button" class="split-btn" data-act="matpreview" data-oid="'+order.id+'" data-iid="'+item.id+'" style="margin-top:8px;">📋 預計用料（生產前試算會用到哪些批號）</button>';
       }
@@ -4091,7 +4242,7 @@ function renderList(){
         itemsHtml += '<div class="item-row simple-row pri-' + item.priority + (overdue ? ' overdue' : '') + '">' +
           '<div class="simple-main">' +
             '<div class="simple-name">' + escapeHtml(item.product) + (item.spec ? '<div class="simple-spec">' + escapeHtml(item.spec) + '</div>' : '') + '</div>' +
-            '<div class="simple-qty"><span>數量</span>' + escapeHtml(String(item.qty)) + '</div>' +
+            '<div class="simple-qty"><span>數量</span>' + escapeHtml(qtyWithUnit(item.qty, item)) + '</div>' +
           '</div>' +
           '<div class="simple-sub">出貨日 <b>' + escapeHtml((item.due || '').slice(0,4) === String(new Date().getFullYear()) ? (item.due || '').slice(5).replace('-', '/') : (item.due || '').replace(/-/g, '/')) + '</b>' + dueChangedTag(item) + dueChangeBtn(order, item) + zonesTxt + (tags.length ? '　' + tags.join(' ') : '') + '</div>' +
           (showBatch ? ((tab === 'done' && item.status === 'done')
@@ -4363,6 +4514,7 @@ function renderList(){
       const wasLabeling = item.status === 'labeling';
       const wasBoxing = item.status === 'boxing';
       const prevStatus = item.status, prevCompletedAt = item.completedAt, prevShippedAt = item.shippedAt;
+      if(item.status === 'pending') localConfirmedIds.add(item.id);
       item.status = nextStatus;
       if(item.status === 'done') item.completedAt = Date.now();
       if(item.status === 'shipped') item.shippedAt = Date.now();
@@ -4490,8 +4642,8 @@ function renderList(){
 
       const isFullCover = fulfillQty >= item.qty;
       const msg = isFullCover
-        ? '這張品項需要 ' + item.qty + ' ' + (fg.unit||'') + '，庫存現有 ' + currentStock + ' ' + (fg.unit||'') + '，足夠全部直接送去出貨確認，不用再走生產流程與裝箱前檢查。確定嗎？'
-        : '用現有庫存 ' + fulfillQty + ' ' + (fg.unit||'') + ' 拆成新品項直接送去出貨確認，剩下 ' + (item.qty - fulfillQty) + ' ' + (fg.unit||'') + ' 留在這裡繼續走生產流程。確定嗎？';
+        ? '這張品項需要 ' + item.qty + ' ' + orderUnit(item, fg) + '，庫存現有 ' + currentStock + ' ' + orderUnit(item, fg) + '，足夠全部直接送去出貨確認，不用再走生產流程與裝箱前檢查。確定嗎？'
+        : '用現有庫存 ' + fulfillQty + ' ' + orderUnit(item, fg) + ' 拆成新品項直接送去出貨確認，剩下 ' + (item.qty - fulfillQty) + ' ' + orderUnit(item, fg) + ' 留在這裡繼續走生產流程。確定嗎？';
       const ok = await showConfirm(msg, '用現有庫存直接出貨？');
       if(!ok) return;
 
@@ -4560,7 +4712,7 @@ function renderList(){
         item.qty = item.qty - fulfillQty;
         item.originalQty = originalTotal;
         item.splitGroupId = splitGroupId;
-        showToast('已拆出 ' + fulfillQty + ' ' + (fg.unit||'') + ' 直接送去出貨確認' + (consumed.length > 1 ? '（用到 ' + consumed.length + ' 個批次，已各自拆成獨立品項）' : '') + '，剩下 ' + item.qty + ' 留在庫存確認繼續生產');
+        showToast('已拆出 ' + fulfillQty + ' ' + orderUnit(item, fg) + ' 直接送去出貨確認' + (consumed.length > 1 ? '（用到 ' + consumed.length + ' 個批次，已各自拆成獨立品項）' : '') + '，剩下 ' + item.qty + ' 留在庫存確認繼續生產');
       }
 
       await saveBomData();
@@ -7734,9 +7886,22 @@ function renderPermCheckboxes(currentPerm){
   zoneSel.innerHTML = '<option value="">不限制（看得到所有產線）</option>' +
     PRODUCTION_ZONES.map(z=>'<option value="'+escapeHtml(z)+'">'+escapeHtml(z)+'</option>').join('');
   zoneSel.value = (currentPerm && currentPerm.productionZone) ? currentPerm.productionZone : '';
-  document.getElementById('permCanDelete').checked = !!(currentPerm && currentPerm.canDelete === true);
+  syncPermCanDeleteDefault(currentPerm);
 }
 
+// 刪除權限勾選框：一般帳號預設不勾；管理者預設勾（除非之前設定成不能刪除）
+function syncPermCanDeleteDefault(currentPerm){
+  const email = document.getElementById('permEmail').value.trim().toLowerCase();
+  const isAdmin = ADMIN_EMAILS.includes(email);
+  const cb = document.getElementById('permCanDelete');
+  cb.checked = isAdmin ? !(currentPerm && currentPerm.canDelete === false) : !!(currentPerm && currentPerm.canDelete === true);
+  const note = document.getElementById('permAdminNote');
+  if(note) note.style.display = isAdmin ? '' : 'none';
+}
+document.getElementById('permEmail').addEventListener('input', ()=>{
+  const email = document.getElementById('permEmail').value.trim().toLowerCase();
+  syncPermCanDeleteDefault(permissions[email] || null);
+});
 function renderPermUserList(){
   const listEl = document.getElementById('permUserList');
   const emails = Object.keys(permissions);
@@ -7745,7 +7910,7 @@ function renderPermUserList(){
     return;
   }
   listEl.innerHTML = emails.map(email=>{
-    return '<div class="perm-user-row" data-perm-email="'+escapeHtml(email)+'"><div>'+escapeHtml(email)+(permissions[email] && permissions[email].canDelete ? ' <span style="color:var(--red); font-size:13px; font-weight:800;">🗑 可刪除</span>' : '')+'</div><div style="color:var(--ink-dim); font-size:13.9px;">點擊編輯</div></div>';
+    return '<div class="perm-user-row" data-perm-email="'+escapeHtml(email)+'"><div>'+escapeHtml(email)+(permissions[email] && permissions[email].canDelete ? ' <span style="color:var(--red); font-size:13px; font-weight:800;">🗑 可刪除</span>' : '')+(permissions[email] && permissions[email].adminDeleteOnly && permissions[email].canDelete === false ? ' <span style="color:var(--ink-dim); font-size:13px; font-weight:800;">管理者・不能刪除</span>' : '')+'</div><div style="color:var(--ink-dim); font-size:13.9px;">點擊編輯</div></div>';
   }).join('');
   listEl.querySelectorAll('[data-perm-email]').forEach(row=>{
     row.onclick = ()=> openPermEditor(row.dataset.permEmail);
@@ -7770,7 +7935,21 @@ document.getElementById('btnCancelPerm').onclick = ()=> document.getElementById(
 document.getElementById('btnSavePerm').onclick = async ()=>{
   const email = document.getElementById('permEmail').value.trim().toLowerCase();
   if(!email){ showToast('請填寫 Google 帳號'); return; }
-  if(ADMIN_EMAILS.includes(email)){ showToast('這個帳號已經是管理者，永遠都能看到全部，不需要另外設定'); return; }
+  if(ADMIN_EMAILS.includes(email)){
+    // 管理者永遠看得到全部分頁／按鈕，這裡只設定「能不能刪除」
+    const can = document.getElementById('permCanDelete').checked;
+    if(!can && email === currentUserEmail){
+      const ok = await showConfirm('你正在取消「自己」的刪除權限，存檔後你就看不到刪除按鈕了。確定嗎？', '取消自己的刪除權限？');
+      if(!ok) return;
+    }
+    permissions[email] = { adminDeleteOnly: true, canDelete: can };
+    await savePermissions();
+    showToast(email + '：' + (can ? '可以刪除' : '不能刪除'));
+    renderPermUserList();
+    document.getElementById('btnResetPerm').style.display = 'block';
+    if(email === currentUserEmail) applyPermissions();
+    return;
+  }
 
   const allowedTabs = Array.from(document.querySelectorAll('.permTabCheckbox:checked')).map(el=>el.value);
   const allowedButtons = Array.from(document.querySelectorAll('.permButtonCheckbox:checked')).map(el=>el.value);
