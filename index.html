@@ -6361,9 +6361,11 @@ function fireNotification(title, body, tag){
   }
 }
 
+// 出貨提醒（逾期／今日／明日未完成）：先關閉。要再開啟把 false 改成 true
+const SHIP_ALERTS_ENABLED = false;
 function renderAlertBanner(){
   const banner = document.getElementById('alertBanner');
-  const all = allActiveItems();
+  const all = SHIP_ALERTS_ENABLED ? allActiveItems() : [];
   const overdueAlerts = all.filter(x => isOverdue(x.item) && !dismissedIds.has('overdue-' + x.item.id)).sort((a,b)=> a.item.due.localeCompare(b.item.due));
   const todayAlerts = all.filter(x => isTodayAtRisk(x.item) && !dismissedIds.has('3pm-' + x.item.id));
   const tomorrowAlerts = all.filter(x => isTomorrowRisk(x.item) && !dismissedIds.has('tmrw-' + x.item.id));
@@ -6443,7 +6445,7 @@ function checkClimateReminders(){
 }
 
 function checkShipmentAlerts(){
-  const all = allActiveItems();
+  const all = SHIP_ALERTS_ENABLED ? allActiveItems() : [];
   all.filter(x=>isTodayAtRisk(x.item)).forEach(x=>{
     const key = '3pm-' + x.item.id;
     if(!notifiedIds.has(key)){ notifiedIds.add(key); fireNotification('出貨提醒：今日訂單尚未完成', x.order.customer + ' ・ ' + x.item.product + '（預計今日出貨，已過下午3點）', key); }
