@@ -626,6 +626,9 @@ body.show-id .os-go .id-sub{ display:block; margin:1px 0 0; font-size:11px; }
 .os-headrow{ font-size:13px; color:var(--ink-dim); border-top:none; padding-top:2px; padding-bottom:2px; }
 .os-name{ flex:1; min-width:0; font-size:18px; font-weight:800; }
 .os-headrow .os-name, .os-headrow .os-qty{ font-size:13px; font-weight:600; color:var(--ink-dim); }
+.id-note{ display:none; }
+body.show-id .id-note{ display:block; margin-top:3px; font-size:0.95em; font-weight:700; color:#7fd4ff; }
+body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 .os-note{ display:block; margin-top:3px; font-size:14.5px; font-weight:600; color:var(--amber); line-height:1.45; }
 .os-spec{ display:inline-block; margin-left:8px; font-size:15px; font-weight:600; color:var(--ink-dim); }
 .os-qty{ flex:0 0 auto; min-width:56px; text-align:right; font-size:22px; font-weight:900; color:var(--amber); }
@@ -845,6 +848,10 @@ body.show-id .os-go .id-sub{ display:block; margin:1px 0 0; font-size:11px; }
         <div class="field">
           <label class="i18n">備註 / 包裝注意事項</label>
           <textarea id="fNote" placeholder="例如：全廠請務必儘速提供正確批號，以利標籤連動"></textarea>
+        </div>
+        <div class="field">
+          <label>🇮🇩 備註（印尼文）<span style="font-size:13px; color:var(--ink-dim); font-weight:600;">　留空會自動翻譯；翻得不好可以直接改</span></label>
+          <textarea id="fNoteId" rows="2" placeholder="Catatan dalam Bahasa Indonesia（留空＝自動翻譯）"></textarea>
         </div>
       </div>
       <div class="field">
@@ -3274,6 +3281,54 @@ function idNameLine(product){
 function idSpecSub(spec){ const t = idSpec(spec); return t ? '<span class="id-sub">' + idEsc(t) + '</span>' : ''; }
 function idQtySub(item){ const u = orderUnit(item); const w = idUnit(u); return w ? '<span class="id-sub">' + idEsc(String(item.qty ?? '') + ' ' + w) + '</span>' : ''; }
 function idZones(zones){ const w = (zones || []).map(z=> ID_ZONES[z]).filter(Boolean); return w.length ? '<span class="id-sub">' + idEsc(w.join(', ')) + '</span>' : ''; }
+// ---- 備註自動翻成印尼文：開 🇮🇩 的裝置看到還沒翻的備註就自動翻，翻好存進訂單，大家共用（只翻一次）----
+const idTrBusy = new Set();
+const idTrFailed = new Map(); // itemId -> 失敗時的中文備註（這次開網頁不再重試）
+let idTrSaveTimer = null;
+async function translateZhToId(text){
+  const q = encodeURIComponent(text);
+  try{
+    const r = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=zh-TW&tl=id&dt=t&q=' + q);
+    if(r.ok){
+      const j = await r.json();
+      const out = (j && j[0] || []).map(x=> x && x[0] || '').join('').trim();
+      if(out) return out;
+    }
+  }catch(e){}
+  try{
+    const r = await fetch('https://api.mymemory.translated.net/get?langpair=zh-TW|id&q=' + q);
+    if(r.ok){
+      const j = await r.json();
+      const out = j && j.responseData && String(j.responseData.translatedText || '').trim();
+      if(out && !/MYMEMORY WARNING|QUERY LENGTH LIMIT/i.test(out)) return out;
+    }
+  }catch(e){}
+  return '';
+}
+function queueNoteTranslation(order, item){
+  if(!item || !item.note || idTrBusy.has(item.id)) return;
+  if(idTrFailed.get(item.id) === item.note) return;
+  idTrBusy.add(item.id);
+  const src = item.note;
+  translateZhToId(src).then(out=>{
+    idTrBusy.delete(item.id);
+    if(item.note !== src) return; // 翻譯期間備註被改了
+    if(!out){ idTrFailed.set(item.id, src); renderList(); return; }
+    item.noteId = out; item.noteIdSrc = src;
+    clearTimeout(idTrSaveTimer);
+    idTrSaveTimer = setTimeout(()=>{ saveOrders(); }, 800);
+    renderList();
+  });
+}
+function idNoteBlock(order, item){
+  if(!item.note) return '';
+  if(item.noteId && item.noteIdSrc === item.note) return '<span class="id-note">🇮🇩 ' + escapeHtml(item.noteId) + '</span>';
+  if(showId && idTrFailed.get(item.id) !== item.note){
+    queueNoteTranslation(order, item);
+    return '<span class="id-note pending">🇮🇩 翻譯中… Menerjemahkan…</span>';
+  }
+  return idTranslateLink(item.note);
+}
 function idTranslateLink(text){
   if(!text) return '';
   return ' <a class="id-tr" target="_blank" rel="noopener" href="https://translate.google.com/?sl=zh-TW&tl=id&op=translate&text=' + encodeURIComponent(text) + '">🌐 翻成印尼文 Terjemahkan</a>';
@@ -4555,7 +4610,7 @@ function orderSummaryHtml(order){
     return '<div class="os-row' + (isHere ? ' here' : '') + (open ? ' open' : '') + '"' + (isHere ? ' data-jump-item="' + it.id + '"' : '') + '>' +
       '<span class="os-caret">' + (isHere ? (open ? '▾' : '▸') : '') + '</span>' +
       '<span class="os-name">' + escapeHtml(it.product || '') + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + idSpecSub(it.spec) + '</span>' : '') + idNameLine(it.product) +
-        (it.note ? '<span class="os-note">📝 ' + escapeHtml(it.note) + idTranslateLink(it.note) + '</span>' : '') +
+        (it.note ? '<span class="os-note">📝 ' + escapeHtml(it.note) + idNoteBlock(order, it) + '</span>' : '') +
         ((multiDue && it.due) ? '<span class="os-spec" style="color:' + (dueDiffDays(it.due) <= 0 ? 'var(--red)' : dueDiffDays(it.due) === 1 ? 'var(--amber)' : 'var(--teal)') + '; font-weight:800;">📅 ' + escapeHtml(fmtDueShort(it.due)) + '</span>' : '') +
         ((currentTab === 'inprogress' && it.status === 'inprogress') ? (function(){
           const fg = finishedGoods.find(f=>f.product === it.product && (f.spec||'') === (it.spec||''));
@@ -4842,7 +4897,7 @@ function renderListInner(){
                 (item.productExpDate ? '有效 <b>' + fmtD(item.productExpDate) + '</b>' : '') + '</div>') : '') +
           (tab === 'inprogress' ? stockInfoHtml : '') +
           ((tab === 'boxing' && item.status !== 'boxing') ? '<div class="checklist-row">' + chkHtml + '</div>' : '') +
-          (item.note ? '<div class="item-note">' + escapeHtml(item.note) + idTranslateLink(item.note) + '</div>' : '') +
+          (item.note ? '<div class="item-note">' + escapeHtml(item.note) + idNoteBlock(order, item) + '</div>' : '') +
           irrConfirmHtml +
           labelEditHtml +
           coaValuesHtml(order, item) +
@@ -4862,7 +4917,7 @@ function renderListInner(){
         stockInfoHtml +
         coaNoticeHtml +
         ((currentTab === 'boxing' && item.status === 'boxing') ? '' : '<div class="checklist-row">' + chkHtml + '</div>') +
-        (item.note ? '<div class="item-note">' + escapeHtml(item.note) + idTranslateLink(item.note) + '</div>' : '') +
+        (item.note ? '<div class="item-note">' + escapeHtml(item.note) + idNoteBlock(order, item) + '</div>' : '') +
         irrConfirmHtml +
         coaValuesHtml(order, item) +
         coaMaterialBatchHtml(order, item) +
@@ -6004,6 +6059,12 @@ function openSheetInner(order, item){
   updateIrradiationConfirmVisibility();
   document.getElementById('fIrradiationDestination').value = item ? (item.irradiationDestination || '') : '';
   document.getElementById('fNote').value = item ? (item.note || '') : (firstItem ? (firstItem.note || '') : '');
+  {
+    const nid = (item && item.noteId && item.noteIdSrc === item.note) ? item.noteId : '';
+    const el = document.getElementById('fNoteId');
+    el.value = nid; el.dataset.orig = nid;
+    document.getElementById('fNote').dataset.orig = item ? (item.note || '') : '';
+  }
   setPickerValue('fReleaseBy', 'fReleaseByCustom', item ? (item.releaseBy || ((item.status === 'boxing' || item.status === 'shipped') ? DEFAULT_RELEASE_BY : '')) : '');
   setPickerValue('fFilledBy', 'fFilledByCustom', item ? (item.filledBy || DEFAULT_FILLED_BY) : ((firstItem && firstItem.filledBy) || DEFAULT_FILLED_BY));
   setPickerValue('fWarehouseConfirm', 'fWarehouseConfirmCustom', item ? (item.warehouseConfirm || (item.status === 'shipped' ? DEFAULT_WAREHOUSE_CONFIRM : '')) : '');
@@ -6519,6 +6580,13 @@ async function handleSaveOrder(){
   const coaColiform = document.getElementById('fCoaColiform').value.trim();
   const coaEcoli = document.getElementById('fCoaEcoli').value.trim();
   const note = document.getElementById('fNote').value.trim();
+  // 印尼文備註：有人手動改過就照填的存；中文備註改了、印尼文沒動 → 清掉讓系統重新翻
+  let noteId = document.getElementById('fNoteId').value.trim();
+  const noteIdOrig = document.getElementById('fNoteId').dataset.orig || '';
+  const noteOrig = document.getElementById('fNote').dataset.orig || '';
+  if(note !== noteOrig && noteId === noteIdOrig) noteId = '';
+  if(!note) noteId = '';
+  const noteIdSrc = noteId ? note : '';
   const fillFormDate = getFlexDateValue('fFillFormDate');
   const fillFormTime = document.getElementById('fFillFormTime').value;
   const releaseBy = getPickerValue('fReleaseBy', 'fReleaseByCustom');
@@ -6533,7 +6601,7 @@ async function handleSaveOrder(){
   if(missing.length > 0){ showToast('請填寫：' + missing.join('、')); return; }
 
   const itemPayload = {
-    product, spec, qty, actualYieldQty, due, origin, productExpDate, productMfgDate, productBatchNo, packagingDate, trayBatchNo, manualMaterialBatches, coa, coaConfirmBy, coaConfirmByCleared, coaDone, needsIrradiation, irradiationLabelConfirm, irradiationDestination, note,
+    product, spec, qty, actualYieldQty, due, origin, productExpDate, productMfgDate, productBatchNo, packagingDate, trayBatchNo, manualMaterialBatches, coa, coaConfirmBy, coaConfirmByCleared, coaDone, needsIrradiation, irradiationLabelConfirm, irradiationDestination, note, noteId, noteIdSrc,
     coaMoisture, coaWaterActivity, coaTotalPlateCount, coaColiform, coaEcoli,
     fillFormDate, fillFormTime,
     releaseBy, filledBy, warehouseConfirm,
