@@ -550,6 +550,16 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .coa-batch .cb-list{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px; }
 .coa-batch .cb-list span{ font-size:15px; font-weight:700; padding:3px 9px; border-radius:8px; background:var(--panel-raised); border:1px solid var(--line); }
 .coa-batch .cb-note{ font-size:13px; color:var(--ink-dim); margin-bottom:6px; }
+.coa-batch .cb-row{ border:1px solid var(--line); border-radius:10px; padding:8px 10px; margin:6px 0; background:var(--panel); }
+.coa-batch .cb-row-head{ display:flex; justify-content:space-between; align-items:center; font-size:14px; font-weight:800; color:var(--ink-dim); margin-bottom:4px; }
+.coa-batch .cb-del{ font-size:13px; padding:2px 8px; border-radius:7px; border:1px solid var(--red); background:transparent; color:var(--red); cursor:pointer; }
+.coa-batch .cbBatch{ width:100%; font-size:18px; font-weight:700; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel-raised); color:var(--ink); box-sizing:border-box; }
+.coa-batch .cb-dates{ display:flex; gap:8px; margin-top:6px; }
+.coa-batch .cb-dates label{ flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:2px; font-size:13.5px; font-weight:700; color:var(--ink-dim); }
+.coa-batch .cb-dates input:not(.dual-date-native){ width:100%; font-size:16px; padding:6px 8px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel-raised); color:var(--ink); box-sizing:border-box; }
+.coa-batch .cb-actions{ display:flex; align-items:center; gap:10px; margin-top:4px; }
+.coa-batch .cb-add{ padding:7px 12px; font-size:15px; font-weight:800; border-radius:9px; border:1.5px dashed var(--blue); background:transparent; color:var(--blue); cursor:pointer; }
+.coa-batch .cb-saved{ font-size:14px; font-weight:800; color:var(--green); }
 .coa-batch .cb-btn{ width:100%; padding:10px; font-size:16px; font-weight:800; border-radius:10px; border:2px solid var(--blue); background:var(--panel); color:var(--blue); cursor:pointer; }
 .order-ship{ border-width:2.5px; margin:8px 0 12px; }
 .os-done{ width:100%; margin-top:10px; padding:13px; font-size:17.5px; font-weight:900; border-radius:10px; border:none; background:var(--teal); color:#0d1f1d; cursor:pointer; }
@@ -3613,6 +3623,46 @@ async function updateDoneItemBatch(order, item, changes){
   showToast('已儲存' + (fgChanged ? '（成品庫存批次也已更新）' : ''));
 }
 // ---- 排程生產：製造日期、製造批號、有效日期、包材批號直接在卡片上填 ----
+function wireCoaBatchInline(root){
+  root.querySelectorAll('.cb-inline').forEach(panel=>{
+    const find = ()=>{ const o = orders.find(x=> x.id === panel.dataset.oid); const it = o && o.items.find(i=> i.id === panel.dataset.iid); return { o, it }; };
+    const read = ()=> Array.from(panel.querySelectorAll('.cb-row')).map(r=>({
+      materialName: r.querySelector('.cbName').value,
+      batchNo: r.querySelector('.cbBatch').value.trim(),
+      mfgDate: r.querySelector('.cbMfg').value,
+      expDate: r.querySelector('.cbExp').value,
+      qty: r.querySelector('.cbQty').value === '' ? '' : parseFloat(r.querySelector('.cbQty').value)
+    }));
+    const save = async (rerender)=>{
+      const { it } = find(); if(!it) return;
+      const list = read().filter(b=> b.batchNo || b.mfgDate || b.expDate || b.qty !== '');
+      const before = JSON.stringify(it.manualMaterialBatches || []);
+      if(before === JSON.stringify(list) && !rerender) return;
+      it.manualMaterialBatches = list;
+      syncManualMaterialTraceability(it, list);
+      panel.classList.toggle('ok', list.some(b=> b.batchNo));
+      const em = panel.querySelector('.cb-empty'); if(em) em.style.display = list.some(b=> b.batchNo) ? 'none' : '';
+      const ok = await saveOrders();
+      const st = panel.querySelector('.cb-saved'); if(st && ok !== false){ st.textContent = '✓ 已儲存'; setTimeout(()=>{ st.textContent = ''; }, 2000); }
+      if(rerender) renderList();
+    };
+    panel.querySelectorAll('.cbBatch, .cbMfg, .cbExp').forEach(inp=> inp.addEventListener('change', ()=> save(false)));
+    panel.querySelectorAll('.cb-del').forEach(btn=> btn.onclick = async ()=>{
+      const row = btn.closest('.cb-row');
+      const b = row.querySelector('.cbBatch').value.trim();
+      if(b && !(await showConfirm('移除原料批號「' + b + '」？', '移除'))) return;
+      row.remove(); await save(true);
+    });
+    panel.querySelector('.cb-add').onclick = ()=>{
+      const { it } = find(); if(!it) return;
+      const cur = read().filter(b=> b.batchNo || b.mfgDate || b.expDate || b.qty !== '');
+      cur.push({ batchNo:'', mfgDate:'', expDate:'', qty:'' });
+      it.manualMaterialBatches = cur; // 空白那筆先放在畫面上，填了才會存
+      renderList();
+      setTimeout(()=>{ const p2 = document.querySelector('.cb-inline[data-iid="' + panel.dataset.iid + '"]'); const ins = p2 && p2.querySelectorAll('.cbBatch'); if(ins && ins.length) ins[ins.length - 1].focus(); }, 50);
+    };
+  });
+}
 function wireLabelingEdit(root){
   const find = (el)=>{ const o = orders.find(x=>x.id === el.dataset.lbOid); return o && (o.items||[]).find(i=>i.id === el.dataset.lbIid); };
   const save = async (item, changes)=>{
@@ -3766,12 +3816,29 @@ function coaMaterialBatchHtml(order, item){
     : auto.map(t=> (t.materialName ? t.materialName + ' ' : '') + t.batchNo + (t.viaSemiGood ? '（經 ' + t.viaSemiGood + '）' : ''));
   const uniq = [...new Set(list)];
   const ok = uniq.length > 0;
-  return '<div class="coa-batch' + (ok ? ' ok' : '') + '">' +
+  // 直接在卡片上填：原料批號／原料製造日期／原料有效日期（改完離開欄位就自動儲存）
+  const rows = (item.manualMaterialBatches || []).length ? item.manualMaterialBatches : [{ batchNo:'', mfgDate:'', expDate:'', qty:'' }];
+  const rowHtml = (b, idx)=>
+    '<div class="cb-row" data-idx="' + idx + '">' +
+      '<input type="hidden" class="cbName" value="' + escapeHtml(b.materialName || '') + '">' +
+      '<input type="hidden" class="cbQty" value="' + escapeHtml(b.qty === undefined || b.qty === null ? '' : String(b.qty)) + '">' +
+      '<div class="cb-row-head"><span>原料批號 ' + (rows.length > 1 ? (idx + 1) : '') + '</span>' +
+        ((item.manualMaterialBatches || []).length ? '<button type="button" class="cb-del" title="移除這筆">✕ 移除</button>' : '') + '</div>' +
+      '<input type="text" class="cbBatch" placeholder="輸入原料批號" autocomplete="off" value="' + escapeHtml(b.batchNo || '') + '">' +
+      '<div class="cb-dates">' +
+        '<label><span>原料製造日期</span><input type="date" class="cbMfg" value="' + escapeHtml(b.mfgDate || '') + '"></label>' +
+        '<label><span>原料有效日期</span><input type="date" class="cbExp" value="' + escapeHtml(b.expDate || '') + '"></label>' +
+      '</div>' +
+    '</div>';
+  return '<div class="coa-batch cb-inline' + (manual.length ? ' ok' : '') + '" data-oid="' + order.id + '" data-iid="' + item.id + '">' +
     '<div class="cb-title">📄 需要COA' + (item.coa === '需要(Email)' ? '（Email）' : '（隨貨附）') + '　請填寫原料批號</div>' +
-    (ok
-      ? '<div class="cb-list">' + uniq.map(t=>'<span>' + escapeHtml(t) + '</span>').join('') + '</div>' + (manual.length ? '' : '<div class="cb-note">以上是系統依配方自動帶入的批號，實際用的不一樣請點下面修改</div>')
-      : '<div class="cb-empty">⚠ 還沒有填寫原料批號</div>') +
-    '<button type="button" class="cb-btn" data-act="edit" data-scroll-to="fManualMaterialBatchList" data-oid="' + order.id + '" data-iid="' + item.id + '">✏️ ' + (ok ? '查看／修改原料批號' : '填寫原料批號') + '</button>' +
+    ((!manual.length && ok) ? '<div class="cb-note">系統依配方自動帶入：' + uniq.map(t=> escapeHtml(t)).join('、') + '。實際用的不一樣，請直接填在下面。</div>' : '') +
+    (!ok ? '<div class="cb-empty">⚠ 還沒有填寫原料批號</div>' : '') +
+    rows.map(rowHtml).join('') +
+    '<div class="cb-actions">' +
+      '<button type="button" class="cb-add">＋ 再加一筆原料批號</button>' +
+      '<span class="cb-saved"></span>' +
+    '</div>' +
   '</div>';
 }
 // 充填包裝：包裝人員、包裝日期（月／日 → 4 碼）直接在卡片上填
@@ -4579,6 +4646,7 @@ function renderList(){
   });
   wireDoneBatchEdit(wrap);
   wireLabelingEdit(wrap);
+  wireCoaBatchInline(wrap);
   wireOrderShipPanels(wrap);
   wireBoxingPanels(wrap);
   wireRefillPanels(wrap);
