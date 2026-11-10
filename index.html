@@ -513,6 +513,24 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .op-name{ flex:1; min-width:0; }
 .op-qty{ flex:0 0 auto; color:var(--ink-dim); font-weight:700; }
 .op-row .badge{ flex:0 0 auto; }
+.id-sub{ display:none; }
+body.show-id .id-sub{ display:inline; font-size:0.72em; font-weight:700; color:#7fd4ff; margin-left:4px; }
+body.show-id .id-sub.blk{ display:block; margin-left:0; }
+.id-name{ display:none; }
+body.show-id .id-name{ display:block; font-size:0.78em; font-weight:800; color:#7fd4ff; margin-top:2px; line-height:1.25; }
+body.show-id .id-name.missing{ font-size:13px; font-weight:700; }
+.id-name.missing button{ font-size:12.5px; padding:1px 8px; border-radius:7px; border:1px dashed #7fd4ff; background:transparent; color:#7fd4ff; cursor:pointer; }
+.id-tr{ display:none; }
+body.show-id .id-tr{ display:inline-block; margin-left:6px; font-size:13px; padding:2px 8px; border-radius:7px; border:1px solid #7fd4ff; color:#7fd4ff; text-decoration:none; }
+body.show-id .tab .tab-label .id-sub{ display:block; margin:0; font-size:11px; }
+.btn-forward .id-sub, .os-go .id-sub{ color:inherit !important; opacity:.85; }
+body.show-id .btn-forward .id-sub{ display:block; margin:2px 0 0; }
+body.show-id .os-go .id-sub{ display:block; margin:1px 0 0; font-size:11px; }
+#idBtn.enabled{ background:rgba(127,212,255,0.18); border-color:#7fd4ff; }
+.idn-row{ display:flex; gap:8px; align-items:center; padding:7px 0; border-bottom:1px solid var(--line); }
+.idn-row .idn-zh{ flex:0 0 42%; font-size:16px; font-weight:800; word-break:break-all; }
+.idn-row input{ flex:1; min-width:0; padding:7px 9px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); font-size:16px; }
+.idn-row.changed input{ border-color:var(--amber); }
 .qo-pick-no{ flex:0 0 auto; width:30px; height:30px; border-radius:50%; background:var(--teal); color:#0d1f14; font-size:17px; font-weight:900; display:inline-flex; align-items:center; justify-content:center; visibility:hidden; }
 .qo-pick-order{ position:sticky; bottom:0; margin-top:8px; padding:8px 10px; border:1.5px solid var(--teal); border-radius:10px; background:var(--panel-raised); font-size:14.5px; line-height:1.7; }
 .qo-pick-order span{ display:inline-block; margin-right:10px; }
@@ -666,6 +684,7 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
     <button class="bell-btn" id="langToggleBtn" title="Bahasa / 語言 / Language">🌐</button>
     <button class="i18n bell-btn" id="bellBtn" title="開啟出貨提醒通知">🔔</button>
     <button class="bell-btn" id="soundBtn" title="新訂單聲音提醒">🔇</button>
+    <button class="bell-btn" id="idBtn" title="顯示印尼文 Tampilkan Bahasa Indonesia">🇮🇩</button>
   </div>
   <div class="alert-banner" id="alertBanner"></div>
   <div class="new-order-pop" id="newOrderPop"><div id="newOrderPopTitle"></div><div class="nop-list" id="newOrderPopList"></div><button type="button" id="newOrderPopOk">知道了</button></div>
@@ -1553,6 +1572,7 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 
     <div class="report-tab-panel" id="bomPanelFinishedGoods" style="display:none;">
       <button type="button" class="i18n add-item-btn" id="btnAddFinishedGood" style="margin-bottom:12px;">+ 新增成品</button>
+      <button type="button" class="split-btn" id="btnOpenIdNames" style="width:100%; margin-bottom:12px; border-color:var(--teal); color:var(--teal);">🇮🇩 印尼文品名對照表（給印尼作業員看）</button>
       <div class="field" style="margin-bottom:10px;">
         <input type="text" id="finishedGoodSearchInput" placeholder="搜尋成品料號、名稱或規格">
       </div>
@@ -2192,6 +2212,32 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
   </div>
 </div>
 
+<div class="overlay" id="idNamesOverlay" style="z-index:56;">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>🇮🇩 印尼文品名對照表</h2>
+    <div class="report-updated">每個產品填一次印尼文名稱，開啟「🇮🇩 顯示印尼文」的裝置，品名下面就會多一行印尼文。規格、數量單位、按鈕會自動對照，不用填。</div>
+    <div style="display:flex; gap:8px; margin:10px 0; flex-wrap:wrap;">
+      <input type="text" id="idnSearch" placeholder="搜尋中文或印尼文品名" autocomplete="off" style="flex:1; min-width:160px; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); font-size:16px;">
+      <label class="halal-sub" style="align-self:center;"><input type="checkbox" id="idnOnlyMissing"> 只看還沒填的</label>
+    </div>
+    <div style="display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+      <button type="button" class="split-btn" id="idnCopyMissing" style="flex:1;">📋 複製還沒填的品名</button>
+      <button type="button" class="split-btn" id="idnPasteToggle" style="flex:1;">📥 整批貼上</button>
+    </div>
+    <div id="idnPasteBox" style="display:none; margin-bottom:10px;">
+      <textarea id="idnPaste" rows="6" placeholder="一行一個：中文品名 [Tab 或 = ] 印尼文名稱&#10;例如：&#10;黑胡椒粉=Bubuk Lada Hitam&#10;花椒粒	Biji Lada Sichuan&#10;（可以直接從 Excel 複製兩欄貼上）" style="width:100%; box-sizing:border-box; padding:8px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); font-size:15px;"></textarea>
+      <button type="button" class="btn-primary" id="idnPasteApply" style="width:100%; margin-top:6px;">套用貼上的內容</button>
+    </div>
+    <div class="report-updated" id="idnCount"></div>
+    <div id="idnList"></div>
+    <div class="sheet-actions" style="margin-top:12px; position:sticky; bottom:0; background:var(--panel);">
+      <button type="button" class="btn-secondary" id="idnClose">關閉</button>
+      <button type="button" class="btn-primary" id="idnSave">💾 儲存</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="cancelItemOverlay" style="z-index:55;">
   <div class="sheet">
     <div class="sheet-handle"></div>
@@ -2518,6 +2564,8 @@ function makeI18nProxy(target){
 }
 const STATUS_LABEL_RAW = { pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'已完成', coa:'品管COA', cancelled:'已取消' };
 const STATUS_LABEL = makeI18nProxy({ pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'已完成', coa:'品管COA', cancelled:'🚫 已取消' });
+const ID_FORWARD = { pending:'Konfirmasi pesanan selesai', inprogress:'Stok tidak cukup, mohon produksi', labeling:'Jadwal produksi selesai', done:'Cetak label selesai', refill:'Pengisian & pengemasan selesai', boxing:'Pengemasan dus selesai', shipped:'Pengiriman selesai' };
+const STATUS_FORWARD_LABEL_RAW_ZH = { pending:'訂單確認完成', inprogress:'庫存確認無庫存請生產', labeling:'排程生產完成', done:'標籤印製完成', refill:'充填包裝完成', boxing:'裝箱確認完成', shipped:'出貨確認完成' };
 const STATUS_FORWARD_LABEL = makeI18nProxy({ pending:'訂單確認完成', inprogress:'庫存確認無庫存請生產', labeling:'排程生產完成', done:'標籤印製完成', refill:'充填包裝完成', boxing:'裝箱確認完成', shipped:'出貨確認完成' });
 const CHK_LABELS = makeI18nProxy(CHK_LABELS_ZH);
 const SHIP_METHOD_LABEL = makeI18nProxy(SHIP_METHOD_LABEL_ZH);
@@ -2580,7 +2628,8 @@ const PERM_BUTTON_OPTIONS = [
   { id: 'reportBtn', label: '📊 統計報表' },
   { id: 'trashBtn', label: '🗑️ 垃圾桶' },
   { id: 'bellBtn', label: '🔔 出貨提醒通知' },
-  { id: 'soundBtn', label: '🔊 新訂單聲音提醒' }
+  { id: 'soundBtn', label: '🔊 新訂單聲音提醒' },
+  { id: 'idBtn', label: '🇮🇩 顯示印尼文' }
 ];
 let permissions = {}; // { [email]: { tabs:[...STATUS keys], buttons:[...button ids] } }
 let currentUserEmail = null;
@@ -3178,6 +3227,161 @@ function detectNewConfirmedOrders(serverList){
   fireNotification('🔔 新訂單已確認', custs.join('、') + '：' + fresh.length + ' 個品項', 'neworder-' + Date.now());
 }
 
+// ---- 🇮🇩 印尼文對照（每台裝置自己開關）----
+// 品名：存在 appData/idNames {map:{中文品名:印尼文}}；規格單位、按鈕、標籤用內建對照
+const ID_PREF_KEY = 'showIndonesian';
+let showId = false;
+try{ showId = localStorage.getItem(ID_PREF_KEY) === '1'; }catch(e){}
+let idNames = {};
+const idNamesDocRef = doc(db, dataPrefix, 'idNames');
+function idEsc(t){ return escapeHtml(String(t || '')); }
+// 中文 → 印尼文（只有開啟時才看得到）
+const ID_WORDS = {
+  '數量':'Jumlah', '出貨日':'Tgl kirim', '預計出貨':'Rencana kirim', '今天':'Hari ini', '明天':'Besok',
+  '逾期':'Terlambat', '急件':'Mendesak', '批號':'No. batch', '製造日期':'Tgl produksi', '有效日期':'Tgl kedaluwarsa',
+  '製造':'Produksi', '有效':'Kedaluwarsa', '備註':'Catatan', '完成':'Selesai', '無庫存請生產':'Produksi',
+  '這張訂單全部品項':'Semua item pesanan ini', '生產線':'Lini produksi', '成品庫存':'Stok barang jadi',
+  '還需要生產':'Perlu diproduksi', '庫存足夠':'Stok cukup', '已取消':'Dibatalkan', '品管COA確認完成':'COA QC selesai',
+  '原料批號':'No. batch bahan baku', '原料製造日期':'Tgl produksi bahan', '原料有效日期':'Tgl kedaluwarsa bahan',
+  '包裝人員':'Petugas kemas', '包裝日期':'Tgl kemas', '照射滅菌':'Sterilisasi iradiasi', '展開':'Buka', '收合':'Tutup'
+};
+const ID_ZONES = {
+  '自動包裝區產線':'Lini Kemas Otomatis', '大包裝區產線':'Lini Kemas Besar', '小包裝區產線':'Lini Kemas Kecil',
+  '醉香滷包包裝區產線':'Lini Kemas Bumbu Rendam Zuixiang', '醬料包裝區產線':'Lini Kemas Saus', '清真包裝區產線':'Lini Kemas Halal',
+  '調味粉攪拌產線':'Lini Pencampuran Bumbu Bubuk', '半成品產線':'Lini Barang Setengah Jadi', '原料產線':'Lini Bahan Baku'
+};
+const ID_UNITS = [['補充包','isi ulang'],['公斤','kg'],['公克','g'],['毫升','ml'],['公升','L'],['包','bungkus'],['箱','dus'],['袋','kantong'],['桶','ember'],['罐','kaleng'],['瓶','botol'],['盒','kotak'],['入','isi'],['克','g'],['斤','jin'],['件','pcs'],['個','pcs'],['支','batang'],['條','batang'],['片','lembar'],['顆粒','butiran'],['粒','butir'],['粉','bubuk']];
+function idWord(zh){ return ID_WORDS[zh] || (typeof ID_DICT !== 'undefined' && ID_DICT[zh]) || ''; }
+// 回傳「中文<span class=id-sub>印尼文</span>」，關閉時 CSS 會把印尼文藏起來
+function bi(zh, idTxt){ const w = idTxt !== undefined ? idTxt : idWord(zh); return zh + (w ? '<span class="id-sub">' + idEsc(w) + '</span>' : ''); }
+function biBlk(zh, idTxt){ const w = idTxt !== undefined ? idTxt : idWord(zh); return zh + (w ? '<span class="id-sub blk">' + idEsc(w) + '</span>' : ''); }
+function idSpec(spec){
+  const sp = String(spec || '');
+  if(!/[\u4e00-\u9fff]/.test(sp)) return '';
+  let out = sp;
+  ID_UNITS.forEach(([zh, id])=>{ out = out.split(zh).join(' ' + id + ' '); });
+  return out.replace(/\s+/g, ' ').replace(/ \//g, '/').replace(/\/ /g, '/').trim();
+}
+function idUnit(u){ const f = ID_UNITS.find(x=> x[0] === u); return f ? f[1] : ''; }
+function idName(product){ return idNames[String(product || '').trim()] || ''; }
+function idNameLine(product){
+  const n = idName(product);
+  if(n) return '<span class="id-name">🇮🇩 ' + idEsc(n) + '</span>';
+  return '<span class="id-name missing"><button type="button" data-idn-add="' + idEsc(product) + '">＋ 填印尼文品名</button></span>';
+}
+function idSpecSub(spec){ const t = idSpec(spec); return t ? '<span class="id-sub">' + idEsc(t) + '</span>' : ''; }
+function idQtySub(item){ const u = orderUnit(item); const w = idUnit(u); return w ? '<span class="id-sub">' + idEsc(String(item.qty ?? '') + ' ' + w) + '</span>' : ''; }
+function idZones(zones){ const w = (zones || []).map(z=> ID_ZONES[z]).filter(Boolean); return w.length ? '<span class="id-sub">' + idEsc(w.join(', ')) + '</span>' : ''; }
+function idTranslateLink(text){
+  if(!text) return '';
+  return '<a class="id-tr" target="_blank" rel="noopener" href="https://translate.google.com/?sl=zh-TW&tl=id&op=translate&text=' + encodeURIComponent(text) + '">🌐 Terjemahkan</a>';
+}
+function applyShowId(){
+  document.body.classList.toggle('show-id', showId);
+  const b = document.getElementById('idBtn');
+  if(b){ b.classList.toggle('enabled', showId); b.title = showId ? '印尼文：開（點一下關閉）' : '印尼文：關（點一下開啟）'; }
+}
+document.getElementById('idBtn').onclick = ()=>{
+  showId = !showId;
+  try{ localStorage.setItem(ID_PREF_KEY, showId ? '1' : '0'); }catch(e){}
+  applyShowId(); render();
+  if(showId){
+    const missing = idMissingNames().length;
+    showToast('🇮🇩 已開啟印尼文 Bahasa Indonesia aktif' + (missing ? '（還有 ' + missing + ' 個品名沒有印尼文）' : ''));
+  }else showToast('已關閉印尼文');
+};
+applyShowId();
+function loadIdNames(){
+  onSnapshot(idNamesDocRef, (snap)=>{
+    idNames = (snap.exists() && snap.data().map) ? snap.data().map : {};
+    if(showId) render();
+    if(document.getElementById('idNamesOverlay').classList.contains('show')) renderIdNames();
+  }, (err)=> console.error(err));
+}
+function idAllProductNames(){
+  const set = new Set();
+  orders.forEach(o=> (o.items || []).forEach(it=>{ if(!it.deleted && it.product) set.add(String(it.product).trim()); }));
+  (finishedGoods || []).forEach(f=>{ if(f.product) set.add(String(f.product).trim()); });
+  Object.keys(idNames).forEach(k=> set.add(k));
+  return Array.from(set).filter(Boolean).sort((a,b)=> a.localeCompare(b, 'zh-Hant'));
+}
+function idMissingNames(){
+  const set = new Set();
+  orders.forEach(o=> (o.items || []).forEach(it=>{ if(!it.deleted && it.product && it.status !== 'qc' && !idName(it.product)) set.add(String(it.product).trim()); }));
+  return Array.from(set);
+}
+let idnDraft = {};
+function openIdNames(focusName){
+  idnDraft = Object.assign({}, idNames);
+  document.getElementById('idnSearch').value = focusName || '';
+  document.getElementById('idnOnlyMissing').checked = false;
+  document.getElementById('idnPasteBox').style.display = 'none';
+  renderIdNames();
+  document.getElementById('idNamesOverlay').classList.add('show');
+  if(focusName) setTimeout(()=>{ const i = document.querySelector('#idnList input'); if(i) i.focus(); }, 120);
+}
+function renderIdNames(){
+  const q = document.getElementById('idnSearch').value.trim().toLowerCase();
+  const only = document.getElementById('idnOnlyMissing').checked;
+  const all = idAllProductNames();
+  const list = all.filter(n=> (!q || n.toLowerCase().includes(q) || (idnDraft[n] || '').toLowerCase().includes(q)) && (!only || !idnDraft[n]));
+  const filled = all.filter(n=> idnDraft[n]).length;
+  document.getElementById('idnCount').textContent = '共 ' + all.length + ' 個品名，已填 ' + filled + ' 個，還沒填 ' + (all.length - filled) + ' 個';
+  const el = document.getElementById('idnList');
+  el.innerHTML = list.length ? list.map(n=>
+    '<div class="idn-row' + ((idnDraft[n] || '') !== (idNames[n] || '') ? ' changed' : '') + '" data-zh="' + idEsc(n) + '"><div class="idn-zh">' + idEsc(n) + '</div>' +
+    '<input type="text" placeholder="印尼文名稱" autocomplete="off" value="' + idEsc(idnDraft[n] || '') + '"></div>').join('')
+    : '<div class="ship-list-empty">沒有符合的品名</div>';
+  el.querySelectorAll('.idn-row').forEach(row=>{
+    const inp = row.querySelector('input');
+    inp.addEventListener('input', ()=>{ const v = inp.value.trim(); if(v) idnDraft[row.dataset.zh] = v; else delete idnDraft[row.dataset.zh]; row.classList.toggle('changed', (idnDraft[row.dataset.zh] || '') !== (idNames[row.dataset.zh] || '')); });
+  });
+}
+document.getElementById('btnOpenIdNames').onclick = ()=> openIdNames('');
+document.getElementById('idnSearch').addEventListener('input', renderIdNames);
+document.getElementById('idnOnlyMissing').addEventListener('change', renderIdNames);
+document.getElementById('idnPasteToggle').onclick = ()=>{ const b = document.getElementById('idnPasteBox'); b.style.display = b.style.display === 'none' ? '' : 'none'; };
+document.getElementById('idnCopyMissing').onclick = async ()=>{
+  const miss = idAllProductNames().filter(n=> !idnDraft[n]);
+  if(!miss.length){ showToast('全部品名都填好了'); return; }
+  const txt = miss.join('\n');
+  try{ await navigator.clipboard.writeText(txt); showToast('已複製 ' + miss.length + ' 個品名，可以貼給翻譯的人'); }
+  catch(e){ document.getElementById('idnPasteBox').style.display = ''; document.getElementById('idnPaste').value = txt; showToast('無法自動複製，品名已放在下面的框裡，請手動複製'); }
+};
+document.getElementById('idnPasteApply').onclick = ()=>{
+  const lines = document.getElementById('idnPaste').value.split(/\r?\n/);
+  let n = 0;
+  lines.forEach(l=>{
+    const m = l.match(/^\s*(.+?)\s*(?:\t|=|＝|：|:)\s*(.+?)\s*$/);
+    if(m && m[1] && m[2]){ idnDraft[m[1].trim()] = m[2].trim(); n++; }
+  });
+  if(!n){ showToast('沒有讀到內容，格式是「中文品名=印尼文」一行一個'); return; }
+  document.getElementById('idnPaste').value = '';
+  document.getElementById('idnPasteBox').style.display = 'none';
+  renderIdNames();
+  showToast('已套用 ' + n + ' 筆，記得按「💾 儲存」');
+};
+document.getElementById('idnClose').onclick = async ()=>{
+  const changed = JSON.stringify(idnDraft) !== JSON.stringify(idNames);
+  if(changed && !(await showConfirm('有修改還沒儲存，確定要關閉嗎？', '還沒儲存'))) return;
+  document.getElementById('idNamesOverlay').classList.remove('show');
+};
+document.getElementById('idnSave').onclick = async ()=>{
+  try{
+    await setDoc(idNamesDocRef, { map: idnDraft });
+    idNames = Object.assign({}, idnDraft);
+    showToast('✅ 已儲存印尼文品名');
+    document.getElementById('idNamesOverlay').classList.remove('show');
+    render();
+  }catch(e){ console.error(e); showAlert('儲存失敗，請確認網路後再試一次。', '❌ 儲存失敗'); }
+};
+document.addEventListener('click', (e)=>{
+  const b = e.target.closest && e.target.closest('[data-idn-add]');
+  if(!b) return;
+  e.preventDefault(); e.stopPropagation();
+  openIdNames(b.dataset.idnAdd);
+}, true);
+
 let firstOrdersSnapshotHandled = false;
 function loadOrders(){
   onSnapshot(ordersDocRef, async (snap)=>{
@@ -3350,7 +3554,7 @@ function renderTabs(){
     const tab = document.createElement('div');
     tab.className = 'tab' + (s===currentTab ? ' active' : '');
     tab.dataset.status = s;
-    tab.innerHTML = '<div class="tab-label">' + STATUS_LABEL[s] + '</div><div class="tab-count">' + count + '</div>';
+    tab.innerHTML = '<div class="tab-label">' + STATUS_LABEL[s] + (ID_DICT[STATUS_LABEL_RAW[s]] ? '<span class="id-sub">' + idEsc(ID_DICT[STATUS_LABEL_RAW[s]]) + '</span>' : '') + '</div><div class="tab-count">' + count + '</div>';
     tab.onclick = ()=>{ currentTab = s; render(); };
     tabsEl.appendChild(tab);
   });
@@ -4180,11 +4384,11 @@ function orderDueHeadHtml(order){
   if(!dues.length) return '';
   const chip = (d)=>{
     const n = dueDiffDays(d);
-    const tag = n < 0 ? '已逾期 ' + (-n) + ' 天' : n === 0 ? '今天' : n === 1 ? '明天' : '還有 ' + n + ' 天';
+    const tag = n < 0 ? '已逾期 ' + (-n) + ' 天' + '<span class="id-sub">Terlambat ' + (-n) + ' hari</span>' : n === 0 ? bi('今天') : n === 1 ? bi('明天') : '還有 ' + n + ' 天' + '<span class="id-sub">' + n + ' hari lagi</span>';
     const cls = n <= 0 ? 'late' : n === 1 ? 'soon' : '';
     return '<span class="due-chip ' + cls + '">' + escapeHtml(fmtDueShort(d)) + '<small>' + tag + '</small></span>';
   };
-  return '<div class="order-due-head">📅 預計出貨 ' + dues.map(chip).join(' ') + '</div>';
+  return '<div class="order-due-head">📅 ' + bi('預計出貨') + ' ' + dues.map(chip).join(' ') + '</div>';
 }
 function cancelledBoxHtml(order){
   const list = (order.items || []).filter(it=> !it.deleted && it.status === 'cancelled');
@@ -4211,7 +4415,7 @@ function orderSummaryHtml(order){
     const open = isHere && labelingExpanded.has(it.id);
     return '<div class="os-row' + (isHere ? ' here' : '') + (open ? ' open' : '') + '"' + (isHere ? ' data-jump-item="' + it.id + '"' : '') + '>' +
       '<span class="os-caret">' + (isHere ? (open ? '▾' : '▸') : '') + '</span>' +
-      '<span class="os-name">' + escapeHtml(it.product || '') + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + '</span>' : '') +
+      '<span class="os-name">' + escapeHtml(it.product || '') + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + idSpecSub(it.spec) + '</span>' : '') + idNameLine(it.product) +
         ((multiDue && it.due) ? '<span class="os-spec" style="color:' + (dueDiffDays(it.due) <= 0 ? 'var(--red)' : dueDiffDays(it.due) === 1 ? 'var(--amber)' : 'var(--teal)') + '; font-weight:800;">📅 ' + escapeHtml(fmtDueShort(it.due)) + '</span>' : '') +
         ((currentTab === 'inprogress' && it.status === 'inprogress') ? (function(){
           const fg = finishedGoods.find(f=>f.product === it.product && (f.spec||'') === (it.spec||''));
@@ -4226,7 +4430,7 @@ function orderSummaryHtml(order){
         ((currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing' || currentTab === 'shipped') ? (function(){
           const miss = '<i class="os-miss">未填</i>';
           const d = (v)=> v ? '<b>' + escapeHtml(String(v).replace(/-/g,'/')) + '</b>' : miss;
-          return '<span class="os-batch">批號 ' + (it.productBatchNo ? '<b>' + escapeHtml(it.productBatchNo) + '</b>' : miss) + '　製造 ' + d(it.productMfgDate) + '　有效 ' + d(it.productExpDate) +
+          return '<span class="os-batch">' + bi('批號') + ' ' + (it.productBatchNo ? '<b>' + escapeHtml(it.productBatchNo) + '</b>' : miss) + '　' + bi('製造') + ' ' + d(it.productMfgDate) + '　' + bi('有效') + ' ' + d(it.productExpDate) +
             ((currentTab === 'done' && it.needsIrradiation) ? '　<span style="color:' + (it.irradiationLabelConfirm ? 'var(--green)' : 'var(--amber)') + '; font-weight:800;">☢️ 照射標籤' + (it.irradiationLabelConfirm ? '已確認' : '未確認') + '</span>' : '') +
             ((currentTab === 'boxing' && it.status === 'boxing') ? (function(){
               const c = effectiveChecklist(it); const n = ['c1','c2','c3','c4'].filter(k=>c[k]).length;
@@ -4241,13 +4445,13 @@ function orderSummaryHtml(order){
         })() : '') + '</span>' +
       '<span class="os-qty">' + escapeHtml(qtyWithUnit(it.qty, it)) + '</span>' +
       ((isHere && (currentTab === 'inprogress' || currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing' || currentTab === 'shipped'))
-        ? '<button type="button" class="os-go" data-act="forward" data-oid="' + order.id + '" data-iid="' + it.id + '">' + (currentTab === 'inprogress' ? '無庫存<br>請生產' : '完成') + '</button>'
+        ? '<button type="button" class="os-go" data-act="forward" data-oid="' + order.id + '" data-iid="' + it.id + '">' + (currentTab === 'inprogress' ? '無庫存<br>請生產' + '<span class="id-sub">Produksi</span>' : bi('完成')) + '</button>'
         : '<span class="badge stage st-' + it.status + '">' + STATUS_LABEL[it.status] + '</span>') +
     '</div>';
   }).join('');
   const allOpen = here.length && here.every(it=> labelingExpanded.has(it.id));
   return '<div class="order-summary">' +
-    '<div class="os-title"><span><b>📋 這張訂單全部品項（' + items.length + ' 項）</b>　在' + STATUS_LABEL[currentTab] + ' <b style="color:var(--teal);">' + here.length + '</b> 項' +
+    '<div class="os-title"><span><b>📋 ' + bi('這張訂單全部品項') + '（' + items.length + ' 項）</b>　在' + STATUS_LABEL[currentTab] + ' <b style="color:var(--teal);">' + here.length + '</b> 項' +
       (nCancelled ? '　<b style="color:var(--red);">🚫 已取消 ' + nCancelled + ' 項</b>' : '') +
       (currentTab === 'boxing' ? (function(){ const behind = items.filter(it=> it.status !== 'cancelled' && STATUS.indexOf(it.status) < STATUS.indexOf('boxing')).length; return behind ? '　<b style="color:var(--amber);">⏳ 還有 ' + behind + ' 項在前面階段</b>' : '　<b style="color:var(--green);">✅ 全部到齊</b>'; })() : '') + '</span>' +
       (here.length ? '<button type="button" class="os-toggle-all" data-os-all="' + order.id + '" data-open="' + (allOpen ? '1' : '') + '">' + (allOpen ? '全部收合' : '全部展開') + '</button>' : '') + '</div>' +
@@ -4366,7 +4570,7 @@ function renderList(){
       }else if(item.status !== 'qc'){
         actionsHtml =
           (canBack ? '<button class="btn btn-back" data-act="back" data-oid="'+order.id+'" data-iid="'+item.id+'">‹</button>' : '') +
-          '<button class="btn btn-forward st-' + STATUS[idx+1] + '" data-act="forward" data-oid="'+order.id+'" data-iid="'+item.id+'">' + ((currentTab === 'coa' && item.status === 'shipped') ? '品管COA確認完成' : STATUS_FORWARD_LABEL[item.status]) + '</button>' +
+          '<button class="btn btn-forward st-' + STATUS[idx+1] + '" data-act="forward" data-oid="'+order.id+'" data-iid="'+item.id+'">' + ((currentTab === 'coa' && item.status === 'shipped') ? bi('品管COA確認完成') : STATUS_FORWARD_LABEL[item.status] + (ID_FORWARD[item.status] ? '<span class="id-sub">' + idEsc(ID_FORWARD[item.status]) + '</span>' : '')) + '</button>' +
           '<button class="btn btn-edit" data-act="edit" data-oid="'+order.id+'" data-iid="'+item.id+'">✎</button>';
       }else{
         actionsHtml =
@@ -4457,14 +4661,14 @@ function renderList(){
         // 「簡潔顯示」：只留品項、規格、數量、出貨日、急件／逾期、照射、備註；各階段另外保留做事需要的資訊
         const tab = currentTab;
         const tags = [];
-        if(overdue) tags.push('<span class="badge overdue">逾期</span>');
-        else if(item.priority === 'urgent') tags.push('<span class="badge urgent">急件</span>');
+        if(overdue) tags.push('<span class="badge overdue">' + bi('逾期') + '</span>');
+        else if(item.priority === 'urgent') tags.push('<span class="badge urgent">' + bi('急件') + '</span>');
         if(todayRisk) tags.push('<span class="badge todayrisk" data-jump-today="1" data-oid="'+order.id+'" data-iid="'+item.id+'">⏰ 今日3點未出貨</span>');
         if(tab === 'coa') tags.push('<span class="badge stage st-' + item.status + '">' + STATUS_LABEL[item.status] + '</span>');
         if(item.needsIrradiation) tags.push('<span class="badge irradiation-badge">☢️ 照射滅菌</span>');
         if(needsCoa(item) && (tab === 'pending' || tab === 'shipped' || tab === 'coa')) tags.push('<span class="badge coa-badge">📄 需COA' + (item.coa === '需要(Email)' ? '(Email)' : '(隨貨)') + '</span>');
         if(item.shipMethod && (tab === 'boxing' || tab === 'shipped')) tags.push('<span class="badge ship-' + item.shipMethod + '">' + shipMethodFullLabel(item) + '</span>');
-        const zonesTxt = ((tab === 'labeling' || tab === 'refill') && !currentZoneFilter && item.productionZones && item.productionZones.length) ? '　' + escapeHtml(item.productionZones.join('、')) : '';
+        const zonesTxt = ((tab === 'labeling' || tab === 'refill') && !currentZoneFilter && item.productionZones && item.productionZones.length) ? '　' + escapeHtml(item.productionZones.join('、')) + idZones(item.productionZones) : '';
         // 出貨確認一定顯示批號／製造日期／有效日期（沒填會標紅色「未填」提醒）；其他階段有填才顯示
         const bigBatch = ['done','refill','boxing','shipped','coa'].includes(tab); // 這幾頁用大框一定顯示（沒填標紅色「未填」）
         const showBatch = bigBatch || (['boxing','coa'].includes(tab) && (item.productBatchNo || item.productMfgDate || item.productExpDate));
@@ -4472,17 +4676,17 @@ function renderList(){
         const fmtD = (d)=> escapeHtml(String(d).replace(/-/g,'/'));
         itemsHtml += '<div class="item-row simple-row pri-' + item.priority + (overdue ? ' overdue' : '') + '">' +
           '<div class="simple-main">' +
-            '<div class="simple-name">' + escapeHtml(item.product) + (item.spec ? '<div class="simple-spec">' + escapeHtml(item.spec) + '</div>' : '') + '</div>' +
-            '<div class="simple-qty"><span>數量</span>' + escapeHtml(qtyWithUnit(item.qty, item)) + '</div>' +
+            '<div class="simple-name">' + escapeHtml(item.product) + idNameLine(item.product) + (item.spec ? '<div class="simple-spec">' + escapeHtml(item.spec) + idSpecSub(item.spec) + '</div>' : '') + '</div>' +
+            '<div class="simple-qty"><span>' + bi('數量') + '</span>' + escapeHtml(qtyWithUnit(item.qty, item)) + idQtySub(item) + '</div>' +
           '</div>' +
-          '<div class="simple-sub">出貨日 <b>' + escapeHtml((item.due || '').slice(0,4) === String(new Date().getFullYear()) ? (item.due || '').slice(5).replace('-', '/') : (item.due || '').replace(/-/g, '/')) + '</b>' + dueChangedTag(item) + dueChangeBtn(order, item) + zonesTxt + (tags.length ? '　' + tags.join(' ') : '') + '</div>' +
+          '<div class="simple-sub">' + bi('出貨日') + ' <b>' + escapeHtml((item.due || '').slice(0,4) === String(new Date().getFullYear()) ? (item.due || '').slice(5).replace('-', '/') : (item.due || '').replace(/-/g, '/')) + '</b>' + dueChangedTag(item) + dueChangeBtn(order, item) + zonesTxt + (tags.length ? '　' + tags.join(' ') : '') + '</div>' +
           (showBatch ? ((tab === 'done' && item.status === 'done')
             ? doneEditHtml
             : bigBatch
             ? '<div class="simple-batch">' +
-                '<div><span>批號</span>' + (item.productBatchNo ? '<b>' + escapeHtml(item.productBatchNo) + '</b>' : miss) + '</div>' +
-                '<div><span>製造日期</span>' + (item.productMfgDate ? '<b>' + fmtD(item.productMfgDate) + '</b>' : miss) + '</div>' +
-                '<div><span>有效日期</span>' + (item.productExpDate ? '<b>' + fmtD(item.productExpDate) + '</b>' : miss) + '</div>' +
+                '<div><span>' + bi('批號') + '</span>' + (item.productBatchNo ? '<b>' + escapeHtml(item.productBatchNo) + '</b>' : miss) + '</div>' +
+                '<div><span>' + bi('製造日期') + '</span>' + (item.productMfgDate ? '<b>' + fmtD(item.productMfgDate) + '</b>' : miss) + '</div>' +
+                '<div><span>' + bi('有效日期') + '</span>' + (item.productExpDate ? '<b>' + fmtD(item.productExpDate) + '</b>' : miss) + '</div>' +
               '</div>'
             : '<div class="simple-sub" style="margin-top:-2px;">' +
                 (item.productBatchNo ? '批號 <b>' + escapeHtml(item.productBatchNo) + '</b>　' : '') +
@@ -4490,7 +4694,7 @@ function renderList(){
                 (item.productExpDate ? '有效 <b>' + fmtD(item.productExpDate) + '</b>' : '') + '</div>') : '') +
           (tab === 'inprogress' ? stockInfoHtml : '') +
           ((tab === 'boxing' && item.status !== 'boxing') ? '<div class="checklist-row">' + chkHtml + '</div>' : '') +
-          (item.note ? '<div class="item-note">' + escapeHtml(item.note) + '</div>' : '') +
+          (item.note ? '<div class="item-note">' + escapeHtml(item.note) + idTranslateLink(item.note) + '</div>' : '') +
           irrConfirmHtml +
           labelEditHtml +
           coaValuesHtml(order, item) +
@@ -4503,14 +4707,14 @@ function renderList(){
         return;
       }
       itemsHtml += '<div class="item-row pri-' + item.priority + (overdue ? ' overdue' : '') + '">' +
-        '<div class="item-top"><div><div class="item-product">' + escapeHtml(item.product) + (item.spec ? '<span class="item-spec"> ・ ' + escapeHtml(item.spec) + '</span>' : '') + '</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">' + badges + '</div></div>' +
+        '<div class="item-top"><div><div class="item-product">' + escapeHtml(item.product) + (item.spec ? '<span class="item-spec"> ・ ' + escapeHtml(item.spec) + idSpecSub(item.spec) + '</span>' : '') + idNameLine(item.product) + '</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">' + badges + '</div></div>' +
         '<div class="item-meta">' + metaBits.join('') + '</div>' +
         doneEditHtml +
         labelEditHtml +
         stockInfoHtml +
         coaNoticeHtml +
         ((currentTab === 'boxing' && item.status === 'boxing') ? '' : '<div class="checklist-row">' + chkHtml + '</div>') +
-        (item.note ? '<div class="item-note">' + escapeHtml(item.note) + '</div>' : '') +
+        (item.note ? '<div class="item-note">' + escapeHtml(item.note) + idTranslateLink(item.note) + '</div>' : '') +
         irrConfirmHtml +
         coaValuesHtml(order, item) +
         coaMaterialBatchHtml(order, item) +
@@ -12613,6 +12817,7 @@ onAuthStateChanged(auth, async (user)=>{
     loadBomData();
     loadPermissions();
     loadClimateData();
+    loadIdNames();
   }
 });
 </script>
