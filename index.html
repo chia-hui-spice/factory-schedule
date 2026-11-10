@@ -501,8 +501,7 @@ html.kb-open .overlay.show{ top:var(--vv-top, 0px); bottom:auto; height:var(--vv
 html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .kb-sticky-actions{ position:sticky; bottom:calc(-20px - env(safe-area-inset-bottom)); z-index:6; background:var(--panel); margin-left:-18px; margin-right:-18px; padding:10px 18px calc(10px + env(safe-area-inset-bottom)) 18px; box-shadow:0 -6px 14px rgba(0,0,0,0.35); border-top:1px solid var(--line); }
 .zone-count{ display:inline-block; margin-left:6px; min-width:22px; padding:1px 7px; border-radius:999px; font-size:13px; font-weight:800; background:var(--red); color:#fff; vertical-align:1px; }
-body.show-id .zone-count .id-sub{ color:#fff; opacity:.9; }
-body.show-id .zone-filter-pill > .id-sub{ display:block; margin:0; font-size:11.5px; }
+
 .zone-count.zero{ background:transparent; color:var(--ink-dim); border:1px solid var(--line); font-weight:600; }
 .order-progress{ margin:8px 0 12px; border:1.5px solid var(--line); border-radius:12px; padding:8px 12px; background:var(--panel-raised); }
 .order-progress summary{ cursor:pointer; font-size:15.5px; line-height:1.6; }
@@ -516,17 +515,19 @@ body.show-id .zone-filter-pill > .id-sub{ display:block; margin:0; font-size:11.
 .op-qty{ flex:0 0 auto; color:var(--ink-dim); font-weight:700; }
 .op-row .badge{ flex:0 0 auto; }
 .id-sub{ display:none; }
-body.show-id .id-sub{ display:inline; font-size:0.72em; font-weight:700; color:#7fd4ff; margin-left:4px; }
-body.show-id .id-sub.blk{ display:block; margin-left:0; }
+/* 🇮🇩 開啟時：只顯示印尼文（有翻譯的中文藏起來，印尼文用原本的字體大小、顏色顯示在原位置） */
+body.show-id .zh-orig{ display:none !important; }
+body.show-id .id-sub{ display:inline; font-size:inherit; font-weight:inherit; color:inherit; margin-left:0; margin-right:.25em; }
+body.show-id .id-sub.blk{ display:inline; }
+body.show-id #sortIdHint{ display:none !important; }
 .id-name{ display:none; }
-body.show-id .id-name{ display:block; font-size:0.78em; font-weight:800; color:#7fd4ff; margin-top:2px; line-height:1.25; }
-body.show-id .id-name.missing{ font-size:13px; font-weight:700; }
+body.show-id .id-name{ display:inline; font-size:inherit; font-weight:inherit; color:inherit; }
+body.show-id .id-name.missing{ display:block; font-size:13px; font-weight:700; margin-top:2px; }
 .id-name.missing button{ font-size:12.5px; padding:1px 8px; border-radius:7px; border:1px dashed #7fd4ff; background:transparent; color:#7fd4ff; cursor:pointer; }
 .id-tr{ display:inline-block; margin-left:6px; font-size:13px; padding:2px 8px; border-radius:7px; border:1px solid #7fd4ff; color:#7fd4ff; text-decoration:none; }
-body.show-id .tab .tab-label .id-sub{ display:block; margin:0; font-size:11px; }
+
 .btn-forward .id-sub, .os-go .id-sub{ color:inherit !important; opacity:.85; }
-body.show-id .btn-forward .id-sub{ display:block; margin:2px 0 0; }
-body.show-id .os-go .id-sub{ display:block; margin:1px 0 0; font-size:11px; }
+
 #idBtn.enabled{ background:rgba(127,212,255,0.18); border-color:#7fd4ff; }
 .idn-row{ display:flex; gap:8px; align-items:center; padding:7px 0; border-bottom:1px solid var(--line); }
 .idn-row .idn-zh{ flex:0 0 42%; font-size:16px; font-weight:800; word-break:break-all; }
@@ -627,7 +628,7 @@ body.show-id .os-go .id-sub{ display:block; margin:1px 0 0; font-size:11px; }
 .os-name{ flex:1; min-width:0; font-size:18px; font-weight:800; }
 .os-headrow .os-name, .os-headrow .os-qty{ font-size:13px; font-weight:600; color:var(--ink-dim); }
 .id-note{ display:none; }
-body.show-id .id-note{ display:block; margin-top:3px; font-size:0.95em; font-weight:700; color:#7fd4ff; }
+body.show-id .id-note{ display:inline; font-size:inherit; font-weight:inherit; color:inherit; }
 body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 .os-note{ display:block; margin-top:3px; font-size:14.5px; font-weight:600; color:var(--amber); line-height:1.45; }
 .os-spec{ display:inline-block; margin-left:8px; font-size:15px; font-weight:600; color:var(--ink-dim); }
@@ -3262,8 +3263,8 @@ const ID_ZONES = {
 const ID_UNITS = [['補充包','isi ulang'],['公斤','kg'],['公克','g'],['毫升','ml'],['公升','L'],['包','bungkus'],['箱','dus'],['袋','kantong'],['桶','ember'],['罐','kaleng'],['瓶','botol'],['盒','kotak'],['入','isi'],['克','g'],['斤','jin'],['件','pcs'],['個','pcs'],['支','batang'],['條','batang'],['片','lembar'],['顆粒','butiran'],['粒','butir'],['粉','bubuk']];
 function idWord(zh){ return ID_WORDS[zh] || (typeof ID_DICT !== 'undefined' && ID_DICT[zh]) || ''; }
 // 回傳「中文<span class=id-sub>印尼文</span>」，關閉時 CSS 會把印尼文藏起來
-function bi(zh, idTxt){ const w = idTxt !== undefined ? idTxt : idWord(zh); return zh + (w ? '<span class="id-sub">' + idEsc(w) + '</span>' : ''); }
-function biBlk(zh, idTxt){ const w = idTxt !== undefined ? idTxt : idWord(zh); return zh + (w ? '<span class="id-sub blk">' + idEsc(w) + '</span>' : ''); }
+function bi(zh, idTxt){ const w = idTxt !== undefined ? idTxt : idWord(zh); return w ? '<span class="zh-orig">' + zh + '</span><span class="id-sub">' + idEsc(w) + '</span>' : zh; }
+function biBlk(zh, idTxt){ return bi(zh, idTxt); }
 function idSpec(spec){
   const sp = String(spec || '');
   if(!/[\u4e00-\u9fff]/.test(sp)) return '';
@@ -3275,8 +3276,8 @@ function idUnit(u){ const f = ID_UNITS.find(x=> x[0] === u); return f ? f[1] : '
 function idName(product){ return idNames[String(product || '').trim()] || ''; }
 function idNameLine(product){
   const n = idName(product);
-  if(n) return '<span class="id-name">🇮🇩 ' + idEsc(n) + '</span>';
-  return '<span class="id-name missing"><button type="button" data-idn-add="' + idEsc(product) + '">＋ 填印尼文品名</button></span>';
+  if(n) return '<span class="id-name">' + idEsc(n) + '</span>';
+  return '<span class="id-name missing"><button type="button" data-idn-add="' + idEsc(product) + '">＋ 填印尼文品名 · Isi nama</button></span>';
 }
 function idSpecSub(spec){ const t = idSpec(spec); return t ? '<span class="id-sub">' + idEsc(t) + '</span>' : ''; }
 function idQtySub(item){ const u = orderUnit(item); const w = idUnit(u); return w ? '<span class="id-sub">' + idEsc(String(item.qty ?? '') + ' ' + w) + '</span>' : ''; }
@@ -3322,7 +3323,7 @@ function queueNoteTranslation(order, item){
 }
 function idNoteBlock(order, item){
   if(!item.note) return '';
-  if(item.noteId && item.noteIdSrc === item.note) return '<span class="id-note">🇮🇩 ' + escapeHtml(item.noteId) + '</span>';
+  if(item.noteId && item.noteIdSrc === item.note) return '<span class="id-note">' + escapeHtml(item.noteId) + '</span>';
   if(showId && idTrFailed.get(item.id) !== item.note){
     queueNoteTranslation(order, item);
     return '<span class="id-note pending">🇮🇩 翻譯中… Menerjemahkan…</span>';
@@ -3410,7 +3411,7 @@ const ID_PHRASES = {
   '請選擇':'Pilih', '自訂':'Lainnya', '自訂（輸入其他姓名）':'Lainnya (ketik nama)', '無':'Tidak', '需要(Email)':'Perlu (Email)', '需要(隨貨附)':'Perlu (ikut barang)',
   '照射滅菌之後去客戶端':'Setelah iradiasi langsung ke pelanggan', '照射滅菌之後回工廠':'Setelah iradiasi kembali ke pabrik',
   '依各產線預設（安娜、陳鶯…）':'Default per lini produksi', '輸入原料批號':'Ketik no. batch bahan', '輸入姓名':'Ketik nama', '輸入產地':'Ketik asal',
-  '輸入規格':'Ketik spesifikasi', '排序':'Urutkan', '全部':'Semua',
+  '輸入規格':'Ketik spesifikasi', '排序':'Urutkan', '月':'bln', '日':'tgl', '全部':'Semua',
   '出貨日期（由近到遠）':'Tgl kirim (terdekat dulu)', '出貨日期（由遠到近）':'Tgl kirim (terjauh dulu)',
   '訂單建立日期（新到舊）':'Tgl pesanan (terbaru dulu)', '訂單建立日期（舊到新）':'Tgl pesanan (terlama dulu)',
   '搜尋未完成訂單（所有步驟）：客戶、產品、規格、批號…':'Cari pesanan belum selesai (pelanggan, produk, batch…)', '預設為製造日期':'Default = tgl produksi', '預設為製造日期，例如 20261001':'Default = tgl produksi', '顯示詳細內容':'Tampilkan detail', '簡潔顯示':'Tampilan ringkas'
@@ -3431,17 +3432,19 @@ const ID_PATTERNS = [
   [/^這張訂單 (\d+) 項一起(.+)完成$/, m=> m[1] + ' item pesanan ini selesai sekaligus'],
   [/^整張訂單出貨確認完成（(\d+) 項）$/, m=> 'Seluruh pesanan selesai dikirim (' + m[1] + ' item)'],
   [/^整張訂單一次出貨確認（(\d+) 個品項）$/, m=> 'Konfirmasi kirim seluruh pesanan (' + m[1] + ' item)'],
-  [/^批號 (.+)$/, m=> 'No. batch'],
-  [/^訂單編號 (.*)　客戶：(.*)$/, m=> 'No. pesanan ' + m[1] + ' — Pelanggan'],
+  [/^批號 (.+)$/, m=> 'No. batch ' + m[1]],
+  [/^訂單編號 (.*)　客戶：(.*)$/, m=> 'No. pesanan ' + m[1] + ' — Pelanggan: ' + m[2]],
+  [/^訂單成立：(\d+)年(\d+)月(\d+)日.*?(\d{1,2}:\d{2})?$/, m=> 'Pesanan dibuat: ' + m[3] + '/' + m[2] + '/' + m[1] + (m[4] ? ' ' + m[4] : '')],
   [/^訂單成立：/, m=> 'Pesanan dibuat'],
   [/^點品項那一列/, m=> 'Ketuk baris item untuk membuka detail'],
   [/^訂單進入「(.+?)」後才會開放/, m=> 'Terbuka setelah masuk tahap ' + (ID_STAGE[m[1]] || m[1])],
   [/^顯示更多欄位/, m=> 'Tampilkan kolom lain'],
   [/^(.+)（共 (.+)）$/, m=> idUnitsText(m[1]) + ' (total ' + idUnitsText(m[2]) + ')'],
   [/^剩 (.+)$/, m=> 'Sisa ' + idUnitsText(m[1])],
-  [/^生產線 (.+)$/, m=> 'Lini produksi'],
-  [/^成品庫存 (.+)$/, m=> 'Stok barang jadi'],
-  [/^還需要生產 (.+)$/, m=> 'Perlu diproduksi']
+  [/^生產線 (.+)$/, m=> 'Lini produksi ' + m[1].split('、').map(z=> ID_ZONES[z] || z).join(', ')],
+  [/^成品庫存 (.+)$/, m=> 'Stok barang jadi ' + idUnitsText(m[1])],
+  [/^還需要生產 (.+)$/, m=> 'Perlu diproduksi ' + idUnitsText(m[1])],
+  [/^(.+)、(.+)$/, m=> { const parts = m[0].split('、'); return parts.every(z=> ID_ZONES[z]) ? parts.map(z=> ID_ZONES[z]).join(', ') : ''; }]
 ];
 function idLookup(raw){
   const t = String(raw || '').trim();
@@ -3471,34 +3474,49 @@ function idAnnotate(root){
     const zh = o.dataset.zhText;
     let w = '';
     if(showId){ w = idLookup(zh) || (/[包箱袋桶罐瓶盒入]/.test(zh) && /\d/.test(zh) ? idSpec(zh) : ''); }
-    o.textContent = w ? zh + ' / ' + w : zh;
+    o.textContent = w ? w : zh;
   });
   root.querySelectorAll('input[placeholder], textarea[placeholder]').forEach(i=>{
     if(i.dataset.zhPh === undefined) i.dataset.zhPh = i.placeholder;
     const zh = i.dataset.zhPh;
     const w = showId ? idLookup(zh) : '';
-    i.placeholder = w ? zh + ' / ' + w : zh;
+    i.placeholder = w ? w : zh;
   });
   if(!showId) return;
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(n){
       const p = n.parentElement;
-      if(!p || p.closest('.id-sub, .id-name, script, style, option, textarea, .idn-row')) return NodeFilter.FILTER_REJECT;
+      if(!p || p.closest('.id-sub, .id-name, .id-note, .zh-orig, script, style, option, textarea, .idn-row, #idNamesOverlay')) return NodeFilter.FILTER_REJECT;
       return /[一-鿿]/.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
     }
   });
   const nodes = []; let n;
   while((n = walker.nextNode())) nodes.push(n);
+  // 把中文包進 .zh-orig（開啟時藏起來）；前面的符號（📅、🏷 等）留著
+  const wrapZh = (node)=>{
+    const v = node.nodeValue;
+    const pre = (v.match(/^[^\u4e00-\u9fffA-Za-z0-9（(「]*/) || [''])[0];
+    const span = document.createElement('span');
+    span.className = 'zh-orig';
+    span.textContent = v.slice(pre.length);
+    const parent = node.parentNode;
+    if(pre){ parent.insertBefore(document.createTextNode(pre), node); }
+    parent.replaceChild(span, node);
+  };
   nodes.forEach(node=>{
     let nx = node.nextSibling;
     while(nx && nx.nodeType === 3 && !nx.nodeValue.trim()) nx = nx.nextSibling;
-    if(nx && nx.nodeType === 1 && nx.classList && nx.classList.contains('id-sub')) return; // 已經有印尼文了
+    const isEl = nx && nx.nodeType === 1 && nx.classList;
+    if(isEl && (nx.classList.contains('id-sub') || (nx.classList.contains('id-name') && !nx.classList.contains('missing')) || (nx.classList.contains('id-note') && !nx.classList.contains('pending')))){
+      wrapZh(node); return; // 已經有印尼文了，中文藏起來
+    }
     const w = idLookup(node.nodeValue);
     if(!w) return;
     const sp = document.createElement('span');
     sp.className = 'id-sub';
     sp.textContent = w;
     node.parentNode.insertBefore(sp, node.nextSibling);
+    wrapZh(node);
   });
 }
 
@@ -3748,7 +3766,7 @@ function renderTabs(){
     const tab = document.createElement('div');
     tab.className = 'tab' + (s===currentTab ? ' active' : '');
     tab.dataset.status = s;
-    tab.innerHTML = '<div class="tab-label">' + STATUS_LABEL[s] + (ID_DICT[STATUS_LABEL_RAW[s]] ? '<span class="id-sub">' + idEsc(ID_DICT[STATUS_LABEL_RAW[s]]) + '</span>' : '') + '</div><div class="tab-count">' + count + '</div>';
+    tab.innerHTML = '<div class="tab-label">' + (ID_DICT[STATUS_LABEL_RAW[s]] ? '<span class="zh-orig">' + STATUS_LABEL[s] + '</span><span class="id-sub">' + idEsc(ID_DICT[STATUS_LABEL_RAW[s]]) + '</span>' : STATUS_LABEL[s]) + '</div><div class="tab-count">' + count + '</div>';
     tab.onclick = ()=>{ currentTab = s; render(); };
     tabsEl.appendChild(tab);
   });
@@ -4609,7 +4627,7 @@ function orderSummaryHtml(order){
     const open = isHere && labelingExpanded.has(it.id);
     return '<div class="os-row' + (isHere ? ' here' : '') + (open ? ' open' : '') + '"' + (isHere ? ' data-jump-item="' + it.id + '"' : '') + '>' +
       '<span class="os-caret">' + (isHere ? (open ? '▾' : '▸') : '') + '</span>' +
-      '<span class="os-name">' + escapeHtml(it.product || '') + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + idSpecSub(it.spec) + '</span>' : '') + idNameLine(it.product) +
+      '<span class="os-name">' + escapeHtml(it.product || '') + idNameLine(it.product) + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + idSpecSub(it.spec) + '</span>' : '') +
         (it.note ? '<span class="os-note">📝 ' + escapeHtml(it.note) + idNoteBlock(order, it) + '</span>' : '') +
         ((multiDue && it.due) ? '<span class="os-spec" style="color:' + (dueDiffDays(it.due) <= 0 ? 'var(--red)' : dueDiffDays(it.due) === 1 ? 'var(--amber)' : 'var(--teal)') + '; font-weight:800;">📅 ' + escapeHtml(fmtDueShort(it.due)) + '</span>' : '') +
         ((currentTab === 'inprogress' && it.status === 'inprogress') ? (function(){
@@ -4679,7 +4697,7 @@ function renderList(){
   renderListInner();
   try{
     idAnnotate(document.getElementById('listArea'));
-    ['zoneFilterBar','sortBar','tabSearchBar'].forEach(id=> idAnnotate(document.getElementById(id)));
+    ['zoneFilterBar','sortBar','tabSearchBar','tabs'].forEach(id=> idAnnotate(document.getElementById(id)));
     updateSortIdHint();
   }catch(e){ console.error(e); }
 }
@@ -4910,7 +4928,7 @@ function renderListInner(){
         return;
       }
       itemsHtml += '<div class="item-row pri-' + item.priority + (overdue ? ' overdue' : '') + '">' +
-        '<div class="item-top"><div><div class="item-product">' + escapeHtml(item.product) + (item.spec ? '<span class="item-spec"> ・ ' + escapeHtml(item.spec) + idSpecSub(item.spec) + '</span>' : '') + idNameLine(item.product) + '</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">' + badges + '</div></div>' +
+        '<div class="item-top"><div><div class="item-product">' + escapeHtml(item.product) + idNameLine(item.product) + (item.spec ? '<span class="item-spec"> ・ ' + escapeHtml(item.spec) + idSpecSub(item.spec) + '</span>' : '') + '</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">' + badges + '</div></div>' +
         '<div class="item-meta">' + metaBits.join('') + '</div>' +
         doneEditHtml +
         labelEditHtml +
