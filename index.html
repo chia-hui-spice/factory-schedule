@@ -501,6 +501,8 @@ html.kb-open .overlay.show{ top:var(--vv-top, 0px); bottom:auto; height:var(--vv
 html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .kb-sticky-actions{ position:sticky; bottom:calc(-20px - env(safe-area-inset-bottom)); z-index:6; background:var(--panel); margin-left:-18px; margin-right:-18px; padding:10px 18px calc(10px + env(safe-area-inset-bottom)) 18px; box-shadow:0 -6px 14px rgba(0,0,0,0.35); border-top:1px solid var(--line); }
 .zone-count{ display:inline-block; margin-left:6px; min-width:22px; padding:1px 7px; border-radius:999px; font-size:13px; font-weight:800; background:var(--red); color:#fff; vertical-align:1px; }
+body.show-id .zone-count .id-sub{ color:#fff; opacity:.9; }
+body.show-id .zone-filter-pill > .id-sub{ display:block; margin:0; font-size:11.5px; }
 .zone-count.zero{ background:transparent; color:var(--ink-dim); border:1px solid var(--line); font-weight:600; }
 .order-progress{ margin:8px 0 12px; border:1.5px solid var(--line); border-radius:12px; padding:8px 12px; background:var(--panel-raised); }
 .order-progress summary{ cursor:pointer; font-size:15.5px; line-height:1.6; }
@@ -520,8 +522,7 @@ body.show-id .id-sub.blk{ display:block; margin-left:0; }
 body.show-id .id-name{ display:block; font-size:0.78em; font-weight:800; color:#7fd4ff; margin-top:2px; line-height:1.25; }
 body.show-id .id-name.missing{ font-size:13px; font-weight:700; }
 .id-name.missing button{ font-size:12.5px; padding:1px 8px; border-radius:7px; border:1px dashed #7fd4ff; background:transparent; color:#7fd4ff; cursor:pointer; }
-.id-tr{ display:none; }
-body.show-id .id-tr{ display:inline-block; margin-left:6px; font-size:13px; padding:2px 8px; border-radius:7px; border:1px solid #7fd4ff; color:#7fd4ff; text-decoration:none; }
+.id-tr{ display:inline-block; margin-left:6px; font-size:13px; padding:2px 8px; border-radius:7px; border:1px solid #7fd4ff; color:#7fd4ff; text-decoration:none; }
 body.show-id .tab .tab-label .id-sub{ display:block; margin:0; font-size:11px; }
 .btn-forward .id-sub, .os-go .id-sub{ color:inherit !important; opacity:.85; }
 body.show-id .btn-forward .id-sub{ display:block; margin:2px 0 0; }
@@ -625,6 +626,7 @@ body.show-id .os-go .id-sub{ display:block; margin:1px 0 0; font-size:11px; }
 .os-headrow{ font-size:13px; color:var(--ink-dim); border-top:none; padding-top:2px; padding-bottom:2px; }
 .os-name{ flex:1; min-width:0; font-size:18px; font-weight:800; }
 .os-headrow .os-name, .os-headrow .os-qty{ font-size:13px; font-weight:600; color:var(--ink-dim); }
+.os-note{ display:block; margin-top:3px; font-size:14.5px; font-weight:600; color:var(--amber); line-height:1.45; }
 .os-spec{ display:inline-block; margin-left:8px; font-size:15px; font-weight:600; color:var(--ink-dim); }
 .os-qty{ flex:0 0 auto; min-width:56px; text-align:right; font-size:22px; font-weight:900; color:var(--amber); }
 .os-row .badge{ flex:0 0 auto; min-width:72px; text-align:center; }
@@ -3274,7 +3276,7 @@ function idQtySub(item){ const u = orderUnit(item); const w = idUnit(u); return 
 function idZones(zones){ const w = (zones || []).map(z=> ID_ZONES[z]).filter(Boolean); return w.length ? '<span class="id-sub">' + idEsc(w.join(', ')) + '</span>' : ''; }
 function idTranslateLink(text){
   if(!text) return '';
-  return '<a class="id-tr" target="_blank" rel="noopener" href="https://translate.google.com/?sl=zh-TW&tl=id&op=translate&text=' + encodeURIComponent(text) + '">🌐 Terjemahkan</a>';
+  return ' <a class="id-tr" target="_blank" rel="noopener" href="https://translate.google.com/?sl=zh-TW&tl=id&op=translate&text=' + encodeURIComponent(text) + '">🌐 翻成印尼文 Terjemahkan</a>';
 }
 function applyShowId(){
   document.body.classList.toggle('show-id', showId);
@@ -3353,12 +3355,16 @@ const ID_PHRASES = {
   '請選擇':'Pilih', '自訂':'Lainnya', '自訂（輸入其他姓名）':'Lainnya (ketik nama)', '無':'Tidak', '需要(Email)':'Perlu (Email)', '需要(隨貨附)':'Perlu (ikut barang)',
   '照射滅菌之後去客戶端':'Setelah iradiasi langsung ke pelanggan', '照射滅菌之後回工廠':'Setelah iradiasi kembali ke pabrik',
   '依各產線預設（安娜、陳鶯…）':'Default per lini produksi', '輸入原料批號':'Ketik no. batch bahan', '輸入姓名':'Ketik nama', '輸入產地':'Ketik asal',
-  '輸入規格':'Ketik spesifikasi', '預設為製造日期':'Default = tgl produksi', '預設為製造日期，例如 20261001':'Default = tgl produksi', '顯示詳細內容':'Tampilkan detail', '簡潔顯示':'Tampilan ringkas'
+  '輸入規格':'Ketik spesifikasi', '排序':'Urutkan', '全部':'Semua',
+  '出貨日期（由近到遠）':'Tgl kirim (terdekat dulu)', '出貨日期（由遠到近）':'Tgl kirim (terjauh dulu)',
+  '訂單建立日期（新到舊）':'Tgl pesanan (terbaru dulu)', '訂單建立日期（舊到新）':'Tgl pesanan (terlama dulu)',
+  '搜尋未完成訂單（所有步驟）：客戶、產品、規格、批號…':'Cari pesanan belum selesai (pelanggan, produk, batch…)', '預設為製造日期':'Default = tgl produksi', '預設為製造日期，例如 20261001':'Default = tgl produksi', '顯示詳細內容':'Tampilkan detail', '簡潔顯示':'Tampilan ringkas'
 };
 const ID_STAGE = { '訂單確認':'Konfirmasi pesanan', '庫存確認':'Konfirmasi stok', '排程生產':'Jadwal produksi', '標籤印製':'Cetak label', '充填包裝':'Pengisian & pengemasan', '裝箱確認':'Konfirmasi dus', '出貨確認':'Konfirmasi pengiriman', '排程生產完成':'Jadwal produksi selesai', '品管COA':'COA QC' };
 function idUnitsText(t){ let out = String(t); ID_UNITS.forEach(([zh, id])=>{ out = out.split(zh).join(' ' + id + ' '); }); return out.replace(/（/g,'(').replace(/）/g,')').replace(/共/g,'total').replace(/\s+/g,' ').replace(/\( /g,'(').replace(/ \)/g,')').trim(); }
 const ID_PATTERNS = [
   [/^已逾期 (\d+) 天$/, m=> 'Terlambat ' + m[1] + ' hari'],
+  [/^(\d+)單(?:・(\d+)項)?$/, m=> m[1] + ' pesanan' + (m[2] ? ' · ' + m[2] + ' item' : '')],
   [/^還有 (\d+) 天$/, m=> m[1] + ' hari lagi'],
   [/^[\d.\s箱包袋桶罐瓶盒入公斤克（）共kg]+$/, m=> /[一-鿿]/.test(m[0]) ? idUnitsText(m[0]) : ''],
   [/^在(.+)$/, m=> ID_STAGE[m[1]] ? 'di ' + ID_STAGE[m[1]] : ''],
@@ -3392,6 +3398,15 @@ function idLookup(raw){
   for(const [re, fn] of ID_PATTERNS){ const m = core.match(re); if(m){ const r = fn(m); if(r) return r; } }
   return '';
 }
+// 排序下拉選單太窄，印尼文看不到 → 在選單旁邊另外顯示目前選的那一項的印尼文
+function updateSortIdHint(){
+  const sel = document.getElementById('sortModeSelect'); if(!sel) return;
+  let h = document.getElementById('sortIdHint');
+  if(!h){ h = document.createElement('span'); h.id = 'sortIdHint'; h.className = 'id-sub'; h.style.flex = '0 0 100%'; h.style.textAlign = 'center'; sel.parentNode.appendChild(h); }
+  const o = sel.options[sel.selectedIndex];
+  h.textContent = o ? idLookup(o.dataset.zhText !== undefined ? o.dataset.zhText : o.textContent) : '';
+}
+document.getElementById('sortModeSelect').addEventListener('change', ()=>{ try{ updateSortIdHint(); }catch(e){} });
 function idAnnotate(root){
   if(!root) return;
   // 選單、輸入框提示文字：開啟時改成「中文 / 印尼文」，關閉時還原
@@ -3497,6 +3512,8 @@ document.getElementById('idnSave').onclick = async ()=>{
     render();
   }catch(e){ console.error(e); showAlert('儲存失敗，請確認網路後再試一次。', '❌ 儲存失敗'); }
 };
+// 備註翻譯按鈕：只開翻譯頁，不要觸發品項列的展開／收合
+document.addEventListener('click', (e)=>{ if(e.target.closest && e.target.closest('a.id-tr')) e.stopPropagation(); }, true);
 document.addEventListener('click', (e)=>{
   const b = e.target.closest && e.target.closest('[data-idn-add]');
   if(!b) return;
@@ -4538,6 +4555,7 @@ function orderSummaryHtml(order){
     return '<div class="os-row' + (isHere ? ' here' : '') + (open ? ' open' : '') + '"' + (isHere ? ' data-jump-item="' + it.id + '"' : '') + '>' +
       '<span class="os-caret">' + (isHere ? (open ? '▾' : '▸') : '') + '</span>' +
       '<span class="os-name">' + escapeHtml(it.product || '') + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + idSpecSub(it.spec) + '</span>' : '') + idNameLine(it.product) +
+        (it.note ? '<span class="os-note">📝 ' + escapeHtml(it.note) + idTranslateLink(it.note) + '</span>' : '') +
         ((multiDue && it.due) ? '<span class="os-spec" style="color:' + (dueDiffDays(it.due) <= 0 ? 'var(--red)' : dueDiffDays(it.due) === 1 ? 'var(--amber)' : 'var(--teal)') + '; font-weight:800;">📅 ' + escapeHtml(fmtDueShort(it.due)) + '</span>' : '') +
         ((currentTab === 'inprogress' && it.status === 'inprogress') ? (function(){
           const fg = finishedGoods.find(f=>f.product === it.product && (f.spec||'') === (it.spec||''));
@@ -4604,7 +4622,11 @@ document.getElementById('simpleViewToggle').onclick = ()=>{
 let deferredListRender = false;
 function renderList(){
   renderListInner();
-  try{ idAnnotate(document.getElementById('listArea')); }catch(e){ console.error(e); }
+  try{
+    idAnnotate(document.getElementById('listArea'));
+    ['zoneFilterBar','sortBar','tabSearchBar'].forEach(id=> idAnnotate(document.getElementById(id)));
+    updateSortIdHint();
+  }catch(e){ console.error(e); }
 }
 function renderListInner(){
   const ae = document.activeElement;
