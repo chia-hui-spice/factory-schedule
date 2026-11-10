@@ -513,6 +513,9 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .op-name{ flex:1; min-width:0; }
 .op-qty{ flex:0 0 auto; color:var(--ink-dim); font-weight:700; }
 .op-row .badge{ flex:0 0 auto; }
+.qo-pick-no{ flex:0 0 auto; width:30px; height:30px; border-radius:50%; background:var(--teal); color:#0d1f14; font-size:17px; font-weight:900; display:inline-flex; align-items:center; justify-content:center; visibility:hidden; }
+.qo-pick-order{ position:sticky; bottom:0; margin-top:8px; padding:8px 10px; border:1.5px solid var(--teal); border-radius:10px; background:var(--panel-raised); font-size:14.5px; line-height:1.7; }
+.qo-pick-order span{ display:inline-block; margin-right:10px; }
 .qo-pick-row{ display:flex; align-items:center; gap:12px; padding:10px 12px; border:1.5px solid var(--line); border-radius:10px; margin-bottom:6px; cursor:pointer; }
 .qo-pick-row.on{ border-color:var(--amber); background:rgba(242,183,5,0.10); }
 .qo-pick-row input{ width:24px; height:24px; flex:0 0 auto; accent-color:var(--amber); }
@@ -1850,6 +1853,7 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
       </select>
     </div>
     <div id="qoPickList"></div>
+    <div id="qoPickOrder" class="qo-pick-order" style="display:none;"></div>
     <div class="sheet-actions" style="margin-top:12px;">
       <button type="button" class="btn-secondary" id="qoPickCancel">取消</button>
       <button type="button" class="btn-primary" id="qoPickOk">加入勾選的品項</button>
@@ -5889,15 +5893,31 @@ function renderQoPick(){
     const dd = h.discontinued && h.discAt ? new Date(h.discAt) : null;
     const discTag = h.discontinued ? ' <span class="disc-tag">🚫 客人已不再使用' + (dd ? '（' + dd.getFullYear() + '/' + (dd.getMonth()+1) + '/' + dd.getDate() + ' 起）' : '') + '</span>' : '';
     return '<label class="qo-pick-row' + (on ? ' on' : '') + (h.discontinued ? ' discontinued' : '') + '" data-key="' + escapeHtml(h.key) + '">' +
-      '<input type="checkbox"' + (on ? ' checked' : '') + '>' +
+      '<input type="checkbox"' + (on ? ' checked' : '') + '><span class="qo-pick-no"></span>' +
       '<div style="flex:1; min-width:0;"><div style="font-size:16.5px; font-weight:800;">' + escapeHtml(h.product) + (h.spec ? '<span class="item-spec"> ・ ' + escapeHtml(h.spec) + '</span>' : '') + (has ? ' <span style="font-size:12.5px; color:var(--teal); border:1px solid var(--teal); border-radius:6px; padding:0 5px;">已加入</span>' : '') + discTag + '</div>' +
       '<div style="font-size:13.5px; color:var(--ink-dim);">訂過 ' + h.count + ' 次　上次 ' + escapeHtml(String(h.lastQty ?? '')) + (dTxt ? '（' + dTxt + '）' : '') + '</div></div></label>';
   }).join('') : '<div class="ship-list-empty">沒有符合的品項</div>';
   el.querySelectorAll('.qo-pick-row').forEach(row=>{
     const cb = row.querySelector('input');
-    cb.addEventListener('change', ()=>{ const k = row.dataset.key; if(cb.checked) qoPickSel.add(k); else qoPickSel.delete(k); row.classList.toggle('on', cb.checked); updateQoPickOk(); });
+    cb.addEventListener('change', ()=>{ const k = row.dataset.key; if(cb.checked) qoPickSel.add(k); else qoPickSel.delete(k); row.classList.toggle('on', cb.checked); updateQoPickNumbers(); updateQoPickOk(); });
   });
+  updateQoPickNumbers();
   updateQoPickOk();
+}
+// 勾選的順序 = 加入訂單的順序：每列顯示 1、2、3…，取消勾選後後面的號碼自動往前補
+function updateQoPickNumbers(){
+  const order = Array.from(qoPickSel);
+  document.querySelectorAll('#qoPickList .qo-pick-row').forEach(row=>{
+    const i = order.indexOf(row.dataset.key);
+    const n = row.querySelector('.qo-pick-no');
+    if(n){ n.textContent = i >= 0 ? String(i + 1) : ''; n.style.visibility = i >= 0 ? 'visible' : 'hidden'; }
+  });
+  const sum = document.getElementById('qoPickOrder');
+  if(sum){
+    const names = order.map(k=> qoPickHist.find(h=> h.key === k)).filter(Boolean);
+    sum.innerHTML = names.length ? '<b>加入順序：</b>' + names.map((h, i)=> '<span>' + (i + 1) + '. ' + escapeHtml(h.product) + (h.spec ? '（' + escapeHtml(h.spec) + '）' : '') + '</span>').join('') : '';
+    sum.style.display = names.length ? '' : 'none';
+  }
 }
 function updateQoPickOk(){ const b = document.getElementById('qoPickOk'); b.textContent = qoPickSel.size ? '加入勾選的 ' + qoPickSel.size + ' 項' : '加入勾選的品項'; b.disabled = !qoPickSel.size; b.style.opacity = qoPickSel.size ? '1' : '0.5'; }
 document.getElementById('qoPickSearch').addEventListener('input', renderQoPick);
@@ -5906,7 +5926,7 @@ document.getElementById('qoPickAll').onclick = ()=>{ qoPickVisible().forEach(h=>
 document.getElementById('qoPickNone').onclick = ()=>{ qoPickSel.clear(); renderQoPick(); };
 document.getElementById('qoPickCancel').onclick = ()=> document.getElementById('qoPickOverlay').classList.remove('show');
 document.getElementById('qoPickOk').onclick = async ()=>{
-  const picked = qoPickHist.filter(h=> qoPickSel.has(h.key));
+  const picked = Array.from(qoPickSel).map(k=> qoPickHist.find(h=> h.key === k)).filter(Boolean); // 照勾選的順序
   if(!picked.length) return;
   if(qoPickMode === 'single'){
     if(picked.length === 1){
