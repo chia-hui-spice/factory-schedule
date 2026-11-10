@@ -3310,6 +3310,128 @@ function idMissingNames(){
   orders.forEach(o=> (o.items || []).forEach(it=>{ if(!it.deleted && it.product && it.status !== 'qc' && !idName(it.product)) set.add(String(it.product).trim()); }));
   return Array.from(set);
 }
+
+// ---- 🇮🇩 詳細內容自動加印尼文：畫面畫好後，把認得的中文字句後面加一行印尼文（關閉時用 CSS 藏起來）----
+const ID_PHRASES = {
+  '新增品項':'Tambah item', 'COA確認人員':'Petugas konfirmasi COA', '倉管會計':'Petugas gudang/akuntansi', '倉管會計出貨確認':'Konfirmasi kirim gudang/akuntansi',
+  '備註':'Catatan', '儲存':'Simpan', '充填包裝':'Pengisian & pengemasan', '充填包裝完成':'Pengisian & pengemasan selesai',
+  '全部收合':'Tutup semua', '全部展開':'Buka semua', '出貨前檢查':'Pemeriksaan sebelum kirim', '出貨方式':'Cara kirim',
+  '出貨日':'Tgl kirim', '出貨確認':'Konfirmasi pengiriman', '出貨確認完成':'Pengiriman selesai', '刪除此品項':'Hapus item ini',
+  '剩':'Sisa', '勾選一起確認':'Centang untuk konfirmasi bersama', '包':'bungkus', '箱':'dus',
+  '包材批號':'No. batch kemasan', '包裝人員':'Petugas kemas', '包裝區域確認':'Konfirmasi area kemas', '包裝密封':'Segel kemasan',
+  '包裝日期':'Tgl kemas', '原料批號':'No. batch bahan baku', '原料有效日期':'Tgl kedaluwarsa bahan', '原料製造日期':'Tgl produksi bahan',
+  '原料批號（可新增多筆，如果同一原料用了不同批號補滿數量，可以分開記錄各自用量）':'No. batch bahan baku (boleh lebih dari satu batch)',
+  '取消':'Batal', '品項 / 規格':'Item / Spesifikasi', '基本資料':'Data dasar', '填寫人員':'Petugas pengisi', '填寫日期':'Tgl pengisian',
+  '填寫時間':'Waktu pengisian', '大腸桿菌':'E. coli', '大腸桿菌群':'Koliform', '總生菌數':'Total bakteri', '水分':'Kadar air', '水活性':'Aktivitas air',
+  '完成':'Selesai', '客戶名稱':'Nama pelanggan', '實際出貨日期':'Tgl kirim aktual', '尚未填寫':'Belum diisi', '未填':'Belum diisi', '未選':'Belum dipilih',
+  '庫存確認':'Konfirmasi stok', '庫存確認無庫存請生產':'Stok tidak cukup, mohon produksi', '急件':'Mendesak', '逾期':'Terlambat',
+  '成品庫存':'Stok barang jadi', '批號':'No. batch', '批號 / 日期':'No. batch / Tanggal', '排程生產':'Jadwal produksi', '排程生產完成':'Jadwal produksi selesai',
+  '放行':'Rilis', '放行人員':'Petugas rilis', '數量':'Jumlah', '有效':'Kedaluwarsa', '有效日期':'Tgl kedaluwarsa',
+  '標籤印製':'Cetak label', '標籤印製完成':'Cetak label selesai', '標籤品名核對':'Periksa nama di label', '清除':'Hapus',
+  '無庫存':'Stok habis', '請生產':'Mohon produksi', '生產/有效日期':'Tgl produksi/kedaluwarsa', '生產線':'Lini produksi', '產線':'Lini produksi',
+  '產品名稱':'Nama produk', '產品有效日期':'Tgl kedaluwarsa produk', '產品製造日期(調配、研磨日期)':'Tgl produksi produk (campur/giling)',
+  '產地':'Asal', '裝箱數量':'Jumlah dalam dus', '裝箱確認':'Konfirmasi pengemasan dus', '裝箱確認完成':'Pengemasan dus selesai',
+  '製造':'Produksi', '製造批號':'No. batch produksi', '製造日期':'Tgl produksi', '規格':'Spesifikasi', '訂單確認':'Konfirmasi pesanan',
+  '訂單確認完成':'Konfirmasi pesanan selesai', '還需要生產':'Perlu diproduksi', '階段':'Tahap', '需要COA':'Perlu COA', '項':'item',
+  '預計需求出貨日期':'Rencana tgl kirim', '編輯品項':'Edit item', '再加一筆原料批號':'Tambah batch bahan', '新增原料批號':'Tambah batch bahan',
+  '拆分數量':'Bagi jumlah', '品管COA確認完成':'Konfirmasi COA QC selesai', '已全部確認':'Semua sudah dicek', '請先在下方品項勾選「一起確認」':'Centang item di bawah dulu',
+  '點擊修改庫存':'Klik untuk ubah stok', '填寫品管數值':'Isi nilai QC', '照射標籤未確認':'Label iradiasi belum dicek', '照射標籤已確認':'Label iradiasi sudah dicek',
+  '照射滅菌':'Sterilisasi iradiasi', '需要照射滅菌':'Perlu sterilisasi iradiasi', '還沒有填寫原料批號':'Batch bahan baku belum diisi',
+  '改交期':'Ubah tgl kirim', '預計出貨':'Rencana kirim', '這張訂單全部品項':'Semua item pesanan ini', '預計用料（生產前試算會用到哪些批號）':'Perkiraan bahan (batch yang akan dipakai)',
+  '目前成品庫存':'Stok barang jadi sekarang', '送貨':'Antar', '自取':'Ambil sendiri', '寄貨':'Kirim paket',
+  '同一位包裝人員，一次確認多項':'Satu petugas kemas, konfirmasi banyak item', '取消此品項（不出貨，但保留在訂單上）':'Batalkan item ini (tidak dikirim)',
+  '復原此品項（回到取消前的步驟）':'Kembalikan item ini', '品管確認數值':'Nilai konfirmasi QC', '訂單數量':'Jumlah pesanan', '此訂單客戶':'Pelanggan ini',
+  '需COA(Email)':'Perlu COA (Email)', '需COA(隨貨)':'Perlu COA (ikut barang)', '需要COA（Email）　請填寫原料批號':'Perlu COA (Email) — isi no. batch bahan',
+  '需要COA（隨貨附）　請填寫原料批號':'Perlu COA (ikut barang) — isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
+  '（隨貨附），出貨確認後將進入品管抽樣確認':'(ikut barang), setelah kirim akan dicek sampel QC', '今天':'Hari ini', '明天':'Besok',
+  '還沒有填寫原料批號，點下面黃色的「＋ 新增原料批號」開始記錄':'Belum ada batch bahan, klik tombol kuning untuk menambah',
+  '出貨方式、倉管會計在上面一次選好，可以每項按「完成」或整張一起完成':'Pilih cara kirim & petugas gudang di atas, lalu tekan Selesai',
+  '生產線會自動帶上次的，一定要有生產線才能按「無庫存請生產」；點品項那一列展開，可以看庫存批號、用現有庫存出貨':'Lini produksi otomatis dari pesanan terakhir; wajib ada lini produksi. Ketuk baris item untuk detail',
+  '庫存足夠':'Stok cukup', '已取消':'Dibatalkan', '急':'Mendesak', '已儲存':'Tersimpan', '一鍵全部確認':'Cek semua sekaligus',
+  '包裝人員確認':'Konfirmasi petugas kemas', '出貨前檢查項目及放行確認':'Pemeriksaan sebelum kirim & rilis', '裝箱確認及放行人員':'Konfirmasi dus & petugas rilis',
+  '倉管會計出貨確認人員':'Petugas konfirmasi kirim', '品管COA':'COA QC', 'COA確認':'Konfirmasi COA', '刪除':'Hapus', '關閉':'Tutup', '查看':'Lihat',
+  '請選擇':'Pilih', '自訂':'Lainnya', '自訂（輸入其他姓名）':'Lainnya (ketik nama)', '無':'Tidak', '需要(Email)':'Perlu (Email)', '需要(隨貨附)':'Perlu (ikut barang)',
+  '照射滅菌之後去客戶端':'Setelah iradiasi langsung ke pelanggan', '照射滅菌之後回工廠':'Setelah iradiasi kembali ke pabrik',
+  '依各產線預設（安娜、陳鶯…）':'Default per lini produksi', '輸入原料批號':'Ketik no. batch bahan', '輸入姓名':'Ketik nama', '輸入產地':'Ketik asal',
+  '輸入規格':'Ketik spesifikasi', '預設為製造日期':'Default = tgl produksi', '預設為製造日期，例如 20261001':'Default = tgl produksi', '顯示詳細內容':'Tampilkan detail', '簡潔顯示':'Tampilan ringkas'
+};
+const ID_STAGE = { '訂單確認':'Konfirmasi pesanan', '庫存確認':'Konfirmasi stok', '排程生產':'Jadwal produksi', '標籤印製':'Cetak label', '充填包裝':'Pengisian & pengemasan', '裝箱確認':'Konfirmasi dus', '出貨確認':'Konfirmasi pengiriman', '排程生產完成':'Jadwal produksi selesai', '品管COA':'COA QC' };
+function idUnitsText(t){ let out = String(t); ID_UNITS.forEach(([zh, id])=>{ out = out.split(zh).join(' ' + id + ' '); }); return out.replace(/（/g,'(').replace(/）/g,')').replace(/共/g,'total').replace(/\s+/g,' ').replace(/\( /g,'(').replace(/ \)/g,')').trim(); }
+const ID_PATTERNS = [
+  [/^已逾期 (\d+) 天$/, m=> 'Terlambat ' + m[1] + ' hari'],
+  [/^還有 (\d+) 天$/, m=> m[1] + ' hari lagi'],
+  [/^[\d.\s箱包袋桶罐瓶盒入公斤克（）共kg]+$/, m=> /[一-鿿]/.test(m[0]) ? idUnitsText(m[0]) : ''],
+  [/^在(.+)$/, m=> ID_STAGE[m[1]] ? 'di ' + ID_STAGE[m[1]] : ''],
+  [/^（(\d+) 項）$/, m=> '(' + m[1] + ' item)'],
+  [/^全選（(\d+)）$/, m=> 'Pilih semua (' + m[1] + ')'],
+  [/^還有 (\d+) 項在前面階段$/, m=> m[1] + ' item masih di tahap sebelumnya'],
+  [/^用現有庫存 (.+) 直接送出貨確認$/, m=> 'Kirim langsung pakai stok ' + idUnitsText(m[1])],
+  [/^這張訂單 (\d+) 項一起「庫存確認無庫存請生產」$/, m=> m[1] + ' item sekaligus: mohon produksi'],
+  [/^這張訂單 (\d+) 項一起(.+)完成$/, m=> m[1] + ' item pesanan ini selesai sekaligus'],
+  [/^整張訂單出貨確認完成（(\d+) 項）$/, m=> 'Seluruh pesanan selesai dikirim (' + m[1] + ' item)'],
+  [/^整張訂單一次出貨確認（(\d+) 個品項）$/, m=> 'Konfirmasi kirim seluruh pesanan (' + m[1] + ' item)'],
+  [/^批號 (.+)$/, m=> 'No. batch'],
+  [/^訂單編號 (.*)　客戶：(.*)$/, m=> 'No. pesanan ' + m[1] + ' — Pelanggan'],
+  [/^訂單成立：/, m=> 'Pesanan dibuat'],
+  [/^點品項那一列/, m=> 'Ketuk baris item untuk membuka detail'],
+  [/^訂單進入「(.+?)」後才會開放/, m=> 'Terbuka setelah masuk tahap ' + (ID_STAGE[m[1]] || m[1])],
+  [/^顯示更多欄位/, m=> 'Tampilkan kolom lain'],
+  [/^(.+)（共 (.+)）$/, m=> idUnitsText(m[1]) + ' (total ' + idUnitsText(m[2]) + ')'],
+  [/^剩 (.+)$/, m=> 'Sisa ' + idUnitsText(m[1])],
+  [/^生產線 (.+)$/, m=> 'Lini produksi'],
+  [/^成品庫存 (.+)$/, m=> 'Stok barang jadi'],
+  [/^還需要生產 (.+)$/, m=> 'Perlu diproduksi']
+];
+function idLookup(raw){
+  const t = String(raw || '').trim();
+  if(!t || !/[一-鿿]/.test(t)) return '';
+  const core = t.replace(/^[^一-鿿A-Za-z0-9（(「＋+]+/, '').replace(/[\s✎*：:]+$/, '').replace(/^[＋+]\s*/, '').trim();
+  if(ID_PHRASES[t]) return ID_PHRASES[t];
+  if(ID_PHRASES[core]) return ID_PHRASES[core];
+  if(ID_ZONES[core]) return ID_ZONES[core];
+  for(const [re, fn] of ID_PATTERNS){ const m = core.match(re); if(m){ const r = fn(m); if(r) return r; } }
+  return '';
+}
+function idAnnotate(root){
+  if(!root) return;
+  // 選單、輸入框提示文字：開啟時改成「中文 / 印尼文」，關閉時還原
+  root.querySelectorAll('option').forEach(o=>{
+    if(!o.hasAttribute('value')) return; // 沒有 value 的選項，改文字會改到值，不動
+    if(o.dataset.zhText === undefined) o.dataset.zhText = o.textContent;
+    const zh = o.dataset.zhText;
+    let w = '';
+    if(showId){ w = idLookup(zh) || (/[包箱袋桶罐瓶盒入]/.test(zh) && /\d/.test(zh) ? idSpec(zh) : ''); }
+    o.textContent = w ? zh + ' / ' + w : zh;
+  });
+  root.querySelectorAll('input[placeholder], textarea[placeholder]').forEach(i=>{
+    if(i.dataset.zhPh === undefined) i.dataset.zhPh = i.placeholder;
+    const zh = i.dataset.zhPh;
+    const w = showId ? idLookup(zh) : '';
+    i.placeholder = w ? zh + ' / ' + w : zh;
+  });
+  if(!showId) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(n){
+      const p = n.parentElement;
+      if(!p || p.closest('.id-sub, .id-name, script, style, option, textarea, .idn-row')) return NodeFilter.FILTER_REJECT;
+      return /[一-鿿]/.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    }
+  });
+  const nodes = []; let n;
+  while((n = walker.nextNode())) nodes.push(n);
+  nodes.forEach(node=>{
+    let nx = node.nextSibling;
+    while(nx && nx.nodeType === 3 && !nx.nodeValue.trim()) nx = nx.nextSibling;
+    if(nx && nx.nodeType === 1 && nx.classList && nx.classList.contains('id-sub')) return; // 已經有印尼文了
+    const w = idLookup(node.nodeValue);
+    if(!w) return;
+    const sp = document.createElement('span');
+    sp.className = 'id-sub';
+    sp.textContent = w;
+    node.parentNode.insertBefore(sp, node.nextSibling);
+  });
+}
+
 let idnDraft = {};
 function openIdNames(focusName){
   idnDraft = Object.assign({}, idNames);
@@ -4481,6 +4603,10 @@ document.getElementById('simpleViewToggle').onclick = ()=>{
 // iPad 打字時不要重畫清單：重畫會把輸入框換掉，鍵盤就會跳掉。等離開這個欄位再重畫
 let deferredListRender = false;
 function renderList(){
+  renderListInner();
+  try{ idAnnotate(document.getElementById('listArea')); }catch(e){ console.error(e); }
+}
+function renderListInner(){
   const ae = document.activeElement;
   const area = document.getElementById('listArea');
   if(ae && area && area.contains(ae) && (ae.tagName === 'TEXTAREA' || (ae.tagName === 'INPUT' && !/^(checkbox|radio|button)$/.test(ae.type)))){
@@ -5748,6 +5874,10 @@ document.getElementById('btnCheckAll').onclick = ()=>{
 };
 
 function openSheet(order, item){
+  openSheetInner(order, item);
+  try{ idAnnotate(document.getElementById('overlay')); }catch(e){ console.error(e); }
+}
+function openSheetInner(order, item){
   editingOrderId = order ? order.id : null;
   editingItemId = item ? item.id : null;
   populateProductSuggestions(order ? order.customer : '');
