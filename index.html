@@ -630,6 +630,18 @@ body.show-id .id-name.missing{ display:block; font-size:13px; font-weight:700; m
 .id-note{ display:none; }
 body.show-id .id-note{ display:inline; font-size:inherit; font-weight:inherit; color:inherit; }
 body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
+.boxcode-tag{ display:inline-block; margin:4px 0; padding:4px 12px; border-radius:9px; border:2px solid var(--amber); background:rgba(242,183,5,0.10); font-size:16px; font-weight:700; color:var(--ink); }
+.boxcode-tag b{ font-family:var(--mono); font-size:19px; color:var(--amber); letter-spacing:.5px; }
+.os-boxcode{ display:inline-block; margin-left:6px; font-size:13px; font-weight:800; color:var(--amber); border:1px solid var(--amber); border-radius:6px; padding:0 6px; }
+.bx-boxcode{ display:flex; gap:8px; align-items:center; margin:6px 0 8px; }
+.bx-boxcode input{ flex:1; min-width:0; font-size:18px; font-weight:800; font-family:var(--mono); padding:7px 10px; border-radius:8px; border:2px solid var(--amber); background:var(--panel-raised); color:var(--ink); }
+.qoBox{ flex:1; min-width:0; }
+.code-line{ margin-top:4px; min-height:0; }
+.code-tag{ display:inline-block; font-size:14px; color:var(--ink-dim); }
+.code-tag b{ color:var(--teal); font-family:var(--mono); font-size:15px; }
+.code-tag small{ font-size:12.5px; }
+.code-tag.none{ color:var(--ink-dim); opacity:.7; font-size:13px; }
+.qo-code{ margin:3px 0 0 30px; }
 .vd-badge{ display:inline-block; font-size:14px; font-weight:800; color:#fff; background:#8a5cf6; border-radius:8px; padding:2px 9px; margin:2px 0; }
 .vd-toggle{ display:inline-block; margin:4px 0; padding:5px 12px; font-size:14.5px; font-weight:800; border-radius:9px; border:1.5px dashed #8a5cf6; background:transparent; color:#a98bff; cursor:pointer; }
 .vd-toggle.on{ border-style:solid; background:rgba(138,92,246,0.15); }
@@ -774,7 +786,8 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
       <div class="row2">
         <div class="field">
           <label class="i18n">產品名稱</label>
-          <input type="text" id="fProduct" placeholder="例如 炒香料" required list="productSuggestions">
+          <input type="text" id="fProduct" placeholder="例如 炒香料（也可以打料號）" required list="orderProductSuggestions">
+          <div id="fProductCode" class="code-line"></div>
         </div>
         <div class="field">
           <label class="i18n">規格</label>
@@ -783,6 +796,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
         </div>
       </div>
       <datalist id="productSuggestions"></datalist>
+      <datalist id="orderProductSuggestions"></datalist>
       <div class="field">
         <label class="i18n">數量</label>
         <input type="number" id="fQty" placeholder="0" min="1" required>
@@ -858,6 +872,10 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
         <div class="field">
           <label>🇮🇩 備註（印尼文）<span style="font-size:13px; color:var(--ink-dim); font-weight:600;">　留空會自動翻譯；翻得不好可以直接改</span></label>
           <textarea id="fNoteId" rows="2" placeholder="Catatan dalam Bahasa Indonesia（留空＝自動翻譯）"></textarea>
+        </div>
+        <div class="field">
+          <label>📦 箱子 Code <span style="font-size:13px; color:var(--ink-dim); font-weight:600;">　客戶裝箱要放的 code，沒有要求就空白；同客戶同產品會自動帶上次的</span></label>
+          <input type="text" id="fBoxCode" placeholder="例如 CTN-A0123" autocomplete="off" style="font-family:var(--mono); font-weight:700;">
         </div>
         <div class="field">
           <label class="halal-sub" style="font-size:16px; font-weight:800;"><input type="checkbox" id="fVendorDirect"> 🏭 廠商直出（只貼標）</label>
@@ -3412,7 +3430,7 @@ const ID_PHRASES = {
   '原料批號 / 日期':'No. batch bahan / Tanggal', '廠商直出（只貼標）':'Langsung dari pemasok (hanya label)', '廠商直出':'Langsung dari pemasok',
   '廠商批號':'No. batch pemasok', '廠商製造日期':'Tgl produksi pemasok', '廠商有效日期':'Tgl kedaluwarsa pemasok',
   '廠商製造日期（可不填）':'Tgl produksi pemasok (opsional)', '廠商有效日期（可不填）':'Tgl kedaluwarsa pemasok (opsional)', '產品製造日期（可不填）':'Tgl produksi produk (opsional)',
-  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
+  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
   '設為廠商直出（只貼標）':'Set: langsung dari pemasok', '點一下取消':'ketuk untuk batal', '廠商批號 / 日期':'No. batch pemasok / Tanggal',
   '產品批號 / 日期（印在標籤上）':'No. batch produk / Tanggal (di label)', '輸入廠商批號':'Ketik no. batch pemasok',   '需要COA（隨貨附）　請填寫原料批號':'Perlu COA (ikut barang) — isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
   '（隨貨附），出貨確認後將進入品管抽樣確認':'(ikut barang), setelah kirim akan dicek sampel QC', '今天':'Hari ini', '明天':'Besok',
@@ -4459,6 +4477,8 @@ function boxingPanelHtml(order, item){
   if(!names.includes(DEFAULT_RELEASE_BY)) names.unshift(DEFAULT_RELEASE_BY);
   const isCustom = rb && !names.includes(rb);
   return '<div class="ship-inline box-inline">' +
+    '<div class="si-label" style="margin:0;">📦 箱子 Code' + (item.boxCode ? '　<span style="color:var(--amber);">← 裝箱時請放這個 code</span>' : '（客戶沒有要求就空白）') + '</div>' +
+    '<div class="bx-boxcode"><input type="text" class="bx-boxcode-in" ' + ids + ' value="' + escapeHtml(item.boxCode || '') + '" placeholder="沒有就不用填" autocomplete="off"></div>' +
     '<div class="bx-head"><span class="si-label" style="margin:0;">出貨前檢查 <span style="color:var(--red);">*</span> <b style="color:' + (done === 4 ? 'var(--green)' : 'var(--amber)') + ';">' + done + '/4</b></span>' +
       '<button type="button" class="bx-all' + (done === 4 ? ' on' : '') + '" ' + ids + ' data-bx-all="1">' + (done === 4 ? '✅ 已全部確認' : '✅ 一鍵全部確認') + '</button></div>' +
     '<div class="bx-checks">' + ['c1','c2','c3','c4'].map(k=>'<button type="button" class="bx-check' + (c[k] ? ' on' : '') + '" ' + ids + ' data-bx-chk="' + k + '">' + (c[k] ? '☑' : '☐') + ' ' + CHK_LABELS[k] + '</button>').join('') + '</div>' +
@@ -4618,6 +4638,23 @@ const VD_PREV = { inprogress:'pending', done:'inprogress', shipped:'done' };
 function nextStatusOf(item){ return item.vendorDirect && VD_NEXT[item.status] ? VD_NEXT[item.status] : STATUS[STATUS.indexOf(item.status) + 1]; }
 function prevStatusOf(item){ return item.vendorDirect && VD_PREV[item.status] ? VD_PREV[item.status] : STATUS[STATUS.indexOf(item.status) - 1]; }
 const VD_FORWARD_LABEL = { inprogress:'🏷 送標籤印製（廠商直出）', done:'標籤印製完成 → 出貨確認' };
+// ---- 📦 箱子 Code：有些客戶裝箱要放他們的箱子 code。下單時填，同客戶同產品下次自動帶上次的 ----
+function lastBoxCodeFor(customer, product, spec){
+  let best = '', bestAt = -1;
+  orders.forEach(o=>{
+    if((o.customer || '') !== customer) return;
+    (o.items || []).forEach(it=>{
+      if(it.deleted || it.product !== product || !it.boxCode) return;
+      if(spec && (it.spec || '') !== spec) return;
+      const at = o.createdAt || 0;
+      if(at > bestAt){ bestAt = at; best = it.boxCode; }
+    });
+  });
+  return best;
+}
+function boxCodeTagHtml(item){
+  return item.boxCode ? '<div class="boxcode-tag">📦 箱子 Code：<b>' + escapeHtml(item.boxCode) + '</b></div>' : '';
+}
 function lastVendorDirectFor(product){
   let best = null, bestAt = -1;
   orders.forEach(o=> (o.items || []).forEach(it=>{
@@ -4703,7 +4740,8 @@ function orderSummaryHtml(order){
     const open = isHere && labelingExpanded.has(it.id);
     return '<div class="os-row' + (isHere ? ' here' : '') + (open ? ' open' : '') + '"' + (isHere ? ' data-jump-item="' + it.id + '"' : '') + '>' +
       '<span class="os-caret">' + (isHere ? (open ? '▾' : '▸') : '') + '</span>' +
-      '<span class="os-name">' + escapeHtml(it.product || '') + idNameLine(it.product) + (it.vendorDirect ? ' <span class="vd-badge" style="font-size:12px; padding:0 6px;">🏭 廠商直出</span>' : '') + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + idSpecSub(it.spec) + '</span>' : '') +
+      '<span class="os-name">' + escapeHtml(it.product || '') + idNameLine(it.product) + (it.vendorDirect ? ' <span class="vd-badge" style="font-size:12px; padding:0 6px;">🏭 廠商直出</span>' : '') +
+        (it.boxCode ? '<span class="os-boxcode">📦 ' + escapeHtml(it.boxCode) + '</span>' : '') + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + idSpecSub(it.spec) + '</span>' : '') +
         (it.note ? '<span class="os-note">📝 ' + escapeHtml(it.note) + idNoteBlock(order, it) + '</span>' : '') +
         ((multiDue && it.due) ? '<span class="os-spec" style="color:' + (dueDiffDays(it.due) <= 0 ? 'var(--red)' : dueDiffDays(it.due) === 1 ? 'var(--amber)' : 'var(--teal)') + '; font-weight:800;">📅 ' + escapeHtml(fmtDueShort(it.due)) + '</span>' : '') +
         ((currentTab === 'inprogress' && it.status === 'inprogress') ? (function(){
@@ -4996,6 +5034,7 @@ function renderListInner(){
           ((tab === 'boxing' && item.status !== 'boxing') ? '<div class="checklist-row">' + chkHtml + '</div>' : '') +
           (item.note ? '<div class="item-note">' + escapeHtml(item.note) + idNoteBlock(order, item) + '</div>' : '') +
           vendorDirectHtml(order, item) +
+          ((currentTab === 'boxing' && item.status === 'boxing') ? '' : boxCodeTagHtml(item)) +
           irrConfirmHtml +
           (item.vendorDirect ? coaMaterialBatchHtml(order, item) + labelEditHtml : labelEditHtml) +
           coaValuesHtml(order, item) +
@@ -5011,6 +5050,7 @@ function renderListInner(){
         '<div class="item-top"><div><div class="item-product">' + escapeHtml(item.product) + idNameLine(item.product) + (item.spec ? '<span class="item-spec"> ・ ' + escapeHtml(item.spec) + idSpecSub(item.spec) + '</span>' : '') + '</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">' + badges + '</div></div>' +
         '<div class="item-meta">' + metaBits.join('') + '</div>' +
         vendorDirectHtml(order, item) +
+        ((currentTab === 'boxing' && item.status === 'boxing') ? '' : boxCodeTagHtml(item)) +
         doneEditHtml +
         (item.vendorDirect ? coaMaterialBatchHtml(order, item) + labelEditHtml : labelEditHtml) +
         stockInfoHtml +
@@ -5172,6 +5212,15 @@ function renderListInner(){
   wireLabelingEdit(wrap);
   wireCoaBatchInline(wrap);
   wireVendorDirect(wrap);
+  wrap.querySelectorAll('input.bx-boxcode-in').forEach(inp=> inp.addEventListener('change', async ()=>{
+    const o = orders.find(x=> x.id === inp.dataset.bxOid); const it = o && o.items.find(i=> i.id === inp.dataset.bxIid);
+    if(!it) return;
+    const v = inp.value.trim(); if(v === (it.boxCode || '')) return;
+    const prev = it.boxCode; it.boxCode = v;
+    const ok = await saveOrders();
+    if(!ok){ it.boxCode = prev; inp.value = prev || ''; return; }
+    showToast(v ? '📦 已儲存箱子 Code：' + v : '已清除箱子 Code');
+  }));
   wireOrderShipPanels(wrap);
   wireBoxingPanels(wrap);
   wireRefillPanels(wrap);
@@ -5966,6 +6015,29 @@ function getProductsForCustomer(customerName){
   });
   return Array.from(names);
 }
+// ---- 產品料號：下單選品項時顯示（成品的一般料號／清真料號；不同規格可能不同料號）----
+function fgCodesOf(f){ return [f.code, f.halalCode].filter(Boolean); }
+function productCodeShort(product){
+  const set = new Set();
+  (finishedGoods || []).forEach(f=>{ if(f.product === product) fgCodesOf(f).forEach(c=> set.add(c)); });
+  return Array.from(set).join('／');
+}
+function productCodeTag(product, spec){
+  product = String(product || '').trim(); spec = String(spec || '').trim();
+  if(!product) return '';
+  const all = (finishedGoods || []).filter(f=> f.product === product && fgCodesOf(f).length);
+  if(!all.length) return '<span class="code-tag none">料號：成品資料裡還沒有料號</span>';
+  const exact = spec ? all.filter(f=> (f.spec || '') === spec) : [];
+  const list = exact.length ? exact : all;
+  return '<span class="code-tag">料號 ' + list.map(f=> '<b>' + escapeHtml(fgCodesOf(f).join('／')) + '</b>' + ((!exact.length && f.spec) ? '<small>（' + escapeHtml(f.spec) + '）</small>' : '')).join('、') + '</span>';
+}
+// 在品名欄直接打料號（例如 P-001）→ 換成品名＋規格
+function findFgByCode(text){
+  const t = String(text || '').trim().toLowerCase();
+  if(!t) return null;
+  return (finishedGoods || []).find(f=> fgCodesOf(f).some(c=> c.toLowerCase() === t)) || null;
+}
+function productOptionHtml(n){ const c = productCodeShort(n); return '<option value="' + escapeHtml(n) + '"' + (c ? ' label="' + escapeHtml(c) + '"' : '') + '>'; }
 function populateProductSuggestions(customerName){
   const listEl = document.getElementById('productSuggestions');
   if(!listEl) return;
@@ -5976,6 +6048,10 @@ function populateProductSuggestions(customerName){
     ? customerProducts.concat(allProducts.filter(n=>!customerProducts.includes(n)))
     : allProducts;
   listEl.innerHTML = orderedProducts.map(n=>'<option value="'+escapeHtml(n)+'">').join('');
+  // 下單用的清單：品名旁邊帶料號，也可以直接打料號找產品
+  const ol = document.getElementById('orderProductSuggestions');
+  if(ol) ol.innerHTML = orderedProducts.map(productOptionHtml).join('') +
+    (finishedGoods || []).filter(f=> fgCodesOf(f).length).map(f=> '<option value="' + escapeHtml(fgCodesOf(f)[0]) + '" label="' + escapeHtml(f.product + (f.spec ? ' ' + f.spec : '')) + '">').join('');
 }
 function populateSupplierManufacturerSuggestions(){
   const suppliers = new Set();
@@ -6197,6 +6273,8 @@ function openSheetInner(order, item){
     el.value = nid; el.dataset.orig = nid;
     document.getElementById('fNote').dataset.orig = item ? (item.note || '') : '';
     document.getElementById('fVendorDirect').checked = !!(item ? item.vendorDirect : (firstItem && firstItem.vendorDirect));
+    const bc = document.getElementById('fBoxCode');
+    bc.value = item ? (item.boxCode || '') : ''; bc.dataset.touched = item && item.boxCode ? '1' : '';
   }
   setPickerValue('fReleaseBy', 'fReleaseByCustom', item ? (item.releaseBy || ((item.status === 'boxing' || item.status === 'shipped') ? DEFAULT_RELEASE_BY : '')) : '');
   setPickerValue('fFilledBy', 'fFilledByCustom', item ? (item.filledBy || DEFAULT_FILLED_BY) : ((firstItem && firstItem.filledBy) || DEFAULT_FILLED_BY));
@@ -6215,6 +6293,7 @@ function openSheetInner(order, item){
 
   document.getElementById('btnDelete').style.display = (item && canDeleteOrders()) ? 'block' : 'none';
   updateSheetCancelUI(item);
+  setTimeout(updateSheetProductCode, 0);
   overlay.classList.add('show');
 }
 
@@ -6372,7 +6451,8 @@ function qoRefreshProductList(){
   const cust = document.getElementById('qoCustomer').value.trim();
   const mine = getProductsForCustomer(cust);
   const all = getAllKnownProductNames();
-  document.getElementById('qoProductList').innerHTML = mine.concat(all.filter(n=>!mine.includes(n))).map(n=>'<option value="'+escapeHtml(n)+'">').join('');
+  document.getElementById('qoProductList').innerHTML = mine.concat(all.filter(n=>!mine.includes(n))).map(productOptionHtml).join('') +
+    (finishedGoods || []).filter(f=> fgCodesOf(f).length).map(f=> '<option value="' + escapeHtml(fgCodesOf(f)[0]) + '" label="' + escapeHtml(f.product + (f.spec ? ' ' + f.spec : '')) + '">').join('');
 }
 function renderQoRecent(){
   const cust = document.getElementById('qoCustomer').value.trim();
@@ -6444,7 +6524,8 @@ function renderQoPick(){
     const discTag = h.discontinued ? ' <span class="disc-tag">🚫 客人已不再使用' + (dd ? '（' + dd.getFullYear() + '/' + (dd.getMonth()+1) + '/' + dd.getDate() + ' 起）' : '') + '</span>' : '';
     return '<label class="qo-pick-row' + (on ? ' on' : '') + (h.discontinued ? ' discontinued' : '') + '" data-key="' + escapeHtml(h.key) + '">' +
       '<input type="checkbox"' + (on ? ' checked' : '') + '><span class="qo-pick-no"></span>' +
-      '<div style="flex:1; min-width:0;"><div style="font-size:16.5px; font-weight:800;">' + escapeHtml(h.product) + (h.spec ? '<span class="item-spec"> ・ ' + escapeHtml(h.spec) + '</span>' : '') + (has ? ' <span style="font-size:12.5px; color:var(--teal); border:1px solid var(--teal); border-radius:6px; padding:0 5px;">已加入</span>' : '') + discTag + '</div>' +
+      '<div style="flex:1; min-width:0;"><div style="font-size:16.5px; font-weight:800;">' + escapeHtml(h.product) + (h.spec ? '<span class="item-spec"> ・ ' + escapeHtml(h.spec) + '</span>' : '') +
+        (function(){ const f = (finishedGoods || []).find(x=> x.product === h.product && (x.spec || '') === (h.spec || '')); const c = f ? fgCodesOf(f).join('／') : ''; return c ? ' <span class="code-tag"><b>' + escapeHtml(c) + '</b></span>' : ''; })() + (has ? ' <span style="font-size:12.5px; color:var(--teal); border:1px solid var(--teal); border-radius:6px; padding:0 5px;">已加入</span>' : '') + discTag + '</div>' +
       '<div style="font-size:13.5px; color:var(--ink-dim);">訂過 ' + h.count + ' 次　上次 ' + escapeHtml(String(h.lastQty ?? '')) + (dTxt ? '（' + dTxt + '）' : '') + '</div></div></label>';
   }).join('') : '<div class="ship-list-empty">沒有符合的品項</div>';
   el.querySelectorAll('.qo-pick-row').forEach(row=>{
@@ -6520,7 +6601,7 @@ document.getElementById('qoPickOk').onclick = async ()=>{
   picked.forEach(h=>{
     const it = h.last;
     // 數量留空，請逐項確認（欄位會提示上次的數量）
-    qoRows.push({ product: h.product, spec: h.spec, qty: '', lastQty: h.lastQty, origin: it.origin || '', productionZones: (it.productionZones || []).slice(), needsIrradiation: irrAll || !!it.needsIrradiation, irradiationDestination: it.irradiationDestination || '', vendorDirect: !!it.vendorDirect });
+    qoRows.push({ product: h.product, spec: h.spec, qty: '', lastQty: h.lastQty, origin: it.origin || '', productionZones: (it.productionZones || []).slice(), needsIrradiation: irrAll || !!it.needsIrradiation, irradiationDestination: it.irradiationDestination || '', vendorDirect: !!it.vendorDirect, boxCode: it.boxCode || '' });
   });
   qoRows.push(qoBlankRow());
   const first = picked[0].last || {};
@@ -6540,7 +6621,7 @@ async function qoCopyOrder(orderId){
     if(!ok) return;
   }
   const items = qoItemsOfOrder(o);
-  qoRows = items.map(it=>({ product: it.product||'', spec: it.spec||'', qty: it.qty||'', origin: it.origin||'', productionZones: (it.productionZones||[]).slice(), needsIrradiation: !!it.needsIrradiation, irradiationDestination: it.irradiationDestination||'', vendorDirect: !!it.vendorDirect }));
+  qoRows = items.map(it=>({ product: it.product||'', spec: it.spec||'', qty: it.qty||'', origin: it.origin||'', productionZones: (it.productionZones||[]).slice(), needsIrradiation: !!it.needsIrradiation, irradiationDestination: it.irradiationDestination||'', vendorDirect: !!it.vendorDirect, boxCode: it.boxCode||'' }));
   qoRows.push(qoBlankRow());
   const first = items[0] || {};
   if(!document.getElementById('qoCoa').value && first.coa) document.getElementById('qoCoa').value = first.coa;
@@ -6563,24 +6644,41 @@ function renderQoRows(){
         '<button type="button" class="qo-irr' + (r.needsIrradiation ? ' on' : '') + '" data-qo-irr="' + i + '" title="需要照射滅菌">☢️ 照射</button>' +
         '<button type="button" class="qo-vd' + (r.vendorDirect ? ' on' : '') + '" data-qo-vd="' + i + '" title="廠商直出（只貼標）">🏭 直出</button>' +
         '<button type="button" class="qo-mini" data-qo-del="' + i + '" title="刪除這列">✕</button></div>' +
+      '<div class="qo-code" data-qo-code="' + i + '">' + productCodeTag(r.product, r.spec) + '</div>' +
       '<div class="qo-line"><div class="qo-no"></div>' +
         '<input type="text" class="qoSpec" list="qoSpec' + i + '" placeholder="規格" value="' + escapeHtml(r.spec) + '" autocomplete="off" style="flex:1.4;">' +
         '<datalist id="qoSpec' + i + '">' + qoSpecOptionsHtml(r.product) + '</datalist>' +
         '<input type="number" class="qoQty" inputmode="numeric" placeholder="' + (r.lastQty !== undefined && r.lastQty !== '' ? '上次 ' + escapeHtml(String(r.lastQty)) : '數量') + '" value="' + escapeHtml(String(r.qty)) + '" style="flex:0.8; font-weight:800;' + (r.product && !r.qty && r.lastQty !== undefined ? ' border-color:var(--amber);' : '') + '">' +
         '<button type="button" class="qo-mini" data-qo-dup="' + i + '" title="複製這列">⧉</button></div>' +
+      '<div class="qo-line"><div class="qo-no"></div><input type="text" class="qoBox" placeholder="📦 箱子 code（客戶有要求才填）" value="' + escapeHtml(r.boxCode || '') + '" autocomplete="off"' + (r.boxCode ? ' style="border-color:var(--amber); font-weight:800;"' : '') + '></div>' +
     '</div>').join('');
   const rowEls = wrap.querySelectorAll('.qo-row');
   rowEls.forEach(el=>{
     const i = parseInt(el.dataset.i, 10);
     const p = el.querySelector('.qoProduct'), sp = el.querySelector('.qoSpec'), q = el.querySelector('.qoQty');
-    p.addEventListener('input', ()=>{ qoRows[i].product = p.value.trim(); updateQoSummary(); });
+    const codeEl = el.querySelector('.qo-code');
+    const refreshCode = ()=>{ if(codeEl) codeEl.innerHTML = productCodeTag(qoRows[i].product, qoRows[i].spec); };
+    p.addEventListener('input', ()=>{ qoRows[i].product = p.value.trim(); updateQoSummary(); refreshCode(); });
     p.addEventListener('change', ()=>{
+      { const f = findFgByCode(p.value); if(f){ p.value = f.product; qoRows[i].product = f.product; if(f.spec){ sp.value = f.spec; qoRows[i].spec = f.spec; } } }
+      refreshCode();
       document.getElementById('qoSpec' + i).innerHTML = qoSpecOptionsHtml(p.value.trim());
       { const vd = lastVendorDirectFor(p.value.trim()); if(vd !== !!qoRows[i].vendorDirect){ qoRows[i].vendorDirect = vd; const vb = el.querySelector('.qo-vd'); if(vb) vb.classList.toggle('on', vd); } }
       const mine = getSpecsForProduct(p.value.trim());
       if(!sp.value && mine.length === 1){ sp.value = mine[0]; qoRows[i].spec = mine[0]; } // 只有一種常用規格就直接帶入
     });
-    sp.addEventListener('input', ()=>{ qoRows[i].spec = sp.value.trim(); });
+    const bx = el.querySelector('.qoBox');
+    const autoBox = ()=>{
+      if(!bx || qoRows[i].boxTouched) return;
+      const cust = document.getElementById('qoCustomer').value.trim();
+      const v = lastBoxCodeFor(cust, qoRows[i].product, qoRows[i].spec) || lastBoxCodeFor(cust, qoRows[i].product, '');
+      qoRows[i].boxCode = v || ''; bx.value = qoRows[i].boxCode;
+      bx.style.borderColor = v ? 'var(--amber)' : ''; bx.style.fontWeight = v ? '800' : '';
+    };
+    if(bx) bx.addEventListener('input', ()=>{ qoRows[i].boxCode = bx.value.trim(); qoRows[i].boxTouched = true; });
+    p.addEventListener('change', autoBox);
+    sp.addEventListener('change', autoBox);
+    sp.addEventListener('input', ()=>{ qoRows[i].spec = sp.value.trim(); refreshCode(); });
     q.addEventListener('input', ()=>{ qoRows[i].qty = q.value; updateQoSummary(); });
     p.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); p.dispatchEvent(new Event('change')); sp.focus(); } });
     sp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); q.focus(); q.select(); } });
@@ -6666,6 +6764,7 @@ document.getElementById('qoSave').onclick = async ()=>{
       productExpDate:'', productMfgDate:'', productBatchNo:'', packagingDate:'', trayBatchNo:'', manualMaterialBatches: [],
       coa, coaConfirmBy:'', needsIrradiation: !!r.needsIrradiation, irradiationLabelConfirm:false, irradiationDestination: r.irradiationDestination || '', note,
       vendorDirect: !!r.vendorDirect,
+      boxCode: (r.boxCode || '').trim(),
       coaMoisture:'', coaWaterActivity:'', coaTotalPlateCount:'', coaColiform:'', coaEcoli:'',
       fillFormDate, fillFormTime, releaseBy:'', filledBy, warehouseConfirm:'', priority,
       shipMethod:'', actualShipDate:'', productionZones: normalizeZoneList(r.productionZones || []), packagingStaff:'',
@@ -6744,6 +6843,7 @@ async function handleSaveOrder(){
   const itemPayload = {
     product, spec, qty, actualYieldQty, due, origin, productExpDate, productMfgDate, productBatchNo, packagingDate, trayBatchNo, manualMaterialBatches, coa, coaConfirmBy, coaConfirmByCleared, coaDone, needsIrradiation, irradiationLabelConfirm, irradiationDestination, note, noteId, noteIdSrc,
     vendorDirect: document.getElementById('fVendorDirect').checked,
+    boxCode: document.getElementById('fBoxCode').value.trim(),
     coaMoisture, coaWaterActivity, coaTotalPlateCount, coaColiform, coaEcoli,
     fillFormDate, fillFormTime,
     releaseBy, filledBy, warehouseConfirm,
@@ -6829,6 +6929,39 @@ function updateSheetCancelUI(item){
     banner.style.display = '';
   }else if(banner){ banner.style.display = 'none'; }
 }
+function sheetAutoBoxCode(){
+  const bc = document.getElementById('fBoxCode'); if(!bc || bc.dataset.touched) return;
+  const cust = (document.getElementById('fCustomer') || {}).value || '';
+  const p = document.getElementById('fProduct').value.trim();
+  let sp = ''; try{ sp = getPickerValue('fSpec', 'fSpecCustom') || ''; }catch(e){}
+  const v = lastBoxCodeFor(cust.trim(), p, sp) || lastBoxCodeFor(cust.trim(), p, '');
+  bc.value = v || '';
+}
+document.getElementById('fBoxCode').addEventListener('input', ()=>{ document.getElementById('fBoxCode').dataset.touched = '1'; });
+function updateSheetProductCode(){
+  sheetAutoBoxCode();
+  const el = document.getElementById('fProductCode'); if(!el) return;
+  const p = document.getElementById('fProduct').value.trim();
+  let sp = '';
+  try{ sp = getPickerValue('fSpec', 'fSpecCustom') || ''; }catch(e){}
+  el.innerHTML = productCodeTag(p, sp);
+}
+document.getElementById('fProduct').addEventListener('change', ()=>{
+  const inp = document.getElementById('fProduct');
+  const f = findFgByCode(inp.value);
+  if(f){
+    const typedCode = inp.value.trim();
+    inp.value = f.product;
+    inp.dispatchEvent(new Event('input', { bubbles:true }));
+    inp.dispatchEvent(new Event('change', { bubbles:true }));
+    setTimeout(()=>{ try{ populateSpecSelect('fSpec', 'fSpecCustom', f.product, f.spec || ''); }catch(e){} updateSheetProductCode(); }, 0);
+    showToast('料號 ' + typedCode + ' → ' + f.product + (f.spec ? '（' + f.spec + '）' : ''));
+  }
+  updateSheetProductCode();
+});
+document.getElementById('fProduct').addEventListener('input', updateSheetProductCode);
+document.getElementById('fSpec').addEventListener('change', updateSheetProductCode);
+document.getElementById('fSpecCustom').addEventListener('input', updateSheetProductCode);
 let ciTarget = null;
 document.getElementById('btnCancelItem').onclick = ()=>{
   const order = orders.find(o=>o.id === editingOrderId);
