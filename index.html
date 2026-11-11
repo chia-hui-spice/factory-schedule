@@ -3412,7 +3412,7 @@ const ID_PHRASES = {
   '原料批號 / 日期':'No. batch bahan / Tanggal', '廠商直出（只貼標）':'Langsung dari pemasok (hanya label)', '廠商直出':'Langsung dari pemasok',
   '廠商批號':'No. batch pemasok', '廠商製造日期':'Tgl produksi pemasok', '廠商有效日期':'Tgl kedaluwarsa pemasok',
   '廠商製造日期（可不填）':'Tgl produksi pemasok (opsional)', '廠商有效日期（可不填）':'Tgl kedaluwarsa pemasok (opsional)', '產品製造日期（可不填）':'Tgl produksi produk (opsional)',
-  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
+  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
   '設為廠商直出（只貼標）':'Set: langsung dari pemasok', '點一下取消':'ketuk untuk batal', '廠商批號 / 日期':'No. batch pemasok / Tanggal',
   '產品批號 / 日期（印在標籤上）':'No. batch produk / Tanggal (di label)', '輸入廠商批號':'Ketik no. batch pemasok',   '需要COA（隨貨附）　請填寫原料批號':'Perlu COA (ikut barang) — isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
   '（隨貨附），出貨確認後將進入品管抽樣確認':'(ikut barang), setelah kirim akan dicek sampel QC', '今天':'Hari ini', '明天':'Besok',
@@ -4076,6 +4076,16 @@ function wireCoaBatchInline(root){
       it.manualMaterialBatches = list;
       syncManualMaterialTraceability(it, list);
       let copied = false;
+      if(it.vendorDirect && it.status === 'done' && list[0] && list[0].batchNo && (!it.productBatchNo || it.productBatchNo === vdDefaultBatch(it)) && list[0].batchNo !== it.productBatchNo){
+        // 標籤印製階段成品已經入庫：用廠商批號取代預設批號（成品庫存批次一起移過去）
+        const f0 = list[0]; const { o: ord0 } = find();
+        const ch = { batchNo: f0.batchNo };
+        if(f0.mfgDate && !it.productMfgDate) ch.mfg = f0.mfgDate;
+        if(f0.expDate && !it.productExpDate) ch.exp = f0.expDate;
+        await saveOrders();
+        await updateDoneItemBatch(ord0, it, ch);
+        return;
+      }
       if(it.vendorDirect && it.status === 'labeling' && list[0]){
         const f = list[0];
         if(f.batchNo && !it.productBatchNo){ it.productBatchNo = f.batchNo; copied = true; }
@@ -4602,6 +4612,12 @@ function effectiveZones(it){
 // ---- 🏭 廠商直出（只貼標）：不生產、不扣原料；排程生產填廠商批號就自動帶到產品批號 ----
 // 廠商直出：批號沒填就用「預計出貨日」當批號（例如 2026-11-12 → 20261112）
 function vdDefaultBatch(item){ return String(item.due || '').replace(/-/g, ''); }
+// 廠商直出的流程：庫存確認 → 標籤印製 → 出貨確認（跳過排程生產、充填包裝、裝箱確認）
+const VD_NEXT = { pending:'inprogress', inprogress:'done', done:'shipped', shipped:'qc' };
+const VD_PREV = { inprogress:'pending', done:'inprogress', shipped:'done' };
+function nextStatusOf(item){ return item.vendorDirect && VD_NEXT[item.status] ? VD_NEXT[item.status] : STATUS[STATUS.indexOf(item.status) + 1]; }
+function prevStatusOf(item){ return item.vendorDirect && VD_PREV[item.status] ? VD_PREV[item.status] : STATUS[STATUS.indexOf(item.status) - 1]; }
+const VD_FORWARD_LABEL = { inprogress:'🏷 送標籤印製（廠商直出）', done:'標籤印製完成 → 出貨確認' };
 function lastVendorDirectFor(product){
   let best = null, bestAt = -1;
   orders.forEach(o=> (o.items || []).forEach(it=>{
@@ -4718,7 +4734,7 @@ function orderSummaryHtml(order){
         })() : '') + '</span>' +
       '<span class="os-qty">' + escapeHtml(qtyWithUnit(it.qty, it)) + '</span>' +
       ((isHere && (currentTab === 'inprogress' || currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing' || currentTab === 'shipped'))
-        ? '<button type="button" class="os-go" data-act="forward" data-oid="' + order.id + '" data-iid="' + it.id + '">' + (currentTab === 'inprogress' ? '無庫存<br>請生產' + '<span class="id-sub">Produksi</span>' : bi('完成')) + '</button>'
+        ? '<button type="button" class="os-go" data-act="forward" data-oid="' + order.id + '" data-iid="' + it.id + '">' + (currentTab === 'inprogress' ? (it.vendorDirect ? '送標籤<br>印製' : '無庫存<br>請生產' + '<span class="id-sub">Produksi</span>') : bi('完成')) + '</button>'
         : '<span class="badge stage st-' + it.status + '">' + STATUS_LABEL[it.status] + '</span>') +
     '</div>';
   }).join('');
@@ -4851,7 +4867,7 @@ function renderListInner(){
       }else if(item.status !== 'qc'){
         actionsHtml =
           (canBack ? '<button class="btn btn-back" data-act="back" data-oid="'+order.id+'" data-iid="'+item.id+'">‹</button>' : '') +
-          '<button class="btn btn-forward st-' + STATUS[idx+1] + '" data-act="forward" data-oid="'+order.id+'" data-iid="'+item.id+'">' + ((currentTab === 'coa' && item.status === 'shipped') ? bi('品管COA確認完成') : STATUS_FORWARD_LABEL[item.status] + (ID_FORWARD[item.status] ? '<span class="id-sub">' + idEsc(ID_FORWARD[item.status]) + '</span>' : '')) + '</button>' +
+ '<button class="btn btn-forward st-' + nextStatusOf(item) + '" data-act="forward" data-oid="'+order.id+'" data-iid="'+item.id+'">' + ((currentTab === 'coa' && item.status === 'shipped') ? bi('品管COA確認完成') : (item.vendorDirect && VD_FORWARD_LABEL[item.status]) ? VD_FORWARD_LABEL[item.status] : STATUS_FORWARD_LABEL[item.status] + (ID_FORWARD[item.status] ? '<span class="id-sub">' + idEsc(ID_FORWARD[item.status]) + '</span>' : '')) + '</button>' +
           '<button class="btn btn-edit" data-act="edit" data-oid="'+order.id+'" data-iid="'+item.id+'">✎</button>';
       }else{
         actionsHtml =
@@ -5045,7 +5061,7 @@ function renderListInner(){
     const tab = currentTab, next = tab === 'inprogress' ? 'labeling' : tab === 'done' ? 'refill' : tab === 'refill' ? 'boxing' : 'shipped';
     const items = (o.items || []).filter(it=> !it.deleted && it.status === tab);
     if(tab === 'inprogress'){
-      const blockedZ = items.filter(it=> !effectiveZones(it).zones.length);
+      const blockedZ = items.filter(it=> !it.vendorDirect && !effectiveZones(it).zones.length);
       const readyZ = items.filter(it=> !blockedZ.includes(it));
       if(!readyZ.length){ showToast('這些品項都還沒選生產線，請先按「⚠ 未選，點這裡選生產線」'); return; }
       const stockOf = (it)=>{ const fg = finishedGoods.find(f=>f.product === it.product && (f.spec||'') === (it.spec||'')); return fg ? finishedGoodTotalStock(fg) : 0; };
@@ -5056,11 +5072,23 @@ function renderListInner(){
         (blockedZ.length ? '\n\n⚠ 另外 ' + blockedZ.length + ' 項還沒選生產線，會先留著：' + blockedZ.map(it=> it.product).join('、') : ''), '一起送排程生產');
       if(!ok) return;
       const prevZ = readyZ.map(it=> ({ s: it.status, z: it.productionZones }));
-      readyZ.forEach(it=>{ if(!it.productionZones || !it.productionZones.length) it.productionZones = effectiveZones(it).zones; it.status = 'labeling'; labelingExpanded.delete(it.id); });
+      readyZ.forEach(it=>{
+        if(it.vendorDirect){ // 廠商直出 → 直接到標籤印製
+          if(!it.productBatchNo && vdDefaultBatch(it)) it.productBatchNo = vdDefaultBatch(it);
+          it.status = 'done'; it.completedAt = Date.now();
+        }else{
+          if(!it.productionZones || !it.productionZones.length) it.productionZones = effectiveZones(it).zones;
+          it.status = 'labeling';
+        }
+        labelingExpanded.delete(it.id);
+      });
       render();
       const savedZ = await saveOrders();
       if(!savedZ){ readyZ.forEach((it, i)=>{ it.status = prevZ[i].s; it.productionZones = prevZ[i].z; }); render(); return; }
-      for(const it of readyZ){ await deductStockForItem(it, o); }
+      for(const it of readyZ){
+        await deductStockForItem(it, o);
+        if(it.vendorDirect){ const yq = (it.actualYieldQty !== undefined && it.actualYieldQty !== null && it.actualYieldQty !== '') ? it.actualYieldQty : it.qty; await addFinishedGoodStock(it, false, o, yq); }
+      }
       showToast('已送 ' + readyZ.length + ' 項到「排程生產」' + (blockedZ.length ? '；' + blockedZ.length + ' 項還沒選生產線' : ''));
       return;
     }
@@ -5077,6 +5105,7 @@ function renderListInner(){
     if(!ok) return;
     const prev = ready.map(it=> ({ s: it.status, p: it.packagingStaff, d: it.packagingDate, r: it.releaseBy, c: it.checklist, sa: it.shippedAt }));
     ready.forEach(it=>{
+      if(tab === 'done' && it.vendorDirect){ it.status = 'shipped'; it.shippedAt = Date.now(); return; } // 廠商直出：標籤印製完成直接到出貨確認
       if(tab === 'refill'){ if(!it.packagingStaff) it.packagingStaff = defaultPackagingStaff(it); if(!it.packagingDate) it.packagingDate = todayMMDD(); }
       if(tab === 'boxing'){ if(!it.releaseBy) it.releaseBy = DEFAULT_RELEASE_BY; if(!it.checklistTouched) it.checklist = effectiveChecklist(it); it.shippedAt = Date.now(); }
       it.status = next;
@@ -5086,6 +5115,7 @@ function renderListInner(){
     if(!saved){ ready.forEach((it, i)=>{ it.status = prev[i].s; it.packagingStaff = prev[i].p; it.packagingDate = prev[i].d; it.releaseBy = prev[i].r; it.checklist = prev[i].c; it.shippedAt = prev[i].sa; }); render(); return; }
     // 裝箱確認 → 出貨確認：跟單項一樣扣成品庫存
     if(tab === 'boxing'){ for(const it of ready){ if(!it.stockPreDeducted) await deductFinishedGoodStock(it, false, o); } }
+    if(tab === 'done'){ for(const it of ready){ if(it.vendorDirect && it.status === 'shipped' && !it.stockPreDeducted) await deductFinishedGoodStock(it, false, o); } }
     showToast('已完成 ' + ready.length + ' 項，移至「' + STATUS_LABEL[next] + '」' + (blocked.length ? '；' + blocked.length + ' 項' + why : ''));
   });
   wrap.querySelectorAll('[data-os-all]').forEach(b=> b.onclick = ()=>{
@@ -5152,7 +5182,10 @@ function renderListInner(){
       const item = order && order.items.find(i=>i.id === btn.dataset.iid);
       if(!item) return;
       const idx = STATUS.indexOf(item.status);
-      const nextStatus = STATUS[idx+1];
+      const nextStatus = nextStatusOf(item);
+      const vd = !!item.vendorDirect;
+      // 廠商直出：送去標籤印製時，批號沒填就用出貨日
+      if(vd && item.status === 'inprogress' && !item.productBatchNo && vdDefaultBatch(item)) item.productBatchNo = vdDefaultBatch(item);
 
       if(item.status === 'pending' && !item.filledBy) item.filledBy = DEFAULT_FILLED_BY;
       if(item.status === 'pending' && (!item.filledBy || !item.coa)){
@@ -5167,7 +5200,7 @@ function renderListInner(){
         const ez = effectiveZones(item);
         if(ez.zones.length) item.productionZones = ez.zones;
       }
-      if(item.status === 'inprogress' && (!item.productionZones || item.productionZones.length === 0)){
+      if(item.status === 'inprogress' && !vd && (!item.productionZones || item.productionZones.length === 0)){
         showToast('請先選擇至少一個「生產線」才能進入排程生產');
         pendingAdvanceItemId = item.id; openSheet(order, item);
         return;
@@ -5272,6 +5305,7 @@ function renderListInner(){
       const wasInprogress = item.status === 'inprogress';
       const wasLabeling = item.status === 'labeling';
       const wasBoxing = item.status === 'boxing';
+      const wasDone = item.status === 'done';
       const prevStatus = item.status, prevCompletedAt = item.completedAt, prevShippedAt = item.shippedAt;
       if(item.status === 'pending') localConfirmedIds.add(item.id);
       item.status = nextStatus;
@@ -5286,14 +5320,14 @@ function renderListInner(){
         return;
       }
       showToast('已移至「' + STATUS_LABEL[item.status] + '」');
-      if(wasInprogress && item.status === 'labeling'){
-        await deductStockForItem(item, order);
+      if(wasInprogress && (item.status === 'labeling' || item.status === 'done')){
+        await deductStockForItem(item, order); // 廠商直出不會扣
       }
-      if(wasLabeling && item.status === 'done'){
+      if((wasLabeling || wasInprogress) && item.status === 'done'){
         const yieldQty = (item.actualYieldQty !== undefined && item.actualYieldQty !== null && item.actualYieldQty !== '') ? item.actualYieldQty : item.qty;
         await addFinishedGoodStock(item, false, order, yieldQty);
       }
-      if(wasBoxing && item.status === 'shipped' && !item.stockPreDeducted){
+      if((wasBoxing || wasDone) && item.status === 'shipped' && !item.stockPreDeducted){
         await deductFinishedGoodStock(item, false, order);
       }
     };
@@ -5328,7 +5362,7 @@ function renderListInner(){
       const wasLabeling = item.status === 'labeling';
       const wasDone = item.status === 'done';
       const wasShipped = item.status === 'shipped';
-      item.status = STATUS[idx-1];
+      item.status = prevStatusOf(item);
       if(item.status !== 'done') delete item.completedAt;
       if(item.status !== 'shipped'){ delete item.shippedAt; }
       saveOrders(); render();
@@ -5336,11 +5370,14 @@ function renderListInner(){
       if(wasLabeling && item.status === 'inprogress'){
         await restoreStockForItem(item, order);
       }
-      if(wasDone && item.status === 'labeling'){
+      if(wasDone && item.status === 'inprogress'){ // 廠商直出：標籤印製退回庫存確認
+        await restoreStockForItem(item, order);
+      }
+      if(wasDone && (item.status === 'labeling' || item.status === 'inprogress')){
         const yieldQty = (item.actualYieldQty !== undefined && item.actualYieldQty !== null && item.actualYieldQty !== '') ? item.actualYieldQty : item.qty;
         await deductFinishedGoodStock(item, true, order, yieldQty);
       }
-      if(wasShipped && item.status === 'boxing' && !item.stockPreDeducted){
+      if(wasShipped && (item.status === 'boxing' || item.status === 'done') && !item.stockPreDeducted){
         await addFinishedGoodStock(item, true, order);
       }
     };
