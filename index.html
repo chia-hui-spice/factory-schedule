@@ -3400,7 +3400,7 @@ const ID_PHRASES = {
   '同一位包裝人員，一次確認多項':'Satu petugas kemas, konfirmasi banyak item', '取消此品項（不出貨，但保留在訂單上）':'Batalkan item ini (tidak dikirim)',
   '復原此品項（回到取消前的步驟）':'Kembalikan item ini', '品管確認數值':'Nilai konfirmasi QC', '訂單數量':'Jumlah pesanan', '此訂單客戶':'Pelanggan ini',
   '需COA(Email)':'Perlu COA (Email)', '需COA(隨貨)':'Perlu COA (ikut barang)', '需要COA（Email）　請填寫原料批號':'Perlu COA (Email) — isi no. batch bahan',
-  '需要COA（隨貨附）　請填寫原料批號':'Perlu COA (ikut barang) — isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
+  '原料批號 / 日期':'No. batch bahan / Tanggal',   '需要COA（隨貨附）　請填寫原料批號':'Perlu COA (ikut barang) — isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
   '（隨貨附），出貨確認後將進入品管抽樣確認':'(ikut barang), setelah kirim akan dicek sampel QC', '今天':'Hari ini', '明天':'Besok',
   '還沒有填寫原料批號，點下面黃色的「＋ 新增原料批號」開始記錄':'Belum ada batch bahan, klik tombol kuning untuk menambah',
   '出貨方式、倉管會計在上面一次選好，可以每項按「完成」或整張一起完成':'Pilih cara kirim & petugas gudang di atas, lalu tekan Selesai',
@@ -3420,6 +3420,7 @@ const ID_STAGE = { '訂單確認':'Konfirmasi pesanan', '庫存確認':'Konfirma
 function idUnitsText(t){ let out = String(t); ID_UNITS.forEach(([zh, id])=>{ out = out.split(zh).join(' ' + id + ' '); }); return out.replace(/（/g,'(').replace(/）/g,')').replace(/共/g,'total').replace(/\s+/g,' ').replace(/\( /g,'(').replace(/ \)/g,')').trim(); }
 const ID_PATTERNS = [
   [/^已逾期 (\d+) 天$/, m=> 'Terlambat ' + m[1] + ' hari'],
+  [/^原料批號 (\d+)$/, m=> 'No. batch bahan baku ' + m[1]],
   [/^(\d+)單(?:・(\d+)項)?$/, m=> m[1] + ' pesanan' + (m[2] ? ' · ' + m[2] + ' item' : '')],
   [/^還有 (\d+) 天$/, m=> m[1] + ' hari lagi'],
   [/^[\d.\s箱包袋桶罐瓶盒入公斤克（）共kg]+$/, m=> /[一-鿿]/.test(m[0]) ? idUnitsText(m[0]) : ''],
@@ -4060,7 +4061,7 @@ function wireCoaBatchInline(root){
       if(before === JSON.stringify(list) && !rerender) return;
       it.manualMaterialBatches = list;
       syncManualMaterialTraceability(it, list);
-      panel.classList.toggle('ok', list.some(b=> b.batchNo));
+      if(panel.querySelector('.cb-title') && /COA/.test(panel.querySelector('.cb-title').textContent)) panel.classList.toggle('ok', list.some(b=> b.batchNo));
       const em = panel.querySelector('.cb-empty'); if(em) em.style.display = list.some(b=> b.batchNo) ? 'none' : '';
       const ok = await saveOrders();
       const st = panel.querySelector('.cb-saved'); if(st && ok !== false){ st.textContent = '✓ 已儲存'; setTimeout(()=>{ st.textContent = ''; }, 2000); }
@@ -4227,9 +4228,10 @@ function coaValuesHtml(order, item){
 }
 // 排程生產：需要 COA 的品項提醒填寫原料批號（只提醒，不擋）
 function coaMaterialBatchHtml(order, item){
-  // 排程生產頁（停在排程生產的品項）＋品管COA頁（全部需要 COA 的品項）
-  if(!needsCoa(item)) return '';
-  if(!((currentTab === 'labeling' && item.status === 'labeling') || currentTab === 'coa')) return '';
+  // 原料批號／製造日期／有效日期：排程生產、標籤印製、充填包裝（裝箱確認以前）所有品項都可以填；品管COA頁給需要 COA 的品項補填
+  const coa = needsCoa(item);
+  const editStage = ['labeling','done','refill'].includes(item.status) && currentTab === item.status;
+  if(!(editStage || (currentTab === 'coa' && coa))) return '';
   const manual = (item.manualMaterialBatches || []).filter(b=> b.batchNo);
   const auto = manual.length ? [] : (item.materialTraceability || []).filter(t=> t.batchNo);
   const list = manual.length ? manual.map(b=> (b.materialName ? b.materialName + ' ' : '') + b.batchNo)
@@ -4250,10 +4252,11 @@ function coaMaterialBatchHtml(order, item){
         '<label><span>原料有效日期</span><input type="date" class="cbExp" value="' + escapeHtml(b.expDate || '') + '"></label>' +
       '</div>' +
     '</div>';
-  return '<div class="coa-batch cb-inline' + (manual.length ? ' ok' : '') + '" data-oid="' + order.id + '" data-iid="' + item.id + '">' +
-    '<div class="cb-title">📄 需要COA' + (item.coa === '需要(Email)' ? '（Email）' : '（隨貨附）') + '　請填寫原料批號</div>' +
+ return '<div class="coa-batch cb-inline' + ((manual.length || !coa) ? ' ok' : '') + '" data-oid="' + order.id + '" data-iid="' + item.id + '">' +
+    (coa ? '<div class="cb-title">📄 需要COA' + (item.coa === '需要(Email)' ? '（Email）' : '（隨貨附）') + '　請填寫原料批號</div>'
+         : '<div class="cb-title">🧾 原料批號 / 日期</div>') +
     ((!manual.length && ok) ? '<div class="cb-note">系統依配方自動帶入：' + uniq.map(t=> escapeHtml(t)).join('、') + '。實際用的不一樣，請直接填在下面。</div>' : '') +
-    (!ok ? '<div class="cb-empty">⚠ 還沒有填寫原料批號</div>' : '') +
+    ((!ok && coa) ? '<div class="cb-empty">⚠ 還沒有填寫原料批號</div>' : '') +
     rows.map(rowHtml).join('') +
     '<div class="cb-actions">' +
       '<button type="button" class="cb-add">＋ 再加一筆原料批號</button>' +
