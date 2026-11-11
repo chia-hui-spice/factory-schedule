@@ -4796,6 +4796,7 @@ Object.keys(SIMPLE_VIEW_TABS).forEach(t=>{ try{ const v = localStorage.getItem(S
 function isSimpleView(){ return !!SIMPLE_VIEW_TABS[currentTab] && simpleViewOn[currentTab]; }
 // 每張訂單自己的「簡潔／詳細」切換（只在這台裝置、這次開網頁有效；按上面的總開關會全部恢復一致）
 const orderViewOverride = new Map(); // orderId -> 'simple' | 'detail'
+const allExpandedOrders = new Set();   // 按了「全部展開」的訂單：點品項時不自動收合其他品項
 function isSimpleFor(order){
   if(!SIMPLE_VIEW_TABS[currentTab]) return false;
   const o = order && orderViewOverride.get(order.id);
@@ -5101,6 +5102,14 @@ function renderListInner(){
     if(e.target.closest('[data-act]')) return; // 按的是「完成」按鈕，不是展開
     const id = r.dataset.jumpItem;
     if(labelingExpanded.has(id)){ labelingExpanded.delete(id); renderList(); return; }
+    // 點一個品項：只展開這一項，其他品項自動收合（這張訂單有按「全部展開」就不收）
+    const ownOrder = orders.find(o=> (o.items || []).some(it=> it.id === id));
+    if(!(ownOrder && allExpandedOrders.has(ownOrder.id))){
+      orders.forEach(o=>{
+        if(allExpandedOrders.has(o.id)) return;
+        (o.items || []).forEach(it=>{ if(it.status === currentTab && it.id !== id) labelingExpanded.delete(it.id); });
+      });
+    }
     labelingExpanded.add(id);
     renderList();
     const btn = document.querySelector('#orderList [data-act="forward"][data-iid="' + id + '"]');
@@ -5172,7 +5181,8 @@ function renderListInner(){
   wrap.querySelectorAll('[data-os-all]').forEach(b=> b.onclick = ()=>{
     const o = orders.find(x=> x.id === b.dataset.osAll); if(!o) return;
     const ids = (o.items || []).filter(it=> !it.deleted && it.status === currentTab).map(it=> it.id);
-    if(b.dataset.open) ids.forEach(id=> labelingExpanded.delete(id)); else ids.forEach(id=> labelingExpanded.add(id));
+    if(b.dataset.open){ ids.forEach(id=> labelingExpanded.delete(id)); allExpandedOrders.delete(o.id); }
+    else { ids.forEach(id=> labelingExpanded.add(id)); allExpandedOrders.add(o.id); }
     renderList();
   });
   wrap.querySelectorAll('select.cv-by').forEach(sel=> sel.onchange = async ()=>{
@@ -5228,7 +5238,7 @@ function renderListInner(){
     const toDetail = isSimpleFor(o);
     orderViewOverride.set(o.id, toDetail ? 'detail' : 'simple');
     // 切到詳細時，順便把這張訂單在這一頁的品項都展開，才看得到內容
-    if(toDetail) (o.items || []).forEach(it=>{ if(!it.deleted && it.status === currentTab) labelingExpanded.add(it.id); });
+    if(toDetail){ (o.items || []).forEach(it=>{ if(!it.deleted && it.status === currentTab) labelingExpanded.add(it.id); }); allExpandedOrders.add(o.id); }
     renderList();
   });
   wrap.querySelectorAll('input.bx-boxcode-in').forEach(inp=> inp.addEventListener('change', async ()=>{
