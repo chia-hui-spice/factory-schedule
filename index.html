@@ -4793,6 +4793,21 @@ function orderSummaryHtml(order){
 const SIMPLE_VIEW_TABS = { pending:'simpleViewPending', inprogress:'simpleViewInprogress', labeling:'simpleViewLabeling', done:'simpleViewDone', refill:'simpleViewRefill', boxing:'simpleViewBoxing', shipped:'simpleViewShipped', coa:'simpleViewCoa' };
 const simpleViewOn = {}; Object.keys(SIMPLE_VIEW_TABS).forEach(t=> simpleViewOn[t] = true);
 Object.keys(SIMPLE_VIEW_TABS).forEach(t=>{ try{ const v = localStorage.getItem(SIMPLE_VIEW_TABS[t]); if(v !== null) simpleViewOn[t] = v === '1'; }catch(e){} });
+// 展開品項後自動捲到那個品項（扣掉上方固定的標題列高度）
+function scrollToItemRow(id){
+  requestAnimationFrame(()=> requestAnimationFrame(()=>{
+    const row = document.querySelector('#orderList [data-item-row="' + id + '"]');
+    if(!row) return;
+    let topOffset = 12;
+    document.querySelectorAll('header, .topbar, .tabs, #tabs, .zone-filter-bar, #zoneFilterBar').forEach(el=>{
+      const cs = getComputedStyle(el);
+      if((cs.position === 'sticky' || cs.position === 'fixed') && el.offsetHeight){ const r = el.getBoundingClientRect(); if(r.top <= 1) topOffset = Math.max(topOffset, r.bottom + 12); }
+    });
+    const y = row.getBoundingClientRect().top + window.scrollY - topOffset;
+    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    row.classList.remove('si-flash'); void row.offsetWidth; row.classList.add('si-flash');
+  }));
+}
 function isSimpleView(){ return !!SIMPLE_VIEW_TABS[currentTab] && simpleViewOn[currentTab]; }
 // 每張訂單自己的「簡潔／詳細」切換（只在這台裝置、這次開網頁有效；按上面的總開關會全部恢復一致）
 const orderViewOverride = new Map(); // orderId -> 'simple' | 'detail'
@@ -5022,7 +5037,7 @@ function renderListInner(){
         const showBatch = bigBatch || (['boxing','coa'].includes(tab) && (item.productBatchNo || item.productMfgDate || item.productExpDate));
         const miss = '<b style="color:var(--red);">未填</b>';
         const fmtD = (d)=> escapeHtml(String(d).replace(/-/g,'/'));
-        itemsHtml += '<div class="item-row simple-row pri-' + item.priority + (overdue ? ' overdue' : '') + '">' +
+        itemsHtml += '<div class="item-row simple-row pri-' + item.priority + (overdue ? ' overdue' : '') + '" data-item-row="' + item.id + '">' +
           '<div class="simple-main">' +
             '<div class="simple-name">' + escapeHtml(item.product) + idNameLine(item.product) + (item.spec ? '<div class="simple-spec">' + escapeHtml(item.spec) + idSpecSub(item.spec) + '</div>' : '') + '</div>' +
             '<div class="simple-qty"><span>' + bi('數量') + '</span>' + escapeHtml(qtyWithUnit(item.qty, item)) + idQtySub(item) + '</div>' +
@@ -5057,7 +5072,7 @@ function renderListInner(){
         '</div>';
         return;
       }
-      itemsHtml += '<div class="item-row pri-' + item.priority + (overdue ? ' overdue' : '') + '">' +
+      itemsHtml += '<div class="item-row pri-' + item.priority + (overdue ? ' overdue' : '') + '" data-item-row="' + item.id + '">' +
         '<div class="item-top"><div><div class="item-product">' + escapeHtml(item.product) + idNameLine(item.product) + (item.spec ? '<span class="item-spec"> ・ ' + escapeHtml(item.spec) + idSpecSub(item.spec) + '</span>' : '') + '</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">' + badges + '</div></div>' +
         '<div class="item-meta">' + metaBits.join('') + '</div>' +
         vendorDirectHtml(order, item) +
@@ -5112,9 +5127,7 @@ function renderListInner(){
     }
     labelingExpanded.add(id);
     renderList();
-    const btn = document.querySelector('#orderList [data-act="forward"][data-iid="' + id + '"]');
-    const row = btn && btn.closest('.item-row');
-    if(row){ row.scrollIntoView({ behavior:'smooth', block:'nearest' }); row.classList.remove('si-flash'); void row.offsetWidth; row.classList.add('si-flash'); }
+    scrollToItemRow(id);
   });
   wrap.querySelectorAll('[data-os-donegroup]').forEach(b=> b.onclick = async ()=>{
     const o = orders.find(x=> x.id === b.dataset.osDonegroup); if(!o) return;
