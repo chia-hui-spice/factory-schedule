@@ -515,6 +515,7 @@ html.kb-open .overlay.show .sheet{ max-height:calc(var(--vv-h, 100vh) - 8px); }
 .op-qty{ flex:0 0 auto; color:var(--ink-dim); font-weight:700; }
 .op-row .badge{ flex:0 0 auto; }
 .id-sub{ display:none; }
+body:not(.show-id) .id-sub, body:not(.show-id) .id-name, body:not(.show-id) .id-note{ display:none !important; }
 /* 🇮🇩 開啟時：只顯示印尼文（有翻譯的中文藏起來，印尼文用原本的字體大小、顏色顯示在原位置） */
 body.show-id .zh-orig{ display:none !important; }
 body.show-id .id-sub{ display:inline; font-size:inherit; font-weight:inherit; color:inherit; margin-left:0; margin-right:.25em; }
@@ -621,6 +622,9 @@ body.show-id .id-name.missing{ display:block; font-size:13px; font-weight:700; m
 .cv-confirm.si-flash{ animation:siFlash 1.2s ease 1; }
 .order-summary{ margin:8px 0 12px; border:2px solid var(--teal); border-radius:12px; padding:8px 12px; background:var(--panel-raised); }
 .order-summary summary{ cursor:pointer; font-size:16px; line-height:1.6; margin-bottom:4px; }
+.order-summary .os-inline-card{ margin:4px 0 12px; border:2px solid var(--teal); border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,.35); }
+.os-split{ display:inline-block; margin-left:6px; font-size:12.5px; font-weight:800; color:#c9a2ff; border:1px solid #8a5cf6; border-radius:6px; padding:0 6px; }
+.os-row.os-row-open{ background:rgba(45,212,191,0.14); border-radius:8px; }
 .os-row{ display:flex; align-items:center; gap:10px; padding:8px 6px; border-top:1px solid var(--line); }
 .os-row.here{ background:rgba(63,184,175,0.12); border-radius:8px; cursor:pointer; }
 .os-row:not(.here):not(.os-headrow){ opacity:0.6; }
@@ -4723,13 +4727,35 @@ function cancelledBoxHtml(order){
     '<br>・<span class="cx-name">' + escapeHtml(it.product || '') + (it.spec ? ' ' + escapeHtml(it.spec) : '') + ' × ' + escapeHtml(qtyWithUnit(it.qty, it)) + '</span>　' + escapeHtml(cancelReasonText(it))).join('') + '</div>';
 }
 
+// 拆分出來的同一組品項排在一起（上下相鄰），組內照原本在訂單裡的順序
+function groupSplitAdjacent(list, cmp){
+  const idx = new Map(list.map((it, i)=> [it.id, i]));
+  const sorted = list.slice().sort(cmp || (()=>0));
+  const rank = new Map(sorted.map((it, i)=> [it.id, i]));
+  const groupBest = new Map();
+  list.forEach(it=>{ const g = it.splitGroupId; if(!g) return; const r = rank.get(it.id); if(!groupBest.has(g) || r < groupBest.get(g)) groupBest.set(g, r); });
+  return list.slice().sort((a,b)=>{
+    const ka = a.splitGroupId ? groupBest.get(a.splitGroupId) : rank.get(a.id);
+    const kb = b.splitGroupId ? groupBest.get(b.splitGroupId) : rank.get(b.id);
+    if(ka !== kb) return ka - kb;
+    return idx.get(a.id) - idx.get(b.id);
+  });
+}
+function splitTagHtml(order, it){
+  if(!it.splitGroupId) return '';
+  const sib = (order.items || []).filter(x=> !x.deleted && x.splitGroupId === it.splitGroupId);
+  if(sib.length < 2) return '';
+  const n = sib.findIndex(x=> x.id === it.id) + 1;
+  return '<span class="os-split">✂️ 拆分 ' + n + '/' + sib.length + '・原訂購共 ' + escapeHtml(qtyWithUnit(it.originalQty || sib.reduce((t,x)=> t + (parseFloat(x.qty)||0), 0), it)) + '</span>';
+}
+
 function orderSummaryHtml(order){
   const items = (order.items || []).filter(it=> !it.deleted);
   if(!items.length) return ''; // 一個品項也顯示，比較清楚
   const here = items.filter(it=> it.status === currentTab);
   const nCancelled = items.filter(it=> it.status === 'cancelled').length;
   const multiDue = new Set(items.filter(it=> it.status !== 'cancelled' && it.due).map(it=> it.due)).size > 1;
-  const sorted = items.slice().sort((a,b)=> (a.status === 'cancelled') - (b.status === 'cancelled') || (b.status === currentTab) - (a.status === currentTab) || STATUS.indexOf(a.status) - STATUS.indexOf(b.status));
+  const sorted = groupSplitAdjacent(items, (a,b)=> (a.status === 'cancelled') - (b.status === 'cancelled') || (b.status === currentTab) - (a.status === currentTab) || STATUS.indexOf(a.status) - STATUS.indexOf(b.status));
   const rows = sorted.map(it=>{
     if(it.status === 'cancelled'){
       return '<div class="os-row cancelled"><span class="os-caret"></span>' +
@@ -4742,7 +4768,8 @@ function orderSummaryHtml(order){
     return '<div class="os-row' + (isHere ? ' here' : '') + (open ? ' open' : '') + '"' + (isHere ? ' data-jump-item="' + it.id + '"' : '') + '>' +
       '<span class="os-caret">' + (isHere ? (open ? '▾' : '▸') : '') + '</span>' +
       '<span class="os-name">' + escapeHtml(it.product || '') + idNameLine(it.product) + (it.vendorDirect ? ' <span class="vd-badge" style="font-size:12px; padding:0 6px;">🏭 廠商直出</span>' : '') +
-        (it.boxCode ? '<span class="os-boxcode">📦 ' + escapeHtml(it.boxCode) + '</span>' : '') + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + idSpecSub(it.spec) + '</span>' : '') +
+        (it.boxCode ? '<span class="os-boxcode">📦 ' + escapeHtml(it.boxCode) + '</span>' : '') +
+        splitTagHtml(order, it) + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + idSpecSub(it.spec) + '</span>' : '') +
         (it.note ? '<span class="os-note">📝 ' + escapeHtml(it.note) + idNoteBlock(order, it) + '</span>' : '') +
         ((multiDue && it.due) ? '<span class="os-spec" style="color:' + (dueDiffDays(it.due) <= 0 ? 'var(--red)' : dueDiffDays(it.due) === 1 ? 'var(--amber)' : 'var(--teal)') + '; font-weight:800;">📅 ' + escapeHtml(fmtDueShort(it.due)) + '</span>' : '') +
         ((currentTab === 'inprogress' && it.status === 'inprogress') ? (function(){
@@ -4796,8 +4823,10 @@ Object.keys(SIMPLE_VIEW_TABS).forEach(t=>{ try{ const v = localStorage.getItem(S
 // 展開品項後自動捲到那個品項（扣掉上方固定的標題列高度）
 function scrollToItemRow(id){
   requestAnimationFrame(()=> requestAnimationFrame(()=>{
-    const row = document.querySelector('#orderList [data-item-row="' + id + '"]');
-    if(!row) return;
+    const card = document.querySelector('#orderList [data-item-row="' + id + '"]');
+    if(!card) return;
+    // 捲到總表裡被點的那一列（展開的卡片就在它正下方）
+    const row = document.querySelector('#orderList .order-summary [data-jump-item="' + id + '"]') || card;
     let topOffset = 12;
     document.querySelectorAll('header, .topbar, .tabs, #tabs, .zone-filter-bar, #zoneFilterBar').forEach(el=>{
       const cs = getComputedStyle(el);
@@ -4805,7 +4834,7 @@ function scrollToItemRow(id){
     });
     const y = row.getBoundingClientRect().top + window.scrollY - topOffset;
     window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
-    row.classList.remove('si-flash'); void row.offsetWidth; row.classList.add('si-flash');
+    card.classList.remove('si-flash'); void card.offsetWidth; card.classList.add('si-flash');
   }));
 }
 function isSimpleView(){ return !!SIMPLE_VIEW_TABS[currentTab] && simpleViewOn[currentTab]; }
@@ -4885,7 +4914,7 @@ function renderListInner(){
   const wrap = document.getElementById('orderList');
 
   matchingOrders.forEach(order=>{
-    const activeItems = (order.items||[]).filter(it=>itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it) && itemMatchesTabSearch(it, order));
+    const activeItems = groupSplitAdjacent((order.items||[]).filter(it=>itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it) && itemMatchesTabSearch(it, order)));
     const card = document.createElement('div');
     card.className = 'order-card';
 
@@ -5109,6 +5138,13 @@ function renderListInner(){
       itemsHtml +
       '<button class="add-item-btn" data-act="additem" data-oid="' + order.id + '">+ 新增品項</button>';
 
+    // 展開的品項卡直接放在總表裡「那一列的正下方」，品項很多時也不用往下找
+    if(SUMMARY_TABS.includes(currentTab)){
+      card.querySelectorAll('.item-row[data-item-row]').forEach(row=>{
+        const head = card.querySelector('.order-summary [data-jump-item="' + row.dataset.itemRow + '"]');
+        if(head && head.parentNode){ row.classList.add('os-inline-card'); head.parentNode.insertBefore(row, head.nextSibling); head.classList.add('os-row-open'); }
+      });
+    }
     wrap.appendChild(card);
   });
 
@@ -5595,7 +5631,7 @@ function renderListInner(){
         const originalTotal = item.originalQty || item.qty;
         const splitGroupId = item.splitGroupId || ('sg_' + Date.now() + '_' + Math.random().toString(36).slice(2,7));
         const newItems = consumed.map(batch => buildShippedBatchItem(batch, splitGroupId, originalTotal));
-        order.items.push(...newItems);
+        { let pos = -1; order.items.forEach((x, i)=>{ if(x.id === item.id || (x.splitGroupId && x.splitGroupId === splitGroupId)) pos = i; }); order.items.splice(pos + 1, 0, ...newItems); }
         item.qty = item.qty - fulfillQty;
         item.originalQty = originalTotal;
         item.splitGroupId = splitGroupId;
@@ -5674,7 +5710,8 @@ function renderListInner(){
       item.qty = item.qty - splitQty;
       item.originalQty = originalTotal;
       item.splitGroupId = splitGroupId;
-      order.items.push(newItem);
+      // 放在同一組最後一個品項的正後面，畫面上就會上下相鄰
+      { let pos = -1; order.items.forEach((x, i)=>{ if(x.id === item.id || (x.splitGroupId === splitGroupId)) pos = i; }); order.items.splice(pos + 1, 0, newItem); }
       await saveOrders(); render();
       showToast('已拆分出 ' + splitQty + ' 件為新品項，留在同一張訂單、同一個階段');
     };
