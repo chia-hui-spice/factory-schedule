@@ -5042,6 +5042,7 @@ function renderListInner(){
           refillPanelHtml(order, item) +
           boxingPanelHtml(order, item) +
           shipConfirmPanelHtml(order, item) +
+          ((item.qty > 1 && item.status !== 'shipped' && item.status !== 'qc') ? '<button type="button" class="split-btn" data-act="split" data-oid="'+order.id+'" data-iid="'+item.id+'">✂️ 拆分數量</button>' : '') +
           '<div class="item-actions">' + actionsHtml + '</div>' +
         '</div>';
         return;
