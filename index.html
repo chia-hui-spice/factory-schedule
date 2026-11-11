@@ -655,6 +655,9 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 .bx-boxcode input{ flex:1; min-width:0; font-size:18px; font-weight:800; font-family:var(--mono); padding:7px 10px; border-radius:8px; border:2px solid var(--amber); background:var(--panel-raised); color:var(--ink); }
 .qoBox{ flex:1; min-width:0; }
 .order-view-btn{ padding:6px 10px; font-size:14px; font-weight:800; border-radius:9px; border:1.5px solid var(--line); background:var(--panel-raised); color:var(--ink); cursor:pointer; white-space:nowrap; }
+.exp-quick{ display:flex; gap:6px; margin-top:5px; }
+.exp-q{ flex:0 0 auto; padding:5px 12px; font-size:14.5px; font-weight:800; border-radius:8px; border:1.5px solid var(--line); background:var(--panel-raised); color:var(--ink); cursor:pointer; }
+.exp-q.main{ flex:1 1 auto; border-color:var(--teal); color:var(--teal); background:rgba(45,212,191,0.10); font-size:16px; }
 .code-line{ margin-top:4px; min-height:0; }
 .code-tag{ display:inline-block; font-size:14px; color:var(--ink-dim); }
 .code-tag b{ color:var(--teal); font-family:var(--mono); font-size:15px; }
@@ -858,6 +861,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
               <input type="text" id="fProductExpDate" placeholder="YYYY/MM/DD" inputmode="numeric">
               <input type="date" id="fProductExpDate_native" class="flex-date-native-btn">
             </div>
+            <div class="exp-quick"><button type="button" class="exp-q main" data-expq="24" data-expq-kind="sheet">2年</button><button type="button" class="exp-q" data-expq="12" data-expq-kind="sheet">1年</button><button type="button" class="exp-q" data-expq="36" data-expq-kind="sheet">3年</button></div>
           </div>
           <div class="field">
             <label class="i18n">包材批號</label>
@@ -1888,6 +1892,13 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
         <label class="i18n">目前庫存總量（自動加總所有批次）</label>
         <input type="text" id="fgStockTotal" disabled style="opacity:0.75;">
       </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>保存期限（月）<span style="font-size:13px; color:var(--ink-dim); font-weight:600;">　填製造日期會自動算有效日期；0＝不自動</span></label>
+        <input type="number" id="fgShelfLife" inputmode="numeric" min="0" step="1" placeholder="24（＝2年）">
+      </div>
+      <div class="field"></div>
     </div>
     <div class="halal-box">
       <label class="halal-toggle"><input type="checkbox" id="fgHalal"> 🕌 清真產品（配方只能用清真材料）</label>
@@ -3449,7 +3460,7 @@ const ID_PHRASES = {
   '原料批號 / 日期':'No. batch bahan / Tanggal', '廠商直出（只貼標）':'Langsung dari pemasok (hanya label)', '廠商直出':'Langsung dari pemasok',
   '廠商批號':'No. batch pemasok', '廠商製造日期':'Tgl produksi pemasok', '廠商有效日期':'Tgl kedaluwarsa pemasok',
   '廠商製造日期（可不填）':'Tgl produksi pemasok (opsional)', '廠商有效日期（可不填）':'Tgl kedaluwarsa pemasok (opsional)', '產品製造日期（可不填）':'Tgl produksi produk (opsional)',
-  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '還沒到這步':'Belum sampai sini', '已過這步':'Sudah lewat', '目前在':'Sekarang di', '已完成':'Selesai', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
+  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '2年':'2 thn', '1年':'1 thn', '3年':'3 thn', '還沒到這步':'Belum sampai sini', '已過這步':'Sudah lewat', '目前在':'Sekarang di', '已完成':'Selesai', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
   '設為廠商直出（只貼標）':'Set: langsung dari pemasok', '點一下取消':'ketuk untuk batal', '廠商批號 / 日期':'No. batch pemasok / Tanggal',
   '產品批號 / 日期（印在標籤上）':'No. batch produk / Tanggal (di label)', '輸入廠商批號':'Ketik no. batch pemasok',   '需要COA（隨貨附）　請填寫原料批號':'Perlu COA (ikut barang) — isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
   '（隨貨附），出貨確認後將進入品管抽樣確認':'(ikut barang), setelah kirim akan dicek sampel QC', '今天':'Hari ini', '明天':'Besok',
@@ -3637,6 +3648,40 @@ document.getElementById('idnSave').onclick = async ()=>{
     render();
   }catch(e){ console.error(e); showAlert('儲存失敗，請確認網路後再試一次。', '❌ 儲存失敗'); }
 };
+document.addEventListener('click', async (e)=>{
+  const b = e.target.closest && e.target.closest('[data-expq]');
+  if(!b) return;
+  e.preventDefault(); e.stopPropagation();
+  const months = parseInt(b.dataset.expq, 10);
+  const label = b.textContent.trim();
+  if(b.dataset.expqKind === 'sheet'){
+    const mfg = getFlexDateValue('fProductMfgDate');
+    if(!mfg){ showToast('請先填製造日期'); return; }
+    const ex = shelfLifeExpDate(mfg, months);
+    setFlexDateValue('fProductExpDate', ex);
+    document.getElementById('fProductExpDate').dataset.autoValue = '';
+    showToast('有效日期 ' + ex.replace(/-/g,'/') + '（製造日期＋' + label + '）');
+    return;
+  }
+  const o = orders.find(x=> x.id === b.dataset.expqOid); const it = o && (o.items || []).find(i=> i.id === b.dataset.expqIid);
+  if(!it) return;
+  // 製造日期以畫面上剛打的為準（還沒存也可以）
+  const box = b.closest('.simple-batch, .label-inline, .ship-inline') || document;
+  const mfgEl = box.querySelector(b.dataset.expqKind === 'lb' ? 'input.lb-mfg' : 'input.db-mfg');
+  const mfg = (mfgEl && mfgEl.value) || it.productMfgDate;
+  if(!mfg){ showToast('請先填製造日期'); return; }
+  const ex = shelfLifeExpDate(mfg, months);
+  if(b.dataset.expqKind === 'lb'){
+    const prev = { m: it.productMfgDate, e: it.productExpDate };
+    it.productMfgDate = mfg; it.productExpDate = ex;
+    const ok = await saveOrders();
+    if(!ok){ it.productMfgDate = prev.m; it.productExpDate = prev.e; }
+    renderList();
+  }else{
+    await updateDoneItemBatch(o, it, Object.assign({ exp: ex }, mfg !== it.productMfgDate ? { mfg } : {}));
+  }
+  showToast('有效日期 ' + ex.replace(/-/g,'/') + '（製造日期＋' + label + '）');
+}, true);
 // 備註翻譯按鈕：只開翻譯頁，不要觸發品項列的展開／收合
 document.addEventListener('click', (e)=>{ if(e.target.closest && e.target.closest('a.id-tr')) e.stopPropagation(); }, true);
 document.addEventListener('click', (e)=>{
@@ -4171,6 +4216,8 @@ function wireLabelingEdit(root){
     // 批號空白或是照舊製造日期自動帶的 → 跟著新的製造日期
     const oldAuto = (item.productMfgDate || '').replace(/-/g,'');
     if(!item.vendorDirect && (!item.productBatchNo || item.productBatchNo === oldAuto)) changes.productBatchNo = inp.value.replace(/-/g,'');
+    // 有效日期自動算：製造日期 + 保存期限 − 1 天
+    if(shouldAutoExp(item)){ const ex = itemAutoExp(item, inp.value); if(ex){ changes.productExpDate = ex; showToast('有效日期自動帶入 ' + ex.replace(/-/g,'/') + '（' + shelfLifeText(item) + '）'); } }
     save(item, changes);
   }));
   root.querySelectorAll('input.lb-exp').forEach(inp=> inp.addEventListener('change', ()=>{ const item = find(inp); if(item && inp.value && inp.value !== (item.productExpDate || '')) save(item, { productExpDate: inp.value }); }));
@@ -4188,7 +4235,13 @@ function wireDoneBatchEdit(root){
     inp.addEventListener('change', commit);
     inp.addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); inp.blur(); } });
   });
-  root.querySelectorAll('input.db-mfg').forEach(inp=> inp.addEventListener('change', ()=>{ const { order, item } = find(inp); if(item && inp.value && inp.value !== (item.productMfgDate || '')) updateDoneItemBatch(order, item, { mfg: inp.value }); }));
+  root.querySelectorAll('input.db-mfg').forEach(inp=> inp.addEventListener('change', ()=>{
+    const { order, item } = find(inp);
+    if(!(item && inp.value && inp.value !== (item.productMfgDate || ''))) return;
+    const ch = { mfg: inp.value };
+    if(shouldAutoExp(item)){ const ex = itemAutoExp(item, inp.value); if(ex){ ch.exp = ex; showToast('有效日期自動帶入 ' + ex.replace(/-/g,'/') + '（' + shelfLifeText(item) + '）'); } }
+    updateDoneItemBatch(order, item, ch);
+  }));
   root.querySelectorAll('input.db-exp').forEach(inp=> inp.addEventListener('change', ()=>{ const { order, item } = find(inp); if(item && inp.value && inp.value !== (item.productExpDate || '')) updateDoneItemBatch(order, item, { exp: inp.value }); }));
 }
 function wireShipConfirmPanels(root){
@@ -5056,14 +5109,14 @@ function renderListInner(){
           ((item.vendorDirect && !item.productBatchNo && item.due)
             ? '<div><span>製造批號 <b style="color:var(--teal); font-weight:700;">（預設＝出貨日）</b></span><input type="text" class="lb-batch" ' + lbIds + ' value="' + escapeHtml(vdDefaultBatch(item)) + '" autocomplete="off"></div>'
             : '<div><span>製造批號' + (item.vendorDirect ? ' <b style="color:var(--red);">*</b>' : '') + '</span><input type="text" class="lb-batch" ' + lbIds + ' value="' + escapeHtml(item.productBatchNo || '') + '" placeholder="' + (item.vendorDirect ? '輸入批號' : '預設為製造日期') + '" autocomplete="off"></div>') +
-          '<div><span>產品有效日期' + (item.vendorDirect ? '（可不填）' : '') + '</span><input type="date" class="lb-exp" ' + lbIds + ' value="' + escapeHtml(item.productExpDate || '') + '"></div>' +
+          '<div><span>產品有效日期' + (item.vendorDirect ? '（可不填）' : '') + (shelfLifeText(item) ? ' <b style="color:var(--teal); font-weight:700;">（自動＋' + shelfLifeText(item) + '）</b>' : '') + '</span><input type="date" class="lb-exp" ' + lbIds + ' value="' + escapeHtml(item.productExpDate || '') + '">' + expQuickBtns('lb', order.id, item.id) + '</div>' +
           (item.vendorDirect ? '' : '<div><span>包材批號</span><input type="text" class="lb-tray" ' + lbIds + ' value="' + escapeHtml(item.trayBatchNo || '') + '" placeholder="包材批號" autocomplete="off"></div>') +
         '</div></div>' : '';
       // 標籤印製、充填包裝：批號／製造日期／有效日期都還可以改（成品庫存批次跟著移），到裝箱確認以後就不能改
       const doneEditHtml = ((currentTab === 'done' && item.status === 'done') || (currentTab === 'refill' && item.status === 'refill')) ? '<div class="simple-batch editable">' +
                 '<div><span>批號 ✎</span><input type="text" class="db-batch" data-db-oid="' + order.id + '" data-db-iid="' + item.id + '" value="' + escapeHtml(item.productBatchNo || '') + '" placeholder="未填" autocomplete="off"></div>' +
                 '<div><span>製造日期 ✎</span><input type="date" class="db-mfg" data-db-oid="' + order.id + '" data-db-iid="' + item.id + '" value="' + escapeHtml(item.productMfgDate || '') + '"></div>' +
-                '<div><span>有效日期 ✎</span><input type="date" class="db-exp" data-db-oid="' + order.id + '" data-db-iid="' + item.id + '" value="' + escapeHtml(item.productExpDate || '') + '"></div>' +
+                '<div><span>有效日期 ✎</span><input type="date" class="db-exp" data-db-oid="' + order.id + '" data-db-iid="' + item.id + '" value="' + escapeHtml(item.productExpDate || '') + '">' + expQuickBtns('db', order.id, item.id) + '</div>' +
               '</div>' : '';
       const irrConfirmHtml = (item.status === 'done' && item.needsIrradiation) ? (function(){
           const ok = !!item.irradiationLabelConfirm;
@@ -5983,6 +6036,21 @@ function syncBatchNoFromMfgDate(){
 }
 document.getElementById('fProductMfgDate').addEventListener('input', syncBatchNoFromMfgDate);
 document.getElementById('fProductMfgDate_native').addEventListener('change', syncBatchNoFromMfgDate);
+// 編輯畫面：填好製造日期 → 有效日期自動帶入（空白、或是之前自動算的才會改）
+function syncExpFromMfgDate(){
+  const mfg = getFlexDateValue('fProductMfgDate');
+  if(!mfg || !/^\d{4}-\d{2}-\d{2}$/.test(mfg)) return;
+  const expEl = document.getElementById('fProductExpDate');
+  const cur = getFlexDateValue('fProductExpDate');
+  if(cur && cur !== expEl.dataset.autoValue) return;
+  const item = { product: document.getElementById('fProduct').value.trim(), spec: (function(){ try{ return getPickerValue('fSpec', 'fSpecCustom') || ''; }catch(e){ return ''; } })() };
+  const ex = itemAutoExp(item, mfg);
+  if(!ex) return;
+  setFlexDateValue('fProductExpDate', ex);
+  expEl.dataset.autoValue = ex;
+}
+document.getElementById('fProductMfgDate').addEventListener('input', syncExpFromMfgDate);
+document.getElementById('fProductMfgDate_native').addEventListener('change', syncExpFromMfgDate);
 
 // ---- COA數值科學記號輔助輸入(係數 × 10的次方，避免自己找上標符號打) ----
 const SUPERSCRIPT_DIGITS = { '0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻' };
@@ -6289,6 +6357,7 @@ function openSheetInner(order, item){
   setFlexDateValue('fDue', item ? item.due : (firstItem ? firstItem.due : todayStr()));
   setPickerValue('fOrigin', 'fOriginCustom', item ? (item.origin || '') : '');
   setFlexDateValue('fProductExpDate', item ? (item.productExpDate || '') : '');
+  document.getElementById('fProductExpDate').dataset.autoValue = (item && item.productMfgDate && item.productExpDate === itemAutoExp(item, item.productMfgDate)) ? item.productExpDate : '';
   {
     let mfgDate = item ? (item.productMfgDate || '') : '';
     let batchNo = item ? (item.productBatchNo || '') : '';
@@ -11433,6 +11502,7 @@ function openFgForm(f){
   document.getElementById('fgProduct').value = f ? f.product : '';
   populateSpecSelect('fgSpec', 'fgSpecCustom', f ? f.product : '', f ? (f.spec||'') : '');
   document.getElementById('fgUnit').value = f ? (f.unit||'') : '';
+  document.getElementById('fgShelfLife').value = (f && f.shelfLifeMonths !== undefined && f.shelfLifeMonths !== null) ? f.shelfLifeMonths : '';
   { const bp0 = boxPack(fgFormSpec()); if(bp0) document.getElementById('fgUnit').value = bp0.unit; }
   _fgSpecPrev = fgFormSpec();
   fillHalalBox('fg', f, false);
@@ -11472,10 +11542,10 @@ document.getElementById('btnSaveFg').onclick = async ()=>{
   }
   if(editingFgId){
     const f = finishedGoods.find(x=>x.id===editingFgId);
-    if(f) Object.assign(f, { code, product, spec, unit, batches }, hr.data);
+    if(f) Object.assign(f, { code, product, spec, unit, batches, shelfLifeMonths: fgShelfLifeInput() }, hr.data);
     showToast('已更新成品');
   }else{
-    finishedGoods.push(Object.assign({ id:'fg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), code, product, spec, unit, batches }, hr.data));
+    finishedGoods.push(Object.assign({ id:'fg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), code, product, spec, unit, batches, shelfLifeMonths: fgShelfLifeInput() }, hr.data));
     showToast('已新增成品');
   }
   await saveBomData();
@@ -11575,6 +11645,27 @@ function minusOneDay(dateStr){
 }
 function shelfLifeExpDate(mfgDate, months){ return minusOneDay(addMonthsToDate(mfgDate, months)); }
 function semiExpDateFor(sg, mfgDate){ return shelfLifeExpDate(mfgDate, semiShelfLifeMonths(sg)); }
+// ---- 成品有效日期 = 製造日期 + 保存期限（預設 24 個月，算到前一天：2026-11-11 → 2028-11-10）----
+const DEFAULT_FG_SHELF_LIFE_MONTHS = 24;
+function fgShelfLifeInput(){ const v = document.getElementById('fgShelfLife').value.trim(); return v === '' ? null : Math.max(0, parseInt(v, 10) || 0); }
+function itemShelfLifeMonths(item){
+  const fg = (finishedGoods || []).find(f=> f.product === item.product && (f.spec || '') === (item.spec || ''))
+          || (finishedGoods || []).find(f=> f.product === item.product && f.shelfLifeMonths !== undefined && f.shelfLifeMonths !== null);
+  if(fg && fg.shelfLifeMonths !== undefined && fg.shelfLifeMonths !== null) return fg.shelfLifeMonths;
+  return DEFAULT_FG_SHELF_LIFE_MONTHS;
+}
+function itemAutoExp(item, mfgDate){ const m = itemShelfLifeMonths(item); return m ? shelfLifeExpDate(mfgDate, m) : ''; }
+// 有效日期是空的，或是照舊製造日期自動算出來的 → 跟著新的製造日期重算
+function shouldAutoExp(item){
+  if(!item.productExpDate) return true;
+  return !!(item.productMfgDate && item.productExpDate === itemAutoExp(item, item.productMfgDate));
+}
+// 有效日期旁邊的快速按鈕：點「2年」＝ 製造日期 + 2 年 − 1 天
+function expQuickBtns(kind, oid, iid){
+  return '<div class="exp-quick">' + [[24,'2年',1],[12,'1年',0],[36,'3年',0]].map(([m, t, main])=>
+    '<button type="button" class="exp-q' + (main ? ' main' : '') + '" data-expq="' + m + '" data-expq-kind="' + kind + '"' + (oid ? ' data-expq-oid="' + oid + '" data-expq-iid="' + iid + '"' : '') + '>' + t + '</button>').join('') + '</div>';
+}
+function shelfLifeText(item){ const m = itemShelfLifeMonths(item); return m ? (m % 12 === 0 ? (m / 12) + ' 年' : m + ' 個月') : ''; }
 
 function renderSemiGoodBatchLotList(batches){
   const list = (batches && batches.length > 0) ? batches : [];
