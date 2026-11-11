@@ -3410,7 +3410,9 @@ const ID_PHRASES = {
   '復原此品項（回到取消前的步驟）':'Kembalikan item ini', '品管確認數值':'Nilai konfirmasi QC', '訂單數量':'Jumlah pesanan', '此訂單客戶':'Pelanggan ini',
   '需COA(Email)':'Perlu COA (Email)', '需COA(隨貨)':'Perlu COA (ikut barang)', '需要COA（Email）　請填寫原料批號':'Perlu COA (Email) — isi no. batch bahan',
   '原料批號 / 日期':'No. batch bahan / Tanggal', '廠商直出（只貼標）':'Langsung dari pemasok (hanya label)', '廠商直出':'Langsung dari pemasok',
-  '廠商批號':'No. batch pemasok', '廠商製造日期':'Tgl produksi pemasok', '廠商有效日期':'Tgl kedaluwarsa pemasok', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
+  '廠商批號':'No. batch pemasok', '廠商製造日期':'Tgl produksi pemasok', '廠商有效日期':'Tgl kedaluwarsa pemasok',
+  '廠商製造日期（可不填）':'Tgl produksi pemasok (opsional)', '廠商有效日期（可不填）':'Tgl kedaluwarsa pemasok (opsional)', '產品製造日期（可不填）':'Tgl produksi produk (opsional)',
+  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
   '設為廠商直出（只貼標）':'Set: langsung dari pemasok', '點一下取消':'ketuk untuk batal', '廠商批號 / 日期':'No. batch pemasok / Tanggal',
   '產品批號 / 日期（印在標籤上）':'No. batch produk / Tanggal (di label)', '輸入廠商批號':'Ketik no. batch pemasok',   '需要COA（隨貨附）　請填寫原料批號':'Perlu COA (ikut barang) — isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
   '（隨貨附），出貨確認後將進入品管抽樣確認':'(ikut barang), setelah kirim akan dicek sampel QC', '今天':'Hari ini', '明天':'Besok',
@@ -4121,7 +4123,7 @@ function wireLabelingEdit(root){
     const changes = { productMfgDate: inp.value };
     // 批號空白或是照舊製造日期自動帶的 → 跟著新的製造日期
     const oldAuto = (item.productMfgDate || '').replace(/-/g,'');
-    if(!item.productBatchNo || item.productBatchNo === oldAuto) changes.productBatchNo = inp.value.replace(/-/g,'');
+    if(!item.vendorDirect && (!item.productBatchNo || item.productBatchNo === oldAuto)) changes.productBatchNo = inp.value.replace(/-/g,'');
     save(item, changes);
   }));
   root.querySelectorAll('input.lb-exp').forEach(inp=> inp.addEventListener('change', ()=>{ const item = find(inp); if(item && inp.value && inp.value !== (item.productExpDate || '')) save(item, { productExpDate: inp.value }); }));
@@ -4267,14 +4269,14 @@ function coaMaterialBatchHtml(order, item){
       '<input type="hidden" class="cbQty" value="' + escapeHtml(b.qty === undefined || b.qty === null ? '' : String(b.qty)) + '">' +
       '<div class="cb-row-head"><span>' + (item.vendorDirect ? '廠商批號' : '原料批號') + ' ' + (rows.length > 1 ? (idx + 1) : '') + '</span>' +
         ((item.manualMaterialBatches || []).length ? '<button type="button" class="cb-del" title="移除這筆">✕ 移除</button>' : '') + '</div>' +
-      '<input type="text" class="cbBatch" placeholder="' + (item.vendorDirect ? '輸入廠商批號' : '輸入原料批號') + '" autocomplete="off" value="' + escapeHtml(b.batchNo || '') + '">' +
+      '<input type="text" class="cbBatch" placeholder="' + (item.vendorDirect ? '輸入廠商批號（可不填）' : '輸入原料批號') + '" autocomplete="off" value="' + escapeHtml(b.batchNo || '') + '">' +
       '<div class="cb-dates">' +
-        '<label><span>' + (item.vendorDirect ? '廠商製造日期' : '原料製造日期') + '</span><input type="date" class="cbMfg" value="' + escapeHtml(b.mfgDate || '') + '"></label>' +
-        '<label><span>' + (item.vendorDirect ? '廠商有效日期' : '原料有效日期') + '</span><input type="date" class="cbExp" value="' + escapeHtml(b.expDate || '') + '"></label>' +
+        '<label><span>' + (item.vendorDirect ? '廠商製造日期（可不填）' : '原料製造日期') + '</span><input type="date" class="cbMfg" value="' + escapeHtml(b.mfgDate || '') + '"></label>' +
+        '<label><span>' + (item.vendorDirect ? '廠商有效日期（可不填）' : '原料有效日期') + '</span><input type="date" class="cbExp" value="' + escapeHtml(b.expDate || '') + '"></label>' +
       '</div>' +
     '</div>';
  return '<div class="coa-batch cb-inline' + ((manual.length || !coa) ? ' ok' : '') + '" data-oid="' + order.id + '" data-iid="' + item.id + '">' +
-    (item.vendorDirect ? '<div class="cb-title">🏭 廠商批號 / 日期' + (coa ? '（需要COA）' : '') + '</div><div class="cb-note">填好後，下面「產品批號 / 日期」空白的欄位會自動帶入一樣的批號和日期。</div>'
+    (item.vendorDirect ? '<div class="cb-title">🏭 廠商批號 / 日期' + (coa ? '（需要COA）' : '') + '</div><div class="cb-note">都可以不填：產品批號預設是出貨日（' + escapeHtml(vdDefaultBatch(item)) + '）。有填廠商批號，就改用廠商批號。</div>'
       : coa ? '<div class="cb-title">📄 需要COA' + (item.coa === '需要(Email)' ? '（Email）' : '（隨貨附）') + '　請填寫原料批號</div>'
          : '<div class="cb-title">🧾 原料批號 / 日期</div>') +
     ((!manual.length && ok) ? '<div class="cb-note">系統依配方自動帶入：' + uniq.map(t=> escapeHtml(t)).join('、') + '。實際用的不一樣，請直接填在下面。</div>' : '') +
@@ -4598,6 +4600,8 @@ function effectiveZones(it){
 }
 
 // ---- 🏭 廠商直出（只貼標）：不生產、不扣原料；排程生產填廠商批號就自動帶到產品批號 ----
+// 廠商直出：批號沒填就用「預計出貨日」當批號（例如 2026-11-12 → 20261112）
+function vdDefaultBatch(item){ return String(item.due || '').replace(/-/g, ''); }
 function lastVendorDirectFor(product){
   let best = null, bestAt = -1;
   orders.forEach(o=> (o.items || []).forEach(it=>{
@@ -4917,9 +4921,11 @@ function renderListInner(){
       const labelEditHtml = (currentTab === 'labeling' && item.status === 'labeling') ?
         '<div class="ship-inline label-inline"><div class="si-label" style="font-size:15px; color:var(--teal);">' + (item.vendorDirect ? '產品批號 / 日期（印在標籤上）' : '批號 / 日期') + '</div>' +
         '<div class="simple-batch editable lb-grid">' +
-          '<div><span>產品製造日期(調配、研磨日期) <b style="color:var(--red);">*</b></span><input type="date" class="lb-mfg" ' + lbIds + ' value="' + escapeHtml(item.productMfgDate || '') + '"></div>' +
-          '<div><span>製造批號</span><input type="text" class="lb-batch" ' + lbIds + ' value="' + escapeHtml(item.productBatchNo || '') + '" placeholder="預設為製造日期" autocomplete="off"></div>' +
-          '<div><span>產品有效日期</span><input type="date" class="lb-exp" ' + lbIds + ' value="' + escapeHtml(item.productExpDate || '') + '"></div>' +
+          '<div><span>' + (item.vendorDirect ? '產品製造日期（可不填）' : '產品製造日期(調配、研磨日期) <b style="color:var(--red);">*</b>') + '</span><input type="date" class="lb-mfg" ' + lbIds + ' value="' + escapeHtml(item.productMfgDate || '') + '"></div>' +
+          ((item.vendorDirect && !item.productBatchNo && item.due)
+            ? '<div><span>製造批號 <b style="color:var(--teal); font-weight:700;">（預設＝出貨日）</b></span><input type="text" class="lb-batch" ' + lbIds + ' value="' + escapeHtml(vdDefaultBatch(item)) + '" autocomplete="off"></div>'
+            : '<div><span>製造批號' + (item.vendorDirect ? ' <b style="color:var(--red);">*</b>' : '') + '</span><input type="text" class="lb-batch" ' + lbIds + ' value="' + escapeHtml(item.productBatchNo || '') + '" placeholder="' + (item.vendorDirect ? '輸入批號' : '預設為製造日期') + '" autocomplete="off"></div>') +
+          '<div><span>產品有效日期' + (item.vendorDirect ? '（可不填）' : '') + '</span><input type="date" class="lb-exp" ' + lbIds + ' value="' + escapeHtml(item.productExpDate || '') + '"></div>' +
           (item.vendorDirect ? '' : '<div><span>包材批號</span><input type="text" class="lb-tray" ' + lbIds + ' value="' + escapeHtml(item.trayBatchNo || '') + '" placeholder="包材批號" autocomplete="off"></div>') +
         '</div></div>' : '';
       // 標籤印製、充填包裝：批號／製造日期／有效日期都還可以改（成品庫存批次跟著移），到裝箱確認以後就不能改
@@ -5166,7 +5172,18 @@ function renderListInner(){
         pendingAdvanceItemId = item.id; openSheet(order, item);
         return;
       }
-      if(item.status === 'labeling' && !item.productMfgDate){
+      // 廠商直出：只要有批號就好，製造日期、有效日期可以不填
+      if(item.status === 'labeling' && item.vendorDirect && !item.productBatchNo && vdDefaultBatch(item)){
+        item.productBatchNo = vdDefaultBatch(item); // 沒改就用出貨日當批號
+      }
+      if(item.status === 'labeling' && item.vendorDirect && !item.productBatchNo){
+        const panel = btn.closest('.item-row') && btn.closest('.item-row').querySelector('.cb-inline, .label-inline');
+        showToast('廠商直出：請先填「廠商批號」或「製造批號」才能進入標籤印製');
+        if(panel){ panel.classList.remove('si-flash'); void panel.offsetWidth; panel.classList.add('si-flash'); }
+        else { pendingAdvanceItemId = item.id; openSheet(order, item); }
+        return;
+      }
+      if(item.status === 'labeling' && !item.vendorDirect && !item.productMfgDate){
         const panel = btn.closest('.item-row') && btn.closest('.item-row').querySelector('.label-inline');
         if(panel){
           showToast('請先在卡片上填「產品製造日期」才能進入標籤印製');
