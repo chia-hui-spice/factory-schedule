@@ -636,6 +636,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 .bx-boxcode{ display:flex; gap:8px; align-items:center; margin:6px 0 8px; }
 .bx-boxcode input{ flex:1; min-width:0; font-size:18px; font-weight:800; font-family:var(--mono); padding:7px 10px; border-radius:8px; border:2px solid var(--amber); background:var(--panel-raised); color:var(--ink); }
 .qoBox{ flex:1; min-width:0; }
+.order-view-btn{ padding:6px 10px; font-size:14px; font-weight:800; border-radius:9px; border:1.5px solid var(--line); background:var(--panel-raised); color:var(--ink); cursor:pointer; white-space:nowrap; }
 .code-line{ margin-top:4px; min-height:0; }
 .code-tag{ display:inline-block; font-size:14px; color:var(--ink-dim); }
 .code-tag b{ color:var(--teal); font-family:var(--mono); font-size:15px; }
@@ -3430,7 +3431,7 @@ const ID_PHRASES = {
   '原料批號 / 日期':'No. batch bahan / Tanggal', '廠商直出（只貼標）':'Langsung dari pemasok (hanya label)', '廠商直出':'Langsung dari pemasok',
   '廠商批號':'No. batch pemasok', '廠商製造日期':'Tgl produksi pemasok', '廠商有效日期':'Tgl kedaluwarsa pemasok',
   '廠商製造日期（可不填）':'Tgl produksi pemasok (opsional)', '廠商有效日期（可不填）':'Tgl kedaluwarsa pemasok (opsional)', '產品製造日期（可不填）':'Tgl produksi produk (opsional)',
-  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
+  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
   '設為廠商直出（只貼標）':'Set: langsung dari pemasok', '點一下取消':'ketuk untuk batal', '廠商批號 / 日期':'No. batch pemasok / Tanggal',
   '產品批號 / 日期（印在標籤上）':'No. batch produk / Tanggal (di label)', '輸入廠商批號':'Ketik no. batch pemasok',   '需要COA（隨貨附）　請填寫原料批號':'Perlu COA (ikut barang) — isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
   '（隨貨附），出貨確認後將進入品管抽樣確認':'(ikut barang), setelah kirim akan dicek sampel QC', '今天':'Hari ini', '明天':'Besok',
@@ -4793,6 +4794,13 @@ const SIMPLE_VIEW_TABS = { pending:'simpleViewPending', inprogress:'simpleViewIn
 const simpleViewOn = {}; Object.keys(SIMPLE_VIEW_TABS).forEach(t=> simpleViewOn[t] = true);
 Object.keys(SIMPLE_VIEW_TABS).forEach(t=>{ try{ const v = localStorage.getItem(SIMPLE_VIEW_TABS[t]); if(v !== null) simpleViewOn[t] = v === '1'; }catch(e){} });
 function isSimpleView(){ return !!SIMPLE_VIEW_TABS[currentTab] && simpleViewOn[currentTab]; }
+// 每張訂單自己的「簡潔／詳細」切換（只在這台裝置、這次開網頁有效；按上面的總開關會全部恢復一致）
+const orderViewOverride = new Map(); // orderId -> 'simple' | 'detail'
+function isSimpleFor(order){
+  if(!SIMPLE_VIEW_TABS[currentTab]) return false;
+  const o = order && orderViewOverride.get(order.id);
+  return o ? o === 'simple' : isSimpleView();
+}
 function updateSimpleViewToggle(){
   const b = document.getElementById('simpleViewToggle');
   if(!b) return;
@@ -4803,6 +4811,7 @@ document.getElementById('simpleViewToggle').onclick = ()=>{
   if(!SIMPLE_VIEW_TABS[currentTab]) return;
   simpleViewOn[currentTab] = !simpleViewOn[currentTab];
   try{ localStorage.setItem(SIMPLE_VIEW_TABS[currentTab], simpleViewOn[currentTab] ? '1' : '0'); }catch(e){}
+  orderViewOverride.clear();
   renderList();
 };
 // iPad 打字時不要重畫清單：重畫會把輸入框換掉，鍵盤就會跳掉。等離開這個欄位再重畫
@@ -4995,7 +5004,7 @@ function renderListInner(){
             '<span style="font-size:17px; font-weight:800; color:' + (ok ? 'var(--teal)' : 'var(--red)') + ';">☢️ 確認已印有「照射滅菌」標籤' +
             (ok && item.irradiationLabelConfirmBy ? '<br><span style="font-size:13px; font-weight:400; color:var(--ink-dim);">' + escapeHtml(item.irradiationLabelConfirmBy) + (item.irradiationLabelConfirmAt ? '　' + new Date(item.irradiationLabelConfirmAt).toLocaleString('zh-TW') : '') + '</span>' : (ok ? '' : '<br><span style="font-size:13px; font-weight:400;">勾選後才能進入充填包裝</span>')) + '</span></label>';
         })() : '';
-      if(isSimpleView()){
+      if(isSimpleFor(order)){
         // 「簡潔顯示」：只留品項、規格、數量、出貨日、急件／逾期、照射、備註；各階段另外保留做事需要的資訊
         const tab = currentTab;
         const tags = [];
@@ -5072,9 +5081,10 @@ function renderListInner(){
     card.innerHTML =
       '<div class="order-card-top">' +
         '<div><div class="order-no">' + escapeHtml(order.orderNo || '') + '</div><div class="order-customer">' + escapeHtml(order.customer) + '</div>' +
-          (isSimpleView() ? orderDueHeadHtml(order) : '') +
-          (formatOrderCreated(order) && !isSimpleView() ? '<div class="order-created">🕒 訂單成立：' + formatOrderCreated(order) + '</div>' : '') + '</div>' +
+          (isSimpleFor(order) ? orderDueHeadHtml(order) : '') +
+          (formatOrderCreated(order) && !isSimpleFor(order) ? '<div class="order-created">🕒 訂單成立：' + formatOrderCreated(order) + '</div>' : '') + '</div>' +
         '<div class="order-actions">' +
+          (SIMPLE_VIEW_TABS[currentTab] ? '<button type="button" class="order-view-btn" data-order-view="' + order.id + '">' + (isSimpleFor(order) ? '📋 詳細' : '🔍 簡潔') + '</button>' : '') +
           (canDeleteOrders() ? '<button class="icon-btn" data-act="delorder" data-oid="' + order.id + '" title="刪除整張訂單">🗑</button>' : '') +
         '</div>' +
       '</div>' +
@@ -5213,6 +5223,14 @@ function renderListInner(){
   wireLabelingEdit(wrap);
   wireCoaBatchInline(wrap);
   wireVendorDirect(wrap);
+  wrap.querySelectorAll('[data-order-view]').forEach(b=> b.onclick = ()=>{
+    const o = orders.find(x=> x.id === b.dataset.orderView); if(!o) return;
+    const toDetail = isSimpleFor(o);
+    orderViewOverride.set(o.id, toDetail ? 'detail' : 'simple');
+    // 切到詳細時，順便把這張訂單在這一頁的品項都展開，才看得到內容
+    if(toDetail) (o.items || []).forEach(it=>{ if(!it.deleted && it.status === currentTab) labelingExpanded.add(it.id); });
+    renderList();
+  });
   wrap.querySelectorAll('input.bx-boxcode-in').forEach(inp=> inp.addEventListener('change', async ()=>{
     const o = orders.find(x=> x.id === inp.dataset.bxOid); const it = o && o.items.find(i=> i.id === inp.dataset.bxIid);
     if(!it) return;
