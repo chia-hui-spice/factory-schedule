@@ -630,6 +630,11 @@ body.show-id .id-name.missing{ display:block; font-size:13px; font-weight:700; m
 .id-note{ display:none; }
 body.show-id .id-note{ display:inline; font-size:inherit; font-weight:inherit; color:inherit; }
 body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
+.vd-badge{ display:inline-block; font-size:14px; font-weight:800; color:#fff; background:#8a5cf6; border-radius:8px; padding:2px 9px; margin:2px 0; }
+.vd-toggle{ display:inline-block; margin:4px 0; padding:5px 12px; font-size:14.5px; font-weight:800; border-radius:9px; border:1.5px dashed #8a5cf6; background:transparent; color:#a98bff; cursor:pointer; }
+.vd-toggle.on{ border-style:solid; background:rgba(138,92,246,0.15); }
+.qo-vd{ flex:0 0 auto; height:40px; padding:0 10px; border-radius:8px; border:1.5px solid var(--line); background:none; color:var(--ink-dim); font-size:14.5px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.qo-vd.on{ border-color:#8a5cf6; color:#fff; background:#8a5cf6; }
 .os-note{ display:block; margin-top:3px; font-size:14.5px; font-weight:600; color:var(--amber); line-height:1.45; }
 .os-spec{ display:inline-block; margin-left:8px; font-size:15px; font-weight:600; color:var(--ink-dim); }
 .os-qty{ flex:0 0 auto; min-width:56px; text-align:right; font-size:22px; font-weight:900; color:var(--amber); }
@@ -853,6 +858,10 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
         <div class="field">
           <label>🇮🇩 備註（印尼文）<span style="font-size:13px; color:var(--ink-dim); font-weight:600;">　留空會自動翻譯；翻得不好可以直接改</span></label>
           <textarea id="fNoteId" rows="2" placeholder="Catatan dalam Bahasa Indonesia（留空＝自動翻譯）"></textarea>
+        </div>
+        <div class="field">
+          <label class="halal-sub" style="font-size:16px; font-weight:800;"><input type="checkbox" id="fVendorDirect"> 🏭 廠商直出（只貼標）</label>
+          <div style="font-size:13px; color:var(--ink-dim);">勾了以後：不生產、排程生產時不扣原料庫存；排程生產填廠商批號就會自動帶到產品批號。</div>
         </div>
       </div>
       <div class="field">
@@ -3400,7 +3409,10 @@ const ID_PHRASES = {
   '同一位包裝人員，一次確認多項':'Satu petugas kemas, konfirmasi banyak item', '取消此品項（不出貨，但保留在訂單上）':'Batalkan item ini (tidak dikirim)',
   '復原此品項（回到取消前的步驟）':'Kembalikan item ini', '品管確認數值':'Nilai konfirmasi QC', '訂單數量':'Jumlah pesanan', '此訂單客戶':'Pelanggan ini',
   '需COA(Email)':'Perlu COA (Email)', '需COA(隨貨)':'Perlu COA (ikut barang)', '需要COA（Email）　請填寫原料批號':'Perlu COA (Email) — isi no. batch bahan',
-  '原料批號 / 日期':'No. batch bahan / Tanggal',   '需要COA（隨貨附）　請填寫原料批號':'Perlu COA (ikut barang) — isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
+  '原料批號 / 日期':'No. batch bahan / Tanggal', '廠商直出（只貼標）':'Langsung dari pemasok (hanya label)', '廠商直出':'Langsung dari pemasok',
+  '廠商批號':'No. batch pemasok', '廠商製造日期':'Tgl produksi pemasok', '廠商有效日期':'Tgl kedaluwarsa pemasok', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
+  '設為廠商直出（只貼標）':'Set: langsung dari pemasok', '點一下取消':'ketuk untuk batal', '廠商批號 / 日期':'No. batch pemasok / Tanggal',
+  '產品批號 / 日期（印在標籤上）':'No. batch produk / Tanggal (di label)', '輸入廠商批號':'Ketik no. batch pemasok',   '需要COA（隨貨附）　請填寫原料批號':'Perlu COA (ikut barang) — isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
   '（隨貨附），出貨確認後將進入品管抽樣確認':'(ikut barang), setelah kirim akan dicek sampel QC', '今天':'Hari ini', '明天':'Besok',
   '還沒有填寫原料批號，點下面黃色的「＋ 新增原料批號」開始記錄':'Belum ada batch bahan, klik tombol kuning untuk menambah',
   '出貨方式、倉管會計在上面一次選好，可以每項按「完成」或整張一起完成':'Pilih cara kirim & petugas gudang di atas, lalu tekan Selesai',
@@ -4061,6 +4073,14 @@ function wireCoaBatchInline(root){
       if(before === JSON.stringify(list) && !rerender) return;
       it.manualMaterialBatches = list;
       syncManualMaterialTraceability(it, list);
+      let copied = false;
+      if(it.vendorDirect && it.status === 'labeling' && list[0]){
+        const f = list[0];
+        if(f.batchNo && !it.productBatchNo){ it.productBatchNo = f.batchNo; copied = true; }
+        if(f.mfgDate && !it.productMfgDate){ it.productMfgDate = f.mfgDate; copied = true; }
+        if(f.expDate && !it.productExpDate){ it.productExpDate = f.expDate; copied = true; }
+        if(copied) rerender = true;
+      }
       if(panel.querySelector('.cb-title') && /COA/.test(panel.querySelector('.cb-title').textContent)) panel.classList.toggle('ok', list.some(b=> b.batchNo));
       const em = panel.querySelector('.cb-empty'); if(em) em.style.display = list.some(b=> b.batchNo) ? 'none' : '';
       const ok = await saveOrders();
@@ -4231,6 +4251,7 @@ function coaMaterialBatchHtml(order, item){
   // 原料批號／製造日期／有效日期：排程生產、標籤印製、充填包裝（裝箱確認以前）所有品項都可以填；品管COA頁給需要 COA 的品項補填
   const coa = needsCoa(item);
   const editStage = ['labeling','done','refill'].includes(item.status) && currentTab === item.status;
+  const coa_ = coa || item.vendorDirect;
   if(!(editStage || (currentTab === 'coa' && coa))) return '';
   const manual = (item.manualMaterialBatches || []).filter(b=> b.batchNo);
   const auto = manual.length ? [] : (item.materialTraceability || []).filter(t=> t.batchNo);
@@ -4244,16 +4265,17 @@ function coaMaterialBatchHtml(order, item){
     '<div class="cb-row" data-idx="' + idx + '">' +
       '<input type="hidden" class="cbName" value="' + escapeHtml(b.materialName || '') + '">' +
       '<input type="hidden" class="cbQty" value="' + escapeHtml(b.qty === undefined || b.qty === null ? '' : String(b.qty)) + '">' +
-      '<div class="cb-row-head"><span>原料批號 ' + (rows.length > 1 ? (idx + 1) : '') + '</span>' +
+      '<div class="cb-row-head"><span>' + (item.vendorDirect ? '廠商批號' : '原料批號') + ' ' + (rows.length > 1 ? (idx + 1) : '') + '</span>' +
         ((item.manualMaterialBatches || []).length ? '<button type="button" class="cb-del" title="移除這筆">✕ 移除</button>' : '') + '</div>' +
-      '<input type="text" class="cbBatch" placeholder="輸入原料批號" autocomplete="off" value="' + escapeHtml(b.batchNo || '') + '">' +
+      '<input type="text" class="cbBatch" placeholder="' + (item.vendorDirect ? '輸入廠商批號' : '輸入原料批號') + '" autocomplete="off" value="' + escapeHtml(b.batchNo || '') + '">' +
       '<div class="cb-dates">' +
-        '<label><span>原料製造日期</span><input type="date" class="cbMfg" value="' + escapeHtml(b.mfgDate || '') + '"></label>' +
-        '<label><span>原料有效日期</span><input type="date" class="cbExp" value="' + escapeHtml(b.expDate || '') + '"></label>' +
+        '<label><span>' + (item.vendorDirect ? '廠商製造日期' : '原料製造日期') + '</span><input type="date" class="cbMfg" value="' + escapeHtml(b.mfgDate || '') + '"></label>' +
+        '<label><span>' + (item.vendorDirect ? '廠商有效日期' : '原料有效日期') + '</span><input type="date" class="cbExp" value="' + escapeHtml(b.expDate || '') + '"></label>' +
       '</div>' +
     '</div>';
  return '<div class="coa-batch cb-inline' + ((manual.length || !coa) ? ' ok' : '') + '" data-oid="' + order.id + '" data-iid="' + item.id + '">' +
-    (coa ? '<div class="cb-title">📄 需要COA' + (item.coa === '需要(Email)' ? '（Email）' : '（隨貨附）') + '　請填寫原料批號</div>'
+    (item.vendorDirect ? '<div class="cb-title">🏭 廠商批號 / 日期' + (coa ? '（需要COA）' : '') + '</div><div class="cb-note">填好後，下面「產品批號 / 日期」空白的欄位會自動帶入一樣的批號和日期。</div>'
+      : coa ? '<div class="cb-title">📄 需要COA' + (item.coa === '需要(Email)' ? '（Email）' : '（隨貨附）') + '　請填寫原料批號</div>'
          : '<div class="cb-title">🧾 原料批號 / 日期</div>') +
     ((!manual.length && ok) ? '<div class="cb-note">系統依配方自動帶入：' + uniq.map(t=> escapeHtml(t)).join('、') + '。實際用的不一樣，請直接填在下面。</div>' : '') +
     ((!ok && coa) ? '<div class="cb-empty">⚠ 還沒有填寫原料批號</div>' : '') +
@@ -4372,10 +4394,10 @@ function refillPanelHtml(order, item){
     '<div class="bx-head"><span class="si-label" style="margin:0; font-size:15px; color:var(--teal);">包裝區域確認</span>' +
       '<label class="rf-pick"><input type="checkbox" class="rf-sel" data-rf-sel="' + item.id + '"' + (sel ? ' checked' : '') + '> 勾選一起確認</label></div>' +
     '<div class="si-row">' +
-      '<div class="si-col"><div class="si-label">包裝人員 <span style="color:var(--red);">*</span></div>' +
+      '<div class="si-col"><div class="si-label">' + (item.vendorDirect ? '貼標人員' : '包裝人員') + ' <span style="color:var(--red);">*</span></div>' +
         '<select class="rf-staff" ' + ids + '><option value="">請選擇</option>' + names.map(n=>'<option value="' + escapeHtml(n) + '"' + (ps === n ? ' selected' : '') + '>' + escapeHtml(n) + '</option>').join('') +
           (isCustom ? '<option value="' + escapeHtml(ps) + '" selected>' + escapeHtml(ps) + '</option>' : '') + '<option value="__custom">自訂（輸入其他姓名）</option></select></div>' +
-      '<div class="si-col"><div class="si-label">包裝日期 <b style="color:var(--ink);">' + pd + '</b>' + (item.packagingDate ? '' : '<span style="font-weight:400;">（預設今天）</span>') + '</div>' +
+      '<div class="si-col"><div class="si-label">' + (item.vendorDirect ? '貼標日期' : '包裝日期') + ' <b style="color:var(--ink);">' + pd + '</b>' + (item.packagingDate ? '' : '<span style="font-weight:400;">（預設今天）</span>') + '</div>' +
         '<div style="display:flex; gap:6px;">' +
           '<select class="rf-month" ' + ids + ' style="flex:1;">' + months.map(m=>opt(m, mm)).join('') + '</select><span style="align-self:center;">月</span>' +
           '<select class="rf-day" ' + ids + ' style="flex:1;">' + days.map(d=>opt(d, dd)).join('') + '</select><span style="align-self:center;">日</span>' +
@@ -4575,6 +4597,37 @@ function effectiveZones(it){
   return z ? { zones: z, isDefault:true } : { zones: [], isDefault:false };
 }
 
+// ---- 🏭 廠商直出（只貼標）：不生產、不扣原料；排程生產填廠商批號就自動帶到產品批號 ----
+function lastVendorDirectFor(product){
+  let best = null, bestAt = -1;
+  orders.forEach(o=> (o.items || []).forEach(it=>{
+    if(it.deleted || it.product !== product) return;
+    const at = o.createdAt || 0;
+    if(at > bestAt){ bestAt = at; best = !!it.vendorDirect; }
+  }));
+  return !!best;
+}
+function vendorDirectHtml(order, item){
+  const canToggle = item.status === 'pending' || item.status === 'inprogress';
+  if(canToggle){
+    return '<div><button type="button" class="vd-toggle' + (item.vendorDirect ? ' on' : '') + '" data-vd-oid="' + order.id + '" data-vd-iid="' + item.id + '">' +
+      (item.vendorDirect ? '🏭 廠商直出（只貼標）✓　<span style="font-weight:600;">點一下取消</span>' : '🏭 設為廠商直出（只貼標）') + '</button></div>';
+  }
+  return item.vendorDirect ? '<div><span class="vd-badge">🏭 廠商直出（只貼標）</span></div>' : '';
+}
+function wireVendorDirect(root){
+  root.querySelectorAll('[data-vd-iid]').forEach(b=> b.onclick = async ()=>{
+    const o = orders.find(x=> x.id === b.dataset.vdOid); const it = o && o.items.find(i=> i.id === b.dataset.vdIid);
+    if(!it || !(it.status === 'pending' || it.status === 'inprogress')) return;
+    const prev = !!it.vendorDirect;
+    it.vendorDirect = !prev;
+    const ok = await saveOrders();
+    if(!ok) it.vendorDirect = prev;
+    renderList();
+    if(ok) showToast(it.vendorDirect ? '🏭 已設為廠商直出：排程生產時不會扣原料庫存' : '已取消廠商直出');
+  });
+}
+
 // ---- 取消品項（不出貨，但保留在訂單上）----
 const CANCEL_REASONS = { discontinued:'客人不再使用這個產品', once:'客人這次不要了', quality:'品質問題，不能出貨', other:'其他原因' };
 function cancelReasonText(it){
@@ -4630,7 +4683,7 @@ function orderSummaryHtml(order){
     const open = isHere && labelingExpanded.has(it.id);
     return '<div class="os-row' + (isHere ? ' here' : '') + (open ? ' open' : '') + '"' + (isHere ? ' data-jump-item="' + it.id + '"' : '') + '>' +
       '<span class="os-caret">' + (isHere ? (open ? '▾' : '▸') : '') + '</span>' +
-      '<span class="os-name">' + escapeHtml(it.product || '') + idNameLine(it.product) + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + idSpecSub(it.spec) + '</span>' : '') +
+      '<span class="os-name">' + escapeHtml(it.product || '') + idNameLine(it.product) + (it.vendorDirect ? ' <span class="vd-badge" style="font-size:12px; padding:0 6px;">🏭 廠商直出</span>' : '') + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + idSpecSub(it.spec) + '</span>' : '') +
         (it.note ? '<span class="os-note">📝 ' + escapeHtml(it.note) + idNoteBlock(order, it) + '</span>' : '') +
         ((multiDue && it.due) ? '<span class="os-spec" style="color:' + (dueDiffDays(it.due) <= 0 ? 'var(--red)' : dueDiffDays(it.due) === 1 ? 'var(--amber)' : 'var(--teal)') + '; font-weight:800;">📅 ' + escapeHtml(fmtDueShort(it.due)) + '</span>' : '') +
         ((currentTab === 'inprogress' && it.status === 'inprogress') ? (function(){
@@ -4862,12 +4915,12 @@ function renderListInner(){
 
       const lbIds = 'data-lb-oid="' + order.id + '" data-lb-iid="' + item.id + '"';
       const labelEditHtml = (currentTab === 'labeling' && item.status === 'labeling') ?
-        '<div class="ship-inline label-inline"><div class="si-label" style="font-size:15px; color:var(--teal);">批號 / 日期</div>' +
+        '<div class="ship-inline label-inline"><div class="si-label" style="font-size:15px; color:var(--teal);">' + (item.vendorDirect ? '產品批號 / 日期（印在標籤上）' : '批號 / 日期') + '</div>' +
         '<div class="simple-batch editable lb-grid">' +
           '<div><span>產品製造日期(調配、研磨日期) <b style="color:var(--red);">*</b></span><input type="date" class="lb-mfg" ' + lbIds + ' value="' + escapeHtml(item.productMfgDate || '') + '"></div>' +
           '<div><span>製造批號</span><input type="text" class="lb-batch" ' + lbIds + ' value="' + escapeHtml(item.productBatchNo || '') + '" placeholder="預設為製造日期" autocomplete="off"></div>' +
           '<div><span>產品有效日期</span><input type="date" class="lb-exp" ' + lbIds + ' value="' + escapeHtml(item.productExpDate || '') + '"></div>' +
-          '<div><span>包材批號</span><input type="text" class="lb-tray" ' + lbIds + ' value="' + escapeHtml(item.trayBatchNo || '') + '" placeholder="包材批號" autocomplete="off"></div>' +
+          (item.vendorDirect ? '' : '<div><span>包材批號</span><input type="text" class="lb-tray" ' + lbIds + ' value="' + escapeHtml(item.trayBatchNo || '') + '" placeholder="包材批號" autocomplete="off"></div>') +
         '</div></div>' : '';
       // 標籤印製、充填包裝：批號／製造日期／有效日期都還可以改（成品庫存批次跟著移），到裝箱確認以後就不能改
       const doneEditHtml = ((currentTab === 'done' && item.status === 'done') || (currentTab === 'refill' && item.status === 'refill')) ? '<div class="simple-batch editable">' +
@@ -4920,10 +4973,11 @@ function renderListInner(){
           (tab === 'inprogress' ? stockInfoHtml : '') +
           ((tab === 'boxing' && item.status !== 'boxing') ? '<div class="checklist-row">' + chkHtml + '</div>' : '') +
           (item.note ? '<div class="item-note">' + escapeHtml(item.note) + idNoteBlock(order, item) + '</div>' : '') +
+          vendorDirectHtml(order, item) +
           irrConfirmHtml +
-          labelEditHtml +
+          (item.vendorDirect ? coaMaterialBatchHtml(order, item) + labelEditHtml : labelEditHtml) +
           coaValuesHtml(order, item) +
-          coaMaterialBatchHtml(order, item) +
+          (item.vendorDirect ? '' : coaMaterialBatchHtml(order, item)) +
           refillPanelHtml(order, item) +
           boxingPanelHtml(order, item) +
           shipConfirmPanelHtml(order, item) +
@@ -4934,15 +4988,16 @@ function renderListInner(){
       itemsHtml += '<div class="item-row pri-' + item.priority + (overdue ? ' overdue' : '') + '">' +
         '<div class="item-top"><div><div class="item-product">' + escapeHtml(item.product) + idNameLine(item.product) + (item.spec ? '<span class="item-spec"> ・ ' + escapeHtml(item.spec) + idSpecSub(item.spec) + '</span>' : '') + '</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">' + badges + '</div></div>' +
         '<div class="item-meta">' + metaBits.join('') + '</div>' +
+        vendorDirectHtml(order, item) +
         doneEditHtml +
-        labelEditHtml +
+        (item.vendorDirect ? coaMaterialBatchHtml(order, item) + labelEditHtml : labelEditHtml) +
         stockInfoHtml +
         coaNoticeHtml +
         ((currentTab === 'boxing' && item.status === 'boxing') ? '' : '<div class="checklist-row">' + chkHtml + '</div>') +
         (item.note ? '<div class="item-note">' + escapeHtml(item.note) + idNoteBlock(order, item) + '</div>' : '') +
         irrConfirmHtml +
         coaValuesHtml(order, item) +
-        coaMaterialBatchHtml(order, item) +
+        (item.vendorDirect ? '' : coaMaterialBatchHtml(order, item)) +
         refillPanelHtml(order, item) +
         boxingPanelHtml(order, item) +
         shipConfirmPanelHtml(order, item) +
@@ -5080,6 +5135,7 @@ function renderListInner(){
   wireDoneBatchEdit(wrap);
   wireLabelingEdit(wrap);
   wireCoaBatchInline(wrap);
+  wireVendorDirect(wrap);
   wireOrderShipPanels(wrap);
   wireBoxingPanels(wrap);
   wireRefillPanels(wrap);
@@ -6086,6 +6142,7 @@ function openSheetInner(order, item){
     const el = document.getElementById('fNoteId');
     el.value = nid; el.dataset.orig = nid;
     document.getElementById('fNote').dataset.orig = item ? (item.note || '') : '';
+    document.getElementById('fVendorDirect').checked = !!(item ? item.vendorDirect : (firstItem && firstItem.vendorDirect));
   }
   setPickerValue('fReleaseBy', 'fReleaseByCustom', item ? (item.releaseBy || ((item.status === 'boxing' || item.status === 'shipped') ? DEFAULT_RELEASE_BY : '')) : '');
   setPickerValue('fFilledBy', 'fFilledByCustom', item ? (item.filledBy || DEFAULT_FILLED_BY) : ((firstItem && firstItem.filledBy) || DEFAULT_FILLED_BY));
@@ -6409,7 +6466,7 @@ document.getElementById('qoPickOk').onclick = async ()=>{
   picked.forEach(h=>{
     const it = h.last;
     // 數量留空，請逐項確認（欄位會提示上次的數量）
-    qoRows.push({ product: h.product, spec: h.spec, qty: '', lastQty: h.lastQty, origin: it.origin || '', productionZones: (it.productionZones || []).slice(), needsIrradiation: irrAll || !!it.needsIrradiation, irradiationDestination: it.irradiationDestination || '' });
+    qoRows.push({ product: h.product, spec: h.spec, qty: '', lastQty: h.lastQty, origin: it.origin || '', productionZones: (it.productionZones || []).slice(), needsIrradiation: irrAll || !!it.needsIrradiation, irradiationDestination: it.irradiationDestination || '', vendorDirect: !!it.vendorDirect });
   });
   qoRows.push(qoBlankRow());
   const first = picked[0].last || {};
@@ -6429,7 +6486,7 @@ async function qoCopyOrder(orderId){
     if(!ok) return;
   }
   const items = qoItemsOfOrder(o);
-  qoRows = items.map(it=>({ product: it.product||'', spec: it.spec||'', qty: it.qty||'', origin: it.origin||'', productionZones: (it.productionZones||[]).slice(), needsIrradiation: !!it.needsIrradiation, irradiationDestination: it.irradiationDestination||'' }));
+  qoRows = items.map(it=>({ product: it.product||'', spec: it.spec||'', qty: it.qty||'', origin: it.origin||'', productionZones: (it.productionZones||[]).slice(), needsIrradiation: !!it.needsIrradiation, irradiationDestination: it.irradiationDestination||'', vendorDirect: !!it.vendorDirect }));
   qoRows.push(qoBlankRow());
   const first = items[0] || {};
   if(!document.getElementById('qoCoa').value && first.coa) document.getElementById('qoCoa').value = first.coa;
@@ -6450,6 +6507,7 @@ function renderQoRows(){
       '<div class="qo-line"><div class="qo-no">' + (i+1) + '</div>' +
         '<input type="text" class="qoProduct" list="qoProductList" placeholder="產品名稱" value="' + escapeHtml(r.product) + '" autocomplete="off">' +
         '<button type="button" class="qo-irr' + (r.needsIrradiation ? ' on' : '') + '" data-qo-irr="' + i + '" title="需要照射滅菌">☢️ 照射</button>' +
+        '<button type="button" class="qo-vd' + (r.vendorDirect ? ' on' : '') + '" data-qo-vd="' + i + '" title="廠商直出（只貼標）">🏭 直出</button>' +
         '<button type="button" class="qo-mini" data-qo-del="' + i + '" title="刪除這列">✕</button></div>' +
       '<div class="qo-line"><div class="qo-no"></div>' +
         '<input type="text" class="qoSpec" list="qoSpec' + i + '" placeholder="規格" value="' + escapeHtml(r.spec) + '" autocomplete="off" style="flex:1.4;">' +
@@ -6464,6 +6522,7 @@ function renderQoRows(){
     p.addEventListener('input', ()=>{ qoRows[i].product = p.value.trim(); updateQoSummary(); });
     p.addEventListener('change', ()=>{
       document.getElementById('qoSpec' + i).innerHTML = qoSpecOptionsHtml(p.value.trim());
+      { const vd = lastVendorDirectFor(p.value.trim()); if(vd !== !!qoRows[i].vendorDirect){ qoRows[i].vendorDirect = vd; const vb = el.querySelector('.qo-vd'); if(vb) vb.classList.toggle('on', vd); } }
       const mine = getSpecsForProduct(p.value.trim());
       if(!sp.value && mine.length === 1){ sp.value = mine[0]; qoRows[i].spec = mine[0]; } // 只有一種常用規格就直接帶入
     });
@@ -6484,6 +6543,11 @@ function renderQoRows(){
     r.needsIrradiation = !r.needsIrradiation;
     b.classList.toggle('on', r.needsIrradiation);
     qoSyncIrrAll(); updateQoSummary();
+  });
+  wrap.querySelectorAll('[data-qo-vd]').forEach(b=> b.onclick = ()=>{
+    const r = qoRows[parseInt(b.dataset.qoVd,10)];
+    r.vendorDirect = !r.vendorDirect;
+    b.classList.toggle('on', r.vendorDirect);
   });
   wrap.querySelectorAll('[data-qo-del]').forEach(b=> b.onclick = ()=>{ qoRows.splice(parseInt(b.dataset.qoDel,10), 1); if(!qoRows.length) qoRows.push(qoBlankRow()); renderQoRows(); });
   wrap.querySelectorAll('[data-qo-dup]').forEach(b=> b.onclick = ()=>{ const i = parseInt(b.dataset.qoDup,10); qoRows.splice(i+1, 0, Object.assign({}, qoRows[i], { productionZones: (qoRows[i].productionZones||[]).slice() })); renderQoRows(); });
@@ -6547,6 +6611,7 @@ document.getElementById('qoSave').onclick = async ()=>{
       product: r.product, spec: r.spec || '', qty: parseInt(r.qty, 10), actualYieldQty: null, due, origin: r.origin || '',
       productExpDate:'', productMfgDate:'', productBatchNo:'', packagingDate:'', trayBatchNo:'', manualMaterialBatches: [],
       coa, coaConfirmBy:'', needsIrradiation: !!r.needsIrradiation, irradiationLabelConfirm:false, irradiationDestination: r.irradiationDestination || '', note,
+      vendorDirect: !!r.vendorDirect,
       coaMoisture:'', coaWaterActivity:'', coaTotalPlateCount:'', coaColiform:'', coaEcoli:'',
       fillFormDate, fillFormTime, releaseBy:'', filledBy, warehouseConfirm:'', priority,
       shipMethod:'', actualShipDate:'', productionZones: normalizeZoneList(r.productionZones || []), packagingStaff:'',
@@ -6624,6 +6689,7 @@ async function handleSaveOrder(){
 
   const itemPayload = {
     product, spec, qty, actualYieldQty, due, origin, productExpDate, productMfgDate, productBatchNo, packagingDate, trayBatchNo, manualMaterialBatches, coa, coaConfirmBy, coaConfirmByCleared, coaDone, needsIrradiation, irradiationLabelConfirm, irradiationDestination, note, noteId, noteIdSrc,
+    vendorDirect: document.getElementById('fVendorDirect').checked,
     coaMoisture, coaWaterActivity, coaTotalPlateCount, coaColiform, coaEcoli,
     fillFormDate, fillFormTime,
     releaseBy, filledBy, warehouseConfirm,
@@ -12698,6 +12764,8 @@ document.getElementById('btnCloseMaterialPreview').onclick = ()=> document.getEl
 // 點畫面外面不會關閉（請用右上角「✕ 關閉」或下面的關閉按鈕）
 
 async function deductStockForItem(item, order){
+  if(item.vendorDirect){ item.stockDeductSkipped = true; return; } // 廠商直出：不生產，不扣原料
+  item.stockDeductSkipped = false;
   const bom = boms.find(b=>b.product === item.product);
   if(!bom || !bom.rows || bom.rows.length === 0) return;
   if(productIsHalal(item.product)){
@@ -12773,6 +12841,7 @@ async function deductStockForItem(item, order){
 }
 
 async function restoreStockForItem(item, order){
+  if(item.stockDeductSkipped){ item.stockDeductSkipped = false; return; } // 當初沒扣，就不用退
   const bom = boms.find(b=>b.product === item.product);
   if(!bom || !bom.rows || bom.rows.length === 0) return;
   const trace = item.materialTraceability || [];
