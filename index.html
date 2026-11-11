@@ -4025,8 +4025,8 @@ async function updateDoneItemBatch(order, item, changes){
         ob.stock = Math.round(((ob.stock || 0) - take) * 1000) / 1000;
         if(ob.stock <= 0) f.batches = f.batches.filter(b=> b !== ob);
         addFinishedGoodBatchStock(f, take, next.batchNo, next.mfg, next.exp);
-        logInventoryTransaction('finishedGood', f.id, f.product, 'out', old.batchNo, take, '標籤印製修改批號（移出）', order);
-        logInventoryTransaction('finishedGood', f.id, f.product, 'in', next.batchNo, take, '標籤印製修改批號（移入）', order);
+        logInventoryTransaction('finishedGood', f.id, f.product, 'out', old.batchNo, take, (item.status === 'refill' ? '充填包裝' : '標籤印製') + '修改批號（移出）', order);
+        logInventoryTransaction('finishedGood', f.id, f.product, 'in', next.batchNo, take, (item.status === 'refill' ? '充填包裝' : '標籤印製') + '修改批號（移入）', order);
         fgChanged = true;
       }
     }else if(ob){
@@ -4866,7 +4866,8 @@ function renderListInner(){
           '<div><span>產品有效日期</span><input type="date" class="lb-exp" ' + lbIds + ' value="' + escapeHtml(item.productExpDate || '') + '"></div>' +
           '<div><span>包材批號</span><input type="text" class="lb-tray" ' + lbIds + ' value="' + escapeHtml(item.trayBatchNo || '') + '" placeholder="包材批號" autocomplete="off"></div>' +
         '</div></div>' : '';
-      const doneEditHtml = (currentTab === 'done' && item.status === 'done') ? '<div class="simple-batch editable">' +
+      // 標籤印製、充填包裝：批號／製造日期／有效日期都還可以改（成品庫存批次跟著移），到裝箱確認以後就不能改
+      const doneEditHtml = ((currentTab === 'done' && item.status === 'done') || (currentTab === 'refill' && item.status === 'refill')) ? '<div class="simple-batch editable">' +
                 '<div><span>批號 ✎</span><input type="text" class="db-batch" data-db-oid="' + order.id + '" data-db-iid="' + item.id + '" value="' + escapeHtml(item.productBatchNo || '') + '" placeholder="未填" autocomplete="off"></div>' +
                 '<div><span>製造日期 ✎</span><input type="date" class="db-mfg" data-db-oid="' + order.id + '" data-db-iid="' + item.id + '" value="' + escapeHtml(item.productMfgDate || '') + '"></div>' +
                 '<div><span>有效日期 ✎</span><input type="date" class="db-exp" data-db-oid="' + order.id + '" data-db-iid="' + item.id + '" value="' + escapeHtml(item.productExpDate || '') + '"></div>' +
@@ -4901,7 +4902,7 @@ function renderListInner(){
             '<div class="simple-qty"><span>' + bi('數量') + '</span>' + escapeHtml(qtyWithUnit(item.qty, item)) + idQtySub(item) + '</div>' +
           '</div>' +
           '<div class="simple-sub">' + bi('出貨日') + ' <b>' + escapeHtml((item.due || '').slice(0,4) === String(new Date().getFullYear()) ? (item.due || '').slice(5).replace('-', '/') : (item.due || '').replace(/-/g, '/')) + '</b>' + dueChangedTag(item) + dueChangeBtn(order, item) + zonesTxt + (tags.length ? '　' + tags.join(' ') : '') + '</div>' +
-          (showBatch ? ((tab === 'done' && item.status === 'done')
+          (showBatch ? ((tab === 'done' && item.status === 'done') || (tab === 'refill' && item.status === 'refill')
             ? doneEditHtml
             : bigBatch
             ? '<div class="simple-batch">' +
