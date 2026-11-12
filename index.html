@@ -6222,6 +6222,16 @@ function findFgByCode(text){
   if(!t) return null;
   return (finishedGoods || []).find(f=> fgCodesOf(f).some(c=> c.toLowerCase() === t)) || null;
 }
+// 下單選品項：料號是「A-」開頭的產品排在最前面（其他照原本順序）
+function isAProduct(n){ return (finishedGoods || []).some(f=> f.product === n && fgCodesOf(f).some(c=> /^A-/i.test(c))); }
+function aCodeOf(n){ let best = ''; (finishedGoods || []).forEach(f=>{ if(f.product === n) fgCodesOf(f).forEach(c=>{ if(/^A-/i.test(c) && (!best || c.localeCompare(best, undefined, { numeric:true }) < 0)) best = c; }); }); return best; }
+function aFirst(names){ const a = [], b = []; names.forEach(n=> (isAProduct(n) ? a : b).push(n)); a.sort((x, y)=> aCodeOf(x).localeCompare(aCodeOf(y), undefined, { numeric:true })); return a.concat(b); }
+function codeOptionsHtml(){
+  const fgs = (finishedGoods || []).filter(f=> fgCodesOf(f).length);
+  const isA = f=> fgCodesOf(f).some(c=> /^A-/i.test(c));
+  const firstCode = f=> fgCodesOf(f).find(c=> /^A-/i.test(c)) || fgCodesOf(f)[0];
+  return fgs.filter(isA).sort((x, y)=> firstCode(x).localeCompare(firstCode(y), undefined, { numeric:true })).concat(fgs.filter(f=> !isA(f))).map(f=> '<option value="' + escapeHtml(fgCodesOf(f)[0]) + '" label="' + escapeHtml(f.product + (f.spec ? ' ' + f.spec : '')) + '">').join('');
+}
 function productOptionHtml(n){ const c = productCodeShort(n); return '<option value="' + escapeHtml(n) + '"' + (c ? ' label="' + escapeHtml(c) + '"' : '') + '>'; }
 function populateProductSuggestions(customerName){
   const listEl = document.getElementById('productSuggestions');
@@ -6235,8 +6245,7 @@ function populateProductSuggestions(customerName){
   listEl.innerHTML = orderedProducts.map(n=>'<option value="'+escapeHtml(n)+'">').join('');
   // 下單用的清單：品名旁邊帶料號，也可以直接打料號找產品
   const ol = document.getElementById('orderProductSuggestions');
-  if(ol) ol.innerHTML = orderedProducts.map(productOptionHtml).join('') +
-    (finishedGoods || []).filter(f=> fgCodesOf(f).length).map(f=> '<option value="' + escapeHtml(fgCodesOf(f)[0]) + '" label="' + escapeHtml(f.product + (f.spec ? ' ' + f.spec : '')) + '">').join('');
+  if(ol) ol.innerHTML = aFirst(orderedProducts).map(productOptionHtml).join('') + codeOptionsHtml();
 }
 function populateSupplierManufacturerSuggestions(){
   const suppliers = new Set();
@@ -6637,8 +6646,7 @@ function qoRefreshProductList(){
   const cust = document.getElementById('qoCustomer').value.trim();
   const mine = getProductsForCustomer(cust);
   const all = getAllKnownProductNames();
-  document.getElementById('qoProductList').innerHTML = mine.concat(all.filter(n=>!mine.includes(n))).map(productOptionHtml).join('') +
-    (finishedGoods || []).filter(f=> fgCodesOf(f).length).map(f=> '<option value="' + escapeHtml(fgCodesOf(f)[0]) + '" label="' + escapeHtml(f.product + (f.spec ? ' ' + f.spec : '')) + '">').join('');
+  document.getElementById('qoProductList').innerHTML = aFirst(mine.concat(all.filter(n=>!mine.includes(n)))).map(productOptionHtml).join('') + codeOptionsHtml();
 }
 function renderQoRecent(){
   const cust = document.getElementById('qoCustomer').value.trim();
