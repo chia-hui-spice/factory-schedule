@@ -671,6 +671,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 .exp-q.main{ flex:1 1 auto; border-color:var(--teal); color:var(--teal); background:rgba(45,212,191,0.10); font-size:16px; }
 .trash-item-who{ margin:4px 0; padding:5px 9px; border-radius:8px; background:rgba(229,72,77,0.10); border:1px solid rgba(229,72,77,0.4); font-size:14px; line-height:1.55; }
 .trash-item-who b{ color:var(--ink); }
+.item-code-tag{ display:inline-block; margin-left:8px; padding:1px 8px; border-radius:7px; border:1.5px solid var(--teal); color:var(--teal); font-family:var(--mono); font-size:14px; font-weight:800; vertical-align:middle; white-space:nowrap; }
 .code-line{ margin-top:4px; min-height:0; }
 .code-tag{ display:inline-block; font-size:14px; color:var(--ink-dim); }
 .code-tag b{ color:var(--teal); font-family:var(--mono); font-size:15px; }
@@ -4857,7 +4858,7 @@ function orderSummaryHtml(order){
     const rel = STATUS.indexOf(it.status) - STATUS.indexOf(currentTab);
     return '<div class="os-row' + (isHere ? ' here' : rel < 0 ? ' behind' : ' ahead') + (open ? ' open' : '') + '"' + (isHere ? ' data-jump-item="' + it.id + '"' : '') + '>' +
       '<span class="os-caret">' + (isHere ? (open ? '▾' : '▸') : '') + '</span>' +
-      '<span class="os-name">' + escapeHtml(it.product || '') + idNameLine(it.product) + (it.vendorDirect ? ' <span class="vd-badge" style="font-size:12px; padding:0 6px;">🏭 廠商直出</span>' : '') +
+      '<span class="os-name">' + escapeHtml(it.product || '') + idNameLine(it.product) + itemCodeTagHtml(it, currentTab) + (it.vendorDirect ? ' <span class="vd-badge" style="font-size:12px; padding:0 6px;">🏭 廠商直出</span>' : '') +
         (it.boxCode ? '<span class="os-boxcode">📦 ' + escapeHtml(it.boxCode) + '</span>' : '') +
         splitTagHtml(order, it) + (it.spec ? '<span class="os-spec">' + escapeHtml(it.spec) + idSpecSub(it.spec) + '</span>' : '') +
         (it.note ? '<span class="os-note">📝 ' + escapeHtml(it.note) + idNoteBlock(order, it) + '</span>' : '') +
@@ -5158,7 +5159,7 @@ function renderListInner(){
         const fmtD = (d)=> escapeHtml(String(d).replace(/-/g,'/'));
         itemsHtml += '<div class="item-row simple-row pri-' + item.priority + (overdue ? ' overdue' : '') + '" data-item-row="' + item.id + '">' +
           '<div class="simple-main">' +
-            '<div class="simple-name">' + escapeHtml(item.product) + idNameLine(item.product) + (item.spec ? '<div class="simple-spec">' + escapeHtml(item.spec) + idSpecSub(item.spec) + '</div>' : '') + '</div>' +
+ '<div class="simple-name">' + escapeHtml(item.product) + idNameLine(item.product) + itemCodeTagHtml(item, currentTab) + (item.spec ? '<div class="simple-spec">' + escapeHtml(item.spec) + idSpecSub(item.spec) + '</div>' : '') + '</div>' +
             '<div class="simple-qty"><span>' + bi('數量') + '</span>' + escapeHtml(qtyWithUnit(item.qty, item)) + idQtySub(item) + '</div>' +
           '</div>' +
           '<div class="simple-sub">' + bi('出貨日') + ' <b>' + escapeHtml((item.due || '').slice(0,4) === String(new Date().getFullYear()) ? (item.due || '').slice(5).replace('-', '/') : (item.due || '').replace(/-/g, '/')) + '</b>' + dueChangedTag(item) + dueChangeBtn(order, item) + zonesTxt + (tags.length ? '　' + tags.join(' ') : '') + '</div>' +
@@ -5192,7 +5193,7 @@ function renderListInner(){
         return;
       }
       itemsHtml += '<div class="item-row pri-' + item.priority + (overdue ? ' overdue' : '') + '" data-item-row="' + item.id + '">' +
-        '<div class="item-top"><div><div class="item-product">' + escapeHtml(item.product) + idNameLine(item.product) + (item.spec ? '<span class="item-spec"> ・ ' + escapeHtml(item.spec) + idSpecSub(item.spec) + '</span>' : '') + '</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">' + badges + '</div></div>' +
+        '<div class="item-top"><div><div class="item-product">' + escapeHtml(item.product) + idNameLine(item.product) + itemCodeTagHtml(item, currentTab) + (item.spec ? '<span class="item-spec"> ・ ' + escapeHtml(item.spec) + idSpecSub(item.spec) + '</span>' : '') + '</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">' + badges + '</div></div>' +
         '<div class="item-meta">' + metaBits.join('') + '</div>' +
         vendorDirectHtml(order, item) +
         ((currentTab === 'boxing' && item.status === 'boxing') ? '' : boxCodeTagHtml(item)) +
@@ -6231,6 +6232,17 @@ function codeOptionsHtml(){
   const isA = f=> fgCodesOf(f).some(c=> /^A-/i.test(c));
   const firstCode = f=> fgCodesOf(f).find(c=> /^A-/i.test(c)) || fgCodesOf(f)[0];
   return fgs.filter(isA).sort((x, y)=> firstCode(x).localeCompare(firstCode(y), undefined, { numeric:true })).concat(fgs.filter(f=> !isA(f))).map(f=> '<option value="' + escapeHtml(fgCodesOf(f)[0]) + '" label="' + escapeHtml(f.product + (f.spec ? ' ' + f.spec : '')) + '">').join('');
+}
+// 訂單確認、庫存確認：品項旁邊顯示料號
+function itemCodeText(it){
+  const f = (finishedGoods || []).find(x=> x.product === it.product && (x.spec || '') === (it.spec || ''))
+         || (finishedGoods || []).find(x=> x.product === it.product && fgCodesOf(x).length);
+  return f ? fgCodesOf(f).join('／') : '';
+}
+function itemCodeTagHtml(it, tab){
+  if(!(tab === 'pending' || tab === 'inprogress')) return '';
+  const c = itemCodeText(it);
+  return c ? '<span class="item-code-tag">料號 ' + escapeHtml(c) + '</span>' : '';
 }
 function productOptionHtml(n){ const c = productCodeShort(n); return '<option value="' + escapeHtml(n) + '"' + (c ? ' label="' + escapeHtml(c) + '"' : '') + '>'; }
 function populateProductSuggestions(customerName){
