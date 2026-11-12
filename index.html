@@ -874,7 +874,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
               <input type="text" id="fProductExpDate" placeholder="YYYY/MM/DD" inputmode="numeric">
               <input type="date" id="fProductExpDate_native" class="flex-date-native-btn">
             </div>
-            <div class="exp-quick"><button type="button" class="exp-q main" data-expq="24" data-expq-kind="sheet">2年</button><button type="button" class="exp-q" data-expq="12" data-expq-kind="sheet">1年</button><button type="button" class="exp-q" data-expq="36" data-expq-kind="sheet">3年</button></div>
+            <div class="exp-quick"><button type="button" class="exp-q main" data-expq="24" data-expq-kind="sheet">2年</button><button type="button" class="exp-q" data-expq="36" data-expq-kind="sheet">3年</button><button type="button" class="exp-q" data-expq="60" data-expq-kind="sheet">5年</button></div>
           </div>
           <div class="field">
             <label class="i18n">包材批號</label>
@@ -3473,7 +3473,7 @@ const ID_PHRASES = {
   '原料批號 / 日期':'No. batch bahan / Tanggal', '廠商直出（只貼標）':'Langsung dari pemasok (hanya label)', '廠商直出':'Langsung dari pemasok',
   '廠商批號':'No. batch pemasok', '廠商製造日期':'Tgl produksi pemasok', '廠商有效日期':'Tgl kedaluwarsa pemasok',
   '廠商製造日期（可不填）':'Tgl produksi pemasok (opsional)', '廠商有效日期（可不填）':'Tgl kedaluwarsa pemasok (opsional)', '產品製造日期（可不填）':'Tgl produksi produk (opsional)',
-  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '2年':'2 thn', '1年':'1 thn', '3年':'3 thn', '還沒到這步':'Belum sampai sini', '這一步要做':'Kerjakan di sini', '點這一列填寫':'Ketuk baris untuk isi', '已過這步':'Sudah lewat', '目前在':'Sekarang di', '已完成':'Selesai', '已出貨':'Sudah dikirim', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
+  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '2年':'2 thn', '1年':'1 thn', '3年':'3 thn', '5年':'5 thn', '還沒到這步':'Belum sampai sini', '這一步要做':'Kerjakan di sini', '點這一列填寫':'Ketuk baris untuk isi', '已過這步':'Sudah lewat', '目前在':'Sekarang di', '已完成':'Selesai', '已出貨':'Sudah dikirim', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
   '設為廠商直出（只貼標）':'Set: langsung dari pemasok', '點一下取消':'ketuk untuk batal', '廠商批號 / 日期':'No. batch pemasok / Tanggal',
   '產品批號 / 日期（印在標籤上）':'No. batch produk / Tanggal (di label)', '輸入廠商批號':'Ketik no. batch pemasok',   '需要COA（隨貨附）　請填寫原料批號':'Perlu COA (ikut barang) — isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
   '（隨貨附），出貨確認後將進入品管抽樣確認':'(ikut barang), setelah kirim akan dicek sampel QC', '今天':'Hari ini', '明天':'Besok',
@@ -11696,7 +11696,7 @@ function shouldAutoExp(item){
 }
 // 有效日期旁邊的快速按鈕：點「2年」＝ 製造日期 + 2 年 − 1 天
 function expQuickBtns(kind, oid, iid){
-  return '<div class="exp-quick">' + [[24,'2年',1],[12,'1年',0],[36,'3年',0]].map(([m, t, main])=>
+  return '<div class="exp-quick">' + [[24,'2年',1],[36,'3年',0],[60,'5年',0]].map(([m, t, main])=>
     '<button type="button" class="exp-q' + (main ? ' main' : '') + '" data-expq="' + m + '" data-expq-kind="' + kind + '"' + (oid ? ' data-expq-oid="' + oid + '" data-expq-iid="' + iid + '"' : '') + '>' + t + '</button>').join('') + '</div>';
 }
 function shelfLifeText(item){ const m = itemShelfLifeMonths(item); return m ? (m % 12 === 0 ? (m / 12) + ' 年' : m + ' 個月') : ''; }
