@@ -2446,7 +2446,7 @@ const ID_DICT = {
   // 生產階段
   '訂單確認':'Konfirmasi Pesanan', '庫存確認':'Konfirmasi Stok', '排程生產':'Jadwal Produksi', '標籤印製':'Cetak Label',
   '充填包裝':'Pengisian & Pengemasan', '裝箱確認':'Konfirmasi Pengemasan Kotak', '出貨確認':'Konfirmasi Pengiriman',
-  '已完成':'Selesai', '品管COA':'COA Kontrol Kualitas',
+  '已完成':'Selesai', '已出貨':'Sudah dikirim', '品管COA':'COA Kontrol Kualitas',
   // 推進按鈕
   '訂單確認完成':'Konfirmasi Pesanan Selesai', '庫存確認無庫存請生產':'Stok Tidak Cukup, Mohon Produksi',
   '排程生產完成':'Jadwal Produksi Selesai', '標籤印製完成':'Cetak Label Selesai', '充填包裝完成':'Pengisian & Pengemasan Selesai',
@@ -2542,7 +2542,7 @@ const EN_DICT = {
   // 生產階段
   '訂單確認':'Order Confirmation', '庫存確認':'Stock Check', '排程生產':'Production Schedule', '標籤印製':'Label Printing',
   '充填包裝':'Filling & Packing', '裝箱確認':'Boxing Confirmation', '出貨確認':'Shipping Confirmation',
-  '已完成':'Completed', '品管COA':'QC / COA',
+  '已完成':'Completed', '已出貨':'Shipped', '品管COA':'QC / COA',
   // 推進按鈕
   '訂單確認完成':'Order Confirmed', '庫存確認無庫存請生產':'Insufficient Stock, Start Production',
   '排程生產完成':'Production Scheduled', '標籤印製完成':'Labels Printed', '充填包裝完成':'Filling & Packing Done',
@@ -2642,8 +2642,8 @@ function t(zh){
 function makeI18nProxy(target){
   return new Proxy(target, { get(obj, key){ return t(obj[key]); } });
 }
-const STATUS_LABEL_RAW = { pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'已完成', coa:'品管COA', cancelled:'已取消' };
-const STATUS_LABEL = makeI18nProxy({ pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'已完成', coa:'品管COA', cancelled:'🚫 已取消' });
+const STATUS_LABEL_RAW = { pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'已出貨', coa:'品管COA', cancelled:'已取消' };
+const STATUS_LABEL = makeI18nProxy({ pending:'訂單確認', inprogress:'庫存確認', labeling:'排程生產', done:'標籤印製', refill:'充填包裝', boxing:'裝箱確認', shipped:'出貨確認', qc:'已出貨', coa:'品管COA', cancelled:'🚫 已取消' });
 const ID_FORWARD = { pending:'Konfirmasi pesanan selesai', inprogress:'Stok tidak cukup, mohon produksi', labeling:'Jadwal produksi selesai', done:'Cetak label selesai', refill:'Pengisian & pengemasan selesai', boxing:'Pengemasan dus selesai', shipped:'Pengiriman selesai' };
 const STATUS_FORWARD_LABEL_RAW_ZH = { pending:'訂單確認完成', inprogress:'庫存確認無庫存請生產', labeling:'排程生產完成', done:'標籤印製完成', refill:'充填包裝完成', boxing:'裝箱確認完成', shipped:'出貨確認完成' };
 const STATUS_FORWARD_LABEL = makeI18nProxy({ pending:'訂單確認完成', inprogress:'庫存確認無庫存請生產', labeling:'排程生產完成', done:'標籤印製完成', refill:'充填包裝完成', boxing:'裝箱確認完成', shipped:'出貨確認完成' });
@@ -3473,7 +3473,7 @@ const ID_PHRASES = {
   '原料批號 / 日期':'No. batch bahan / Tanggal', '廠商直出（只貼標）':'Langsung dari pemasok (hanya label)', '廠商直出':'Langsung dari pemasok',
   '廠商批號':'No. batch pemasok', '廠商製造日期':'Tgl produksi pemasok', '廠商有效日期':'Tgl kedaluwarsa pemasok',
   '廠商製造日期（可不填）':'Tgl produksi pemasok (opsional)', '廠商有效日期（可不填）':'Tgl kedaluwarsa pemasok (opsional)', '產品製造日期（可不填）':'Tgl produksi produk (opsional)',
-  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '2年':'2 thn', '1年':'1 thn', '3年':'3 thn', '還沒到這步':'Belum sampai sini', '這一步要做':'Kerjakan di sini', '點這一列填寫':'Ketuk baris untuk isi', '已過這步':'Sudah lewat', '目前在':'Sekarang di', '已完成':'Selesai', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
+  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '2年':'2 thn', '1年':'1 thn', '3年':'3 thn', '還沒到這步':'Belum sampai sini', '這一步要做':'Kerjakan di sini', '點這一列填寫':'Ketuk baris untuk isi', '已過這步':'Sudah lewat', '目前在':'Sekarang di', '已完成':'Selesai', '已出貨':'Sudah dikirim', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
   '設為廠商直出（只貼標）':'Set: langsung dari pemasok', '點一下取消':'ketuk untuk batal', '廠商批號 / 日期':'No. batch pemasok / Tanggal',
   '產品批號 / 日期（印在標籤上）':'No. batch produk / Tanggal (di label)', '輸入廠商批號':'Ketik no. batch pemasok',   '需要COA（隨貨附）　請填寫原料批號':'Perlu COA (ikut barang) — isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
   '（隨貨附），出貨確認後將進入品管抽樣確認':'(ikut barang), setelah kirim akan dicek sampel QC', '今天':'Hari ini', '明天':'Besok',
@@ -4812,7 +4812,7 @@ function cancelledBoxHtml(order){
 function stagePillHtml(it){
   const rel = STATUS.indexOf(it.status) - STATUS.indexOf(currentTab);
   const name = STATUS_LABEL[it.status];
-  if(it.status === 'qc') return '<span class="stage-pill ahead sp-qc"><small>✅ 已完成</small></span>';
+  if(it.status === 'qc') return '<span class="stage-pill ahead sp-qc"><small>🚚 已出貨</small></span>';
   if(rel === 0) return '<span class="stage-pill now sp-' + it.status + '"><small>👉 這一步要做</small><b>' + name + '</b><span class="sp-now">點這一列填寫</span></span>';
   if(rel < 0) return '<span class="stage-pill behind sp-' + it.status + '"><small>⏳ 還沒到這步</small><span class="sp-now">目前在</span><b>' + name + '</b></span>';
   return '<span class="stage-pill ahead sp-' + it.status + '"><small>✅ 已過這步</small><span class="sp-now">目前在</span><b>' + name + '</b></span>';
@@ -5054,7 +5054,7 @@ function renderListInner(){
       }else{
         actionsHtml =
           '<button class="btn btn-back" data-act="back" data-oid="'+order.id+'" data-iid="'+item.id+'">‹</button>' +
-          '<button class="btn btn-done-label" disabled>已完成</button>' +
+          '<button class="btn btn-done-label" disabled>已出貨</button>' +
           '<button class="btn btn-edit" data-act="edit" data-oid="'+order.id+'" data-iid="'+item.id+'">✎</button>';
       }
 
@@ -8864,6 +8864,7 @@ document.getElementById('btnImportBackup').onclick = async ()=>{
 
     const STATUS_LABEL_REVERSE = {};
     Object.keys(STATUS_LABEL_RAW).forEach(k=>{ STATUS_LABEL_REVERSE[STATUS_LABEL_RAW[k]] = k; });
+    STATUS_LABEL_REVERSE['已完成'] = 'qc'; // 舊備份檔的寫法
 
     function parseShipMethod(text){
       if(!text) return '';
