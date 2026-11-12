@@ -6233,14 +6233,14 @@ function codeOptionsHtml(){
   const firstCode = f=> fgCodesOf(f).find(c=> /^A-/i.test(c)) || fgCodesOf(f)[0];
   return fgs.filter(isA).sort((x, y)=> firstCode(x).localeCompare(firstCode(y), undefined, { numeric:true })).concat(fgs.filter(f=> !isA(f))).map(f=> '<option value="' + escapeHtml(fgCodesOf(f)[0]) + '" label="' + escapeHtml(f.product + (f.spec ? ' ' + f.spec : '')) + '">').join('');
 }
-// 訂單確認、庫存確認：品項旁邊顯示料號
+// 訂單確認、庫存確認、排程生產：品項旁邊顯示料號
 function itemCodeText(it){
   const f = (finishedGoods || []).find(x=> x.product === it.product && (x.spec || '') === (it.spec || ''))
          || (finishedGoods || []).find(x=> x.product === it.product && fgCodesOf(x).length);
   return f ? fgCodesOf(f).join('／') : '';
 }
 function itemCodeTagHtml(it, tab){
-  if(!(tab === 'pending' || tab === 'inprogress')) return '';
+  if(!(tab === 'pending' || tab === 'inprogress' || tab === 'labeling')) return '';
   const c = itemCodeText(it);
   return c ? '<span class="item-code-tag">料號 ' + escapeHtml(c) + '</span>' : '';
 }
