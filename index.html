@@ -672,6 +672,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 .trash-item-who{ margin:4px 0; padding:5px 9px; border-radius:8px; background:rgba(229,72,77,0.10); border:1px solid rgba(229,72,77,0.4); font-size:14px; line-height:1.55; }
 .trash-item-who b{ color:var(--ink); }
 .item-code-tag{ display:inline-block; margin-left:8px; padding:1px 8px; border-radius:7px; border:1.5px solid var(--teal); color:var(--teal); font-family:var(--mono); font-size:14px; font-weight:800; vertical-align:middle; white-space:nowrap; }
+.item-code-tag.none{ border-style:dashed; border-color:var(--ink-dim); color:var(--ink-dim); font-family:inherit; font-size:12.5px; font-weight:700; }
 .code-line{ margin-top:4px; min-height:0; }
 .code-tag{ display:inline-block; font-size:14px; color:var(--ink-dim); }
 .code-tag b{ color:var(--teal); font-family:var(--mono); font-size:15px; }
@@ -1293,6 +1294,12 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
       <div class="backup-info" id="backupInfo">尚未有備份紀錄</div>
       <div class="sheet-actions" style="margin-top:0;">
         <button type="button" class="i18n btn-primary" id="btnExportBackup">📥 匯出 Excel（含垃圾桶）</button>
+      </div>
+
+      <div class="section-label">📦 訂單資料量／封存</div>
+      <div class="report-updated" id="archiveInfo" style="margin-bottom:8px; line-height:1.7;"></div>
+      <div class="sheet-actions" style="margin-top:0; margin-bottom:14px;">
+        <button type="button" class="btn-secondary" id="btnArchiveNow">📦 現在就封存所有已出貨的訂單</button>
       </div>
 
       <div class="section-label i18n">從備份還原資料</div>
@@ -2817,7 +2824,7 @@ document.addEventListener('keydown', (e)=>{
 // ---- 客戶名稱提示：打到任何一段關鍵字就跳出符合的客戶（電腦、iPad 都一樣），點一下就填入 ----
 function customerSuggestList(q){
   const info = new Map(); // 名稱 -> { last, count }
-  orders.forEach(o=>{
+  historyOrders().forEach(o=>{
     const n = (o.customer || '').trim(); if(!n) return;
     if(!(o.items||[]).some(it=>!it.deleted)) return;
     const t = (typeof orderCreatedDate === 'function' ? orderCreatedDate(o) : 0) || 0;
@@ -3103,9 +3110,133 @@ let checklistState = { c1:false, c2:false, c3:false, c4:false };
 
 function activeOrders(){ return orders; }
 
+// ---- 📦 已出貨訂單封存：訂單文件有 1MB 上限，已全部出貨（或取消）一段時間的訂單移到「封存」文件 ----
+// 封存的訂單只是換地方放：統計報表、訂單查詢、客戶歷史、備份都照樣查得到，只是不能再修改
+let archivedOrders = [];                 // 從封存文件讀進來的（唯讀）
+const archiveDocsData = new Map();       // docId -> list
+const archiveSubscribed = new Set();
+const archiveIndexRef = doc(db, dataPrefix, 'ordersArchiveIndex');
+const ARCHIVE_AFTER_DAYS = 7;            // 全部出貨後 7 天自動封存
+const ARCHIVE_DOC_LIMIT = 900 * 1024;    // 每份封存文件最多放約 900KB
+let lastOrdersBytes = 0;
+function historyOrders(){
+  const ids = new Set(orders.map(o=> o.id));
+  return orders.concat(archivedOrders.filter(o=> !ids.has(o.id)));
+}
+function findOrderAny(id){ return orders.find(o=> o.id === id) || archivedOrders.find(o=> o.id === id) || null; }
+function rebuildArchivedOrders(){
+  const out = [];
+  archiveDocsData.forEach(list=> (list || []).forEach(o=>{ o._archived = true; if(!o.items) o.items = []; out.push(o); }));
+  archivedOrders = out;
+}
+function subscribeArchiveDoc(id){
+  if(archiveSubscribed.has(id)) return;
+  archiveSubscribed.add(id);
+  onSnapshot(doc(db, dataPrefix, id), (snap)=>{
+    archiveDocsData.set(id, (snap.exists() && snap.data().list) ? snap.data().list : []);
+    rebuildArchivedOrders();
+    try{ renderArchiveInfo(); }catch(e){}
+  }, (err)=> console.error(err));
+}
+function loadArchives(){
+  onSnapshot(archiveIndexRef, (snap)=>{
+    const ids = (snap.exists() && snap.data().docs) ? snap.data().docs : [];
+    ids.forEach(subscribeArchiveDoc);
+  }, (err)=> console.error(err));
+}
+// 這張訂單可不可以封存：沒有在垃圾桶的品項，全部都已出貨（或已取消），而且最後一項出貨已經超過 minDays 天
+function orderArchivableAt(o){
+  const items = o.items || [];
+  if(!items.length) return 0;
+  let t = 0;
+  for(const it of items){
+    if(it.deleted) return -1;
+    if(it.status === 'qc') t = Math.max(t, it.qcAt || it.shippedAt || it.completedAt || 0);
+    else if(it.status === 'cancelled') t = Math.max(t, (it.cancelInfo && it.cancelInfo.at) || 0);
+    else return -1;
+  }
+  if(!t){ const d = orderCreatedDate(o); t = d ? d.getTime() : 1; }
+  return t;
+}
+function archiveMonthKey(o){
+  const d = orderCreatedDate(o) || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+let archiveRunning = false;
+async function archiveCompletedOrders(minDays, silent){
+  if(archiveRunning) return 0;
+  archiveRunning = true;
+  let moved = 0;
+  try{
+    await runTransaction(db, async (tx)=>{
+      moved = 0;
+      const snap = await tx.get(ordersDocRef);
+      const list = (snap.exists() && snap.data().list) ? snap.data().list : [];
+      const idxSnap = await tx.get(archiveIndexRef);
+      const idxDocs = (idxSnap.exists() && idxSnap.data().docs) ? idxSnap.data().docs.slice() : [];
+      const cutoff = Date.now() - minDays * 86400000;
+      const pick = list.filter(o=>{ const t = orderArchivableAt(o); return t > 0 && t <= cutoff; });
+      if(!pick.length) return;
+      // 依訂單月份分組，每個月份接在最後一份封存文件後面（超過上限就開新的一份）
+      const byMonth = new Map();
+      pick.forEach(o=>{ const k = archiveMonthKey(o); if(!byMonth.has(k)) byMonth.set(k, []); byMonth.get(k).push(o); });
+      const reads = new Map();
+      for(const k of byMonth.keys()){
+        const base = 'ordersArchive_' + k;
+        const parts = idxDocs.filter(id=> id === base || id.startsWith(base + '_'));
+        const last = parts.length ? parts[parts.length - 1] : base;
+        const ds = await tx.get(doc(db, dataPrefix, last));
+        reads.set(k, { base, last, list: (ds.exists() && ds.data().list) ? ds.data().list : [], partNo: parts.length || 1 });
+      }
+      const writes = [];
+      byMonth.forEach((orders_, k)=>{
+        const r = reads.get(k);
+        let curId = r.last, cur = r.list.slice(), partNo = r.partNo;
+        const have = new Set(cur.map(o=> o.id));
+        orders_.forEach(o=>{
+          if(have.has(o.id)) return;
+          const trial = JSON.stringify({ list: cur.concat([o]) }).length;
+          if(trial > ARCHIVE_DOC_LIMIT && cur.length){
+            writes.push([curId, cur]);
+            partNo++; curId = r.base + '_' + partNo; cur = [];
+          }
+          cur.push(o); have.add(o.id);
+        });
+        writes.push([curId, cur]);
+      });
+      const pickIds = new Set(pick.map(o=> o.id));
+      writes.forEach(([id, l])=>{ tx.set(doc(db, dataPrefix, id), { list: l }); if(!idxDocs.includes(id)) idxDocs.push(id); });
+      tx.set(archiveIndexRef, { docs: idxDocs, updatedAt: Date.now() });
+      tx.set(ordersDocRef, { list: list.filter(o=> !pickIds.has(o.id)) });
+      moved = pick.length;
+    });
+    if(moved && !silent) showToast('📦 已封存 ' + moved + ' 張已出貨的舊訂單（統計報表、訂單查詢照樣查得到）');
+  }catch(e){
+    console.error(e);
+    if(!silent) showAlert('封存失敗，請確認網路後再試一次。（' + (e && (e.message || e.code) || e) + '）', '❌ 封存失敗');
+    moved = -1;
+  }finally{ archiveRunning = false; }
+  return moved;
+}
+// 每天自動封存一次；訂單資料量超過 75% 就不等 7 天，已出貨的全部封存
+let lastAutoArchiveDay = '';
+async function autoArchiveIfNeeded(){
+  const today = todayStr();
+  const big = lastOrdersBytes > 1048576 * 0.75;
+  if(!big && lastAutoArchiveDay === today) return;
+  lastAutoArchiveDay = today;
+  await archiveCompletedOrders(big ? 0 : ARCHIVE_AFTER_DAYS, true);
+}
+function renderArchiveInfo(){
+  const el = document.getElementById('archiveInfo'); if(!el) return;
+  const kb = lastOrdersBytes ? Math.round(lastOrdersBytes / 1024) : 0;
+  el.innerHTML = '目前訂單資料量：<b>' + kb + ' KB</b> / 上限約 1024 KB' + (kb > 750 ? ' <b style="color:var(--red);">（快滿了）</b>' : '') +
+    '<br>已封存的舊訂單：<b>' + archivedOrders.length + '</b> 張（出貨 ' + ARCHIVE_AFTER_DAYS + ' 天後自動封存；統計報表、訂單查詢、備份都查得到）';
+}
+
 function allActiveItems(){
   const list = [];
-  orders.forEach(o=>{
+  historyOrders().forEach(o=>{
     (o.items||[]).forEach(it=>{
       if(!it.deleted) list.push({ order:o, item:it });
     });
@@ -3429,7 +3560,7 @@ function loadIdNames(){
 }
 function idAllProductNames(){
   const set = new Set();
-  orders.forEach(o=> (o.items || []).forEach(it=>{ if(!it.deleted && it.product) set.add(String(it.product).trim()); }));
+  historyOrders().forEach(o=> (o.items || []).forEach(it=>{ if(!it.deleted && it.product) set.add(String(it.product).trim()); }));
   (finishedGoods || []).forEach(f=>{ if(f.product) set.add(String(f.product).trim()); });
   Object.keys(idNames).forEach(k=> set.add(k));
   return Array.from(set).filter(Boolean).sort((a,b)=> a.localeCompare(b, 'zh-Hant'));
@@ -3710,6 +3841,7 @@ function loadOrders(){
   onSnapshot(ordersDocRef, async (snap)=>{
     const serverList = (snap.exists() && snap.data().list) ? snap.data().list : [];
     serverList.forEach(o=>{ if(!o.items) o.items = []; });
+    try{ lastOrdersBytes = new Blob([JSON.stringify({ list: serverList })]).size; renderArchiveInfo(); }catch(e){}
     try{ detectNewConfirmedOrders(serverList); }catch(e){ console.error(e); }
     // 不直接整份取代：這台裝置還沒存進雲端的修改要保留，其他品項用雲端最新的
     applyOrdersInPlace(mergeOrderLists(serverList, orders));
@@ -3722,6 +3854,7 @@ function loadOrders(){
       firstOrdersSnapshotHandled = true;
       autoBackupIfNeeded();
     }
+    setTimeout(()=>{ autoArchiveIfNeeded(); }, 3000);
   }, (err)=>{
     console.error(err);
     showToast('連線 Firebase 失敗，請檢查設定與網路');
@@ -3816,7 +3949,7 @@ function applyOrdersInPlace(merged){
   });
 }
 
-async function saveOrders(){
+async function saveOrders(_retried){
   const FIRESTORE_DOC_LIMIT = 1048576; // 1MB
   let merged = null, tooBig = 0, localAtMerge = null;
   try{
@@ -3826,6 +3959,7 @@ async function saveOrders(){
       localAtMerge = snapshotLocalOrders();
       merged = mergeOrderLists(serverList, orders);
       const bytes = new Blob([JSON.stringify({ list: merged })]).size;
+      lastOrdersBytes = bytes;
       if(bytes > FIRESTORE_DOC_LIMIT * 0.95){ tooBig = bytes; throw new Error('ORDERS_TOO_BIG'); }
       tx.set(ordersDocRef, { list: merged });
     });
@@ -3834,6 +3968,11 @@ async function saveOrders(){
     return true;
   }catch(e){
     console.error(e);
+    // 資料太大：先把已出貨的訂單封存，再自動重存一次
+    if(!_retried && (tooBig || (e && (e.code === 'invalid-argument' || /longer than|exceeds|too large|maximum size/i.test(e.message||''))))){
+      const moved = await archiveCompletedOrders(0, true);
+      if(moved > 0){ showToast('📦 資料量太大，已自動封存 ' + moved + ' 張已出貨訂單，重新儲存中…'); return await saveOrders(true); }
+    }
     if(tooBig || (e && (e.code === 'invalid-argument' || /longer than|exceeds|too large|maximum size/i.test(e.message||'')))){
       showAlert('這次的變更沒有存進雲端，畫面會回到上一次成功儲存的狀態。\n原因：訂單資料量太大了' + (tooBig ? '（約 ' + (tooBig/1024).toFixed(0) + 'KB，上限約 1024KB）' : '') + '。\n請聯絡系統管理員處理，或先清空垃圾桶、刪除很久以前已出貨的舊訂單。', '❌ 儲存失敗');
     }else{
@@ -4701,7 +4840,7 @@ function qtyWithUnit(qty, item, fg, withTotal){
 // 庫存確認：品項還沒選生產線時，用「同一個產品上一次的生產線」當預設
 function lastZonesForProduct(product, exceptId){
   let best = null, bestAt = -1;
-  orders.forEach(o=> (o.items || []).forEach(it=>{
+  historyOrders().forEach(o=> (o.items || []).forEach(it=>{
     if(it.deleted || it.id === exceptId || it.product !== product || !it.productionZones || !it.productionZones.length) return;
     const at = o.createdAt || 0;
     if(at > bestAt){ bestAt = at; best = it.productionZones; }
@@ -4727,7 +4866,7 @@ const VD_FORWARD_LABEL = { inprogress:'🏷 送標籤印製（廠商直出）', 
 // ---- 📦 箱子 Code：有些客戶裝箱要放他們的箱子 code。下單時填，同客戶同產品下次自動帶上次的 ----
 function lastBoxCodeFor(customer, product, spec){
   let best = '', bestAt = -1;
-  orders.forEach(o=>{
+  historyOrders().forEach(o=>{
     if((o.customer || '') !== customer) return;
     (o.items || []).forEach(it=>{
       if(it.deleted || it.product !== product || !it.boxCode) return;
@@ -4743,7 +4882,7 @@ function boxCodeTagHtml(item){
 }
 function lastVendorDirectFor(product){
   let best = null, bestAt = -1;
-  orders.forEach(o=> (o.items || []).forEach(it=>{
+  historyOrders().forEach(o=> (o.items || []).forEach(it=>{
     if(it.deleted || it.product !== product) return;
     const at = o.createdAt || 0;
     if(at > bestAt){ bestAt = at; best = !!it.vendorDirect; }
@@ -5524,6 +5663,7 @@ function renderListInner(){
       const wasLabeling = item.status === 'labeling';
       const wasBoxing = item.status === 'boxing';
       const wasDone = item.status === 'done';
+      if(nextStatus === 'qc') item.qcAt = Date.now();
       const prevStatus = item.status, prevCompletedAt = item.completedAt, prevShippedAt = item.shippedAt;
       if(item.status === 'pending') localConfirmedIds.add(item.id);
       item.status = nextStatus;
@@ -6177,7 +6317,7 @@ const ALL_SPEC_OPTIONS = [
 function getSpecsForProduct(productName){
   if(!productName) return [];
   const specs = new Set();
-  orders.forEach(o=> (o.items||[]).forEach(it=>{
+  historyOrders().forEach(o=> (o.items||[]).forEach(it=>{
     if(it.product === productName && it.spec) specs.add(it.spec);
   }));
   finishedGoods.forEach(f=>{
@@ -6187,14 +6327,14 @@ function getSpecsForProduct(productName){
 }
 function getAllKnownProductNames(){
   const names = new Set();
-  orders.forEach(o=> (o.items||[]).forEach(it=>{ if(it.product) names.add(it.product); }));
+  historyOrders().forEach(o=> (o.items||[]).forEach(it=>{ if(it.product) names.add(it.product); }));
   finishedGoods.forEach(f=>{ if(f.product) names.add(f.product); });
   return Array.from(names).sort();
 }
 function getProductsForCustomer(customerName){
   if(!customerName) return [];
   const names = new Set();
-  orders.forEach(o=>{
+  historyOrders().forEach(o=>{
     if(o.customer === customerName){
       (o.items||[]).forEach(it=>{ if(it.product) names.add(it.product); });
     }
@@ -6234,15 +6374,17 @@ function codeOptionsHtml(){
   return fgs.filter(isA).sort((x, y)=> firstCode(x).localeCompare(firstCode(y), undefined, { numeric:true })).concat(fgs.filter(f=> !isA(f))).map(f=> '<option value="' + escapeHtml(fgCodesOf(f)[0]) + '" label="' + escapeHtml(f.product + (f.spec ? ' ' + f.spec : '')) + '">').join('');
 }
 // 訂單確認、庫存確認、排程生產：品項旁邊顯示料號
+// 料號是跟著「品名＋規格」：同一個產品不同規格可以有不同料號，只顯示這個規格自己的料號
 function itemCodeText(it){
-  const f = (finishedGoods || []).find(x=> x.product === it.product && (x.spec || '') === (it.spec || ''))
-         || (finishedGoods || []).find(x=> x.product === it.product && fgCodesOf(x).length);
+  const f = (finishedGoods || []).find(x=> x.product === it.product && (x.spec || '') === (it.spec || ''));
   return f ? fgCodesOf(f).join('／') : '';
 }
 function itemCodeTagHtml(it, tab){
   if(!(tab === 'pending' || tab === 'inprogress' || tab === 'labeling')) return '';
   const c = itemCodeText(it);
-  return c ? '<span class="item-code-tag">料號 ' + escapeHtml(c) + '</span>' : '';
+  if(c) return '<span class="item-code-tag">料號 ' + escapeHtml(c) + '</span>';
+  const other = (finishedGoods || []).some(x=> x.product === it.product && fgCodesOf(x).length);
+  return other ? '<span class="item-code-tag none">這個規格還沒建料號</span>' : '';
 }
 function productOptionHtml(n){ const c = productCodeShort(n); return '<option value="' + escapeHtml(n) + '"' + (c ? ' label="' + escapeHtml(c) + '"' : '') + '>'; }
 function populateProductSuggestions(customerName){
@@ -6500,6 +6642,11 @@ function openSheetInner(order, item){
 
   document.getElementById('btnDelete').style.display = (item && canDeleteOrders()) ? 'block' : 'none';
   updateSheetCancelUI(item);
+  if(order && order._archived){
+    document.getElementById('btnSave').style.display = 'none';
+    ['btnCancelItem','btnRestoreItem','btnDelete'].forEach(id=>{ const b = document.getElementById(id); if(b) b.style.display = 'none'; });
+    showToast('📦 這是已封存的舊訂單，只能查看，不能修改');
+  }
   setTimeout(updateSheetProductCode, 0);
   overlay.classList.add('show');
 }
@@ -6592,7 +6739,7 @@ let qoRows = [];
 const qoOverlay = document.getElementById('quickOrderOverlay');
 function qoBlankRow(){ const all = document.getElementById('qoIrrAll'); return { product:'', spec:'', qty:'', origin:'', productionZones:[], needsIrradiation: !!(all && all.checked), irradiationDestination:'' }; }
 function qoCustomerOrders(name){
-  return orders.filter(o=> o.customer === name && (o.items||[]).some(it=>!it.deleted))
+  return historyOrders().filter(o=> o.customer === name && (o.items||[]).some(it=>!it.deleted))
     .sort((a,b)=> (orderCreatedDate(b)||0) - (orderCreatedDate(a)||0));
 }
 // 拆分過的品項合併回原本的數量，避免複製時變成好幾列
@@ -7410,7 +7557,7 @@ function renderReport(){
   document.getElementById('statShipped').textContent = s.shipped;
   document.getElementById('statQc').textContent = s.qc;
   document.getElementById('statTotal').textContent = s.total;
-  document.getElementById('statOrderCount').textContent = orders.filter(o => (o.items||[]).some(it=>!it.deleted)).length;
+  document.getElementById('statOrderCount').textContent = historyOrders().filter(o => (o.items||[]).some(it=>!it.deleted)).length;
   document.getElementById('statShippedToday').textContent = s.shippedToday;
   document.getElementById('statShippedWeek').textContent = s.shippedWeek;
   document.getElementById('reportUpdated').textContent = '更新時間 ' + new Date().toLocaleString('zh-TW', { hour12:false });
@@ -7451,7 +7598,7 @@ function renderCoaPendingList(){
   [pendingEl, doneEl].forEach(el=>{
     el.querySelectorAll('[data-jump-oid]').forEach(row=>{
       row.onclick = ()=>{
-        const order = orders.find(o=>o.id===row.dataset.jumpOid);
+        const order = findOrderAny(row.dataset.jumpOid);
         const item = order && order.items.find(i=>i.id===row.dataset.jumpIid);
         if(order && item){
           reportOverlay.classList.remove('show');
@@ -7539,7 +7686,7 @@ function renderOrderSearchList(){
 
   listEl.querySelectorAll('[data-jump-oid]').forEach(row=>{
     row.onclick = ()=>{
-      const order = orders.find(o=>o.id===row.dataset.jumpOid);
+      const order = findOrderAny(row.dataset.jumpOid);
       const item = order && order.items.find(i=>i.id===row.dataset.jumpIid);
       if(order && item){
         reportOverlay.classList.remove('show');
@@ -7600,7 +7747,7 @@ function renderMaterialTraceSearch(){
     }).join('');
   listEl.querySelectorAll('[data-jump-oid]').forEach(row=>{
     row.onclick = ()=>{
-      const order = orders.find(o=>o.id===row.dataset.jumpOid);
+      const order = findOrderAny(row.dataset.jumpOid);
       const item = order && order.items.find(i=>i.id===row.dataset.jumpIid);
       if(order && item){
         reportOverlay.classList.remove('show');
@@ -7874,7 +8021,7 @@ function renderRecallResult(r){
   wrap.innerHTML = html;
   wrap.querySelectorAll('[data-jump-oid]').forEach(row=>{
     row.onclick = ()=>{
-      const order = orders.find(o=>o.id===row.dataset.jumpOid);
+      const order = findOrderAny(row.dataset.jumpOid);
       const item = order && order.items.find(i=>i.id===row.dataset.jumpIid);
       if(order && item){
         recallOverlay.classList.remove('show');
@@ -8728,7 +8875,7 @@ function renderStatDetail(key){
     }).join('');
     listEl.querySelectorAll('[data-jump-oid]').forEach(row=>{
       row.onclick = ()=>{
-        const order = orders.find(o=>o.id===row.dataset.jumpOid);
+        const order = findOrderAny(row.dataset.jumpOid);
         const item = order && order.items.find(i=>i.id===row.dataset.jumpIid);
         if(!order || !item) return;
         currentTab = item.status;
@@ -8802,7 +8949,7 @@ async function exportBackup(){
   }
 
   const rows = [];
-  orders.forEach(order=>{
+  historyOrders().forEach(order=>{
     (order.items||[]).forEach(item=>{
       rows.push({
         '訂單編號': order.orderNo || '',
@@ -8868,6 +9015,12 @@ async function exportBackup(){
 }
 document.getElementById('btnExportBackup').onclick = exportBackup;
 
+document.getElementById('btnArchiveNow').onclick = async ()=>{
+  const ok = await showConfirm('全部品項都已出貨（或已取消）的訂單，會移到封存區，讓訂單資料變小。\n封存的訂單在統計報表、訂單查詢、備份都還查得到，只是不能再修改。', '封存已出貨的訂單？');
+  if(!ok) return;
+  const n = await archiveCompletedOrders(0, false);
+  if(n === 0) showToast('目前沒有可以封存的訂單（要整張訂單都已出貨，而且沒有品項在垃圾桶）');
+};
 // ---- 從備份還原 ----
 document.getElementById('btnImportBackup').onclick = async ()=>{
   const fileInput = document.getElementById('importBackupFile');
@@ -13563,6 +13716,7 @@ onAuthStateChanged(auth, async (user)=>{
     loadPermissions();
     loadClimateData();
     loadIdNames();
+    loadArchives();
   }
 });
 </script>
