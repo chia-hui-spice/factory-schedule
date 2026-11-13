@@ -2724,7 +2724,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.13-2';
+const APP_VERSION = '2026.11.13-5';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -3295,7 +3295,7 @@ function historyOrders(){
 function findOrderAny(id){ return orders.find(o=> o.id === id) || archivedOrders.find(o=> o.id === id) || null; }
 function rebuildArchivedOrders(){
   const out = [];
-  archiveDocsData.forEach(list=> (list || []).forEach(o=>{ o._archived = true; if(!o.items) o.items = []; out.push(o); }));
+  archiveDocsData.forEach(list=> (list || []).forEach(o=>{ o._archived = true; if(!o.items) o.items = []; o.items.forEach(it=>{ if(it.spec) it.spec = normalizeSpec(it.spec); }); out.push(o); }));
   archivedOrders = out;
 }
 function subscribeArchiveDoc(id){
@@ -4024,6 +4024,10 @@ function loadOrders(){
       autoBackupIfNeeded();
     }
     setTimeout(()=>{ autoArchiveIfNeeded(); }, 3000);
+    if(!(snap.metadata && snap.metadata.fromCache) && !window.__specMigratedOrders){
+      window.__specMigratedOrders = true;
+      setTimeout(()=>{ if(migrateOrderSpecs() > 0){ saveOrders(); render(); } }, 4000);
+    }
   }, (err)=>{
     console.error(err);
     showToast('連線 Firebase 失敗，請檢查設定與網路');
@@ -4975,7 +4979,7 @@ function orderUnit(item, fg){
   return (fg && fg.unit) || '';
 }
 // 規格是「1kg/包 10包/箱」這種「一箱裝幾包」的 → 庫存以「箱」計，零頭用小數存（10箱3包 = 10.3箱），顯示成「10 箱 3 包」
-const NON_COUNT_UNIT_RE = /^(k?g|公斤|克|台斤|斤|兩|ml|l|cc|公升|毫升|oz|lb)$/i;
+const NON_COUNT_UNIT_RE = /^(k?g|公斤|公克|克|台斤|斤|兩|ml|l|cc|公升|毫升|oz|lb)$/i;
 function boxPack(spec){
   const i = parseSpecUnit(spec);
   if(i.unit && i.perUnit && i.perUnit !== i.unit && !NON_COUNT_UNIT_RE.test(i.perUnit) && Number.isInteger(i.perQty) && i.perQty > 1) return i;
@@ -6528,7 +6532,8 @@ function productCodeTag(product, spec){
   if(!product) return '';
   const all = (finishedGoods || []).filter(f=> f.product === product && fgCodesOf(f).length);
   if(!all.length) return '<span class="code-tag none">料號：成品資料裡還沒有料號</span>';
-  const exact = spec ? all.filter(f=> (f.spec || '') === spec) : [];
+  let exact = spec ? all.filter(f=> (f.spec || '') === spec) : [];
+  if(spec && !exact.length){ const g = genericFgFor(product); if(g) exact = [g]; }
   const list = exact.length ? exact : all;
   return '<span class="code-tag">料號 ' + list.map(f=> '<b>' + escapeHtml(fgCodesOf(f).join('／')) + '</b>' + ((!exact.length && f.spec) ? '<small>（' + escapeHtml(f.spec) + '）</small>' : '')).join('、') + '</span>';
 }
@@ -6550,8 +6555,10 @@ function codeOptionsHtml(){
 }
 // 訂單確認、庫存確認、排程生產：品項旁邊顯示料號
 // 料號是跟著「品名＋規格」：同一個產品不同規格可以有不同料號，只顯示這個規格自己的料號
+// 規格不固定的產品：在成品資料建一筆「規格空白」的，就是這個產品的「通用料號」，任何規格都用它
+function genericFgFor(product){ return (finishedGoods || []).find(x=> x.product === product && !(x.spec || '').trim() && fgCodesOf(x).length) || null; }
 function itemCodeText(it){
-  const f = (finishedGoods || []).find(x=> x.product === it.product && (x.spec || '') === (it.spec || ''));
+  const f = (finishedGoods || []).find(x=> x.product === it.product && (x.spec || '') === (it.spec || '') && fgCodesOf(x).length) || genericFgFor(it.product);
   return f ? fgCodesOf(f).join('／') : '';
 }
 function itemCodeTagHtml(it, tab){
@@ -6615,11 +6622,71 @@ function setPickerValue(selectId, customId, value){
     select.value = '自訂'; custom.style.display = ''; custom.value = value;
   }
 }
+// ---- 規格寫法統一（防呆）：kg / KG / ｋｇ 一律改成「公斤」，g / G 改成「公克」，斜線前後的空白拿掉 ----
+// 例：「1 KG / 包」→「1公斤/包」
+function normalizeSpec(v){
+  let t = String(v || '').trim();
+  if(!t) return '';
+  t = t.replace(/[ｋＫ][ｇＧ]/g, 'kg');
+  t = t.replace(/\s*kgs?\b/gi, '公斤').replace(/\s*kgs?(?=[^a-z]|$)/gi, '公斤');
+  t = t.replace(/\s*公斤/g, '公斤');
+  t = t.replace(/(\d)\s*(?:g|G|ｇ|Ｇ|gm|GM|gram|grams)(?![a-zA-Z])/g, '$1公克').replace(/\s*公克/g, '公克');
+  t = t.replace(/\s*[\/／]\s*/g, '/');
+  return t;
+}
 function getPickerValue(selectId, customId){
   const select = document.getElementById(selectId);
   const custom = document.getElementById(customId);
-  return select.value === '自訂' ? custom.value.trim() : select.value;
+  const v = select.value === '自訂' ? custom.value.trim() : select.value;
+  return (selectId === 'fSpec' || selectId === 'fgSpec') ? normalizeSpec(v) : v;
 }
+// 打完規格離開欄位時，畫面上也直接改成正確寫法，並提示
+// 舊資料轉換：訂單、成品裡寫成 kg 的規格改成「公斤」（成品如果變成同一個規格，就把批次庫存合併成一筆）
+function migrateOrderSpecs(){
+  let changed = 0;
+  orders.forEach(o=> (o.items || []).forEach(it=>{ if(it.spec){ const n = normalizeSpec(it.spec); if(n !== it.spec){ it.spec = n; changed++; } } }));
+  return changed;
+}
+function migrateFgSpecs(){
+  let changed = 0;
+  finishedGoods.forEach(f=>{ if(f.spec){ const n = normalizeSpec(f.spec); if(n !== f.spec){ f.spec = n; changed++; } } });
+  if(!changed) return 0;
+  const groups = new Map();
+  finishedGoods.forEach(f=>{ const k = f.product + '|' + (f.spec || ''); if(!groups.has(k)) groups.set(k, []); groups.get(k).push(f); });
+  const removeIds = new Map(); // 被合併掉的 id -> 保留的 id
+  groups.forEach(list=>{
+    if(list.length < 2) return;
+    const keep = list.find(f=> f.code) || list[0];
+    list.forEach(f=>{
+      if(f === keep) return;
+      ['code','halalCode','unit','shelfLifeMonths'].forEach(k=>{ if((keep[k] === undefined || keep[k] === null || keep[k] === '') && f[k] !== undefined && f[k] !== '') keep[k] = f[k]; });
+      (f.batches || []).forEach(b=>{
+        const t = (keep.batches || (keep.batches = [])).find(x=> (x.batchNo || '') === (b.batchNo || ''));
+        if(t) t.stock = Math.round(((parseFloat(t.stock) || 0) + (parseFloat(b.stock) || 0)) * 1e6) / 1e6;
+        else keep.batches.push(Object.assign({}, b));
+      });
+      removeIds.set(f.id, keep.id);
+    });
+  });
+  if(removeIds.size){
+    finishedGoods = finishedGoods.filter(f=> !removeIds.has(f.id));
+    inventoryTransactions.forEach(t=>{ if(t.kind === 'finishedGood' && removeIds.has(t.itemId)) t.itemId = removeIds.get(t.itemId); });
+  }
+  return changed;
+}
+function attachSpecNormalizer(el){
+  if(!el || el.dataset.specNorm) return;
+  el.dataset.specNorm = '1';
+  el.addEventListener('change', ()=>{
+    const n = normalizeSpec(el.value);
+    if(n !== el.value.trim()){
+      el.value = n;
+      el.dispatchEvent(new Event('input', { bubbles:true }));
+      showToast('規格已自動改成「' + n + '」（規格請用「公斤」「公克」，不要用 KG、g）');
+    }
+  });
+}
+['fSpecCustom','fgSpecCustom'].forEach(id=> attachSpecNormalizer(document.getElementById(id)));
 [['fReleaseBy','fReleaseByCustom'], ['fFilledBy','fFilledByCustom'], ['fWarehouseConfirm','fWarehouseConfirmCustom'], ['fPackagingStaff','fPackagingStaffCustom'], ['fCoaConfirmBy','fCoaConfirmByCustom'], ['fOrigin','fOriginCustom'], ['fSpec','fSpecCustom'], ['fgSpec','fgSpecCustom']].forEach(([selectId, customId])=>{
   document.getElementById(selectId).addEventListener('change', function(){
     document.getElementById(customId).style.display = (this.value === '自訂') ? '' : 'none';
@@ -7188,7 +7255,7 @@ function renderQoRows(){
     const refreshCode = ()=>{ if(codeEl) codeEl.innerHTML = productCodeTag(qoRows[i].product, qoRows[i].spec); };
     p.addEventListener('input', ()=>{ qoRows[i].product = p.value.trim(); updateQoSummary(); refreshCode(); });
     p.addEventListener('change', ()=>{
-      { const f = findFgByCode(p.value); if(f){ p.value = f.product; qoRows[i].product = f.product; if(f.spec){ sp.value = f.spec; qoRows[i].spec = f.spec; } } }
+      { const f = findFgByCode(p.value); if(f){ p.value = f.product; qoRows[i].product = f.product; if(f.spec){ sp.value = f.spec; qoRows[i].spec = f.spec; } else { sp.focus(); } } }
       refreshCode();
       document.getElementById('qoSpec' + i).innerHTML = qoSpecOptionsHtml(p.value.trim());
       { const vd = lastVendorDirectFor(p.value.trim()); if(vd !== !!qoRows[i].vendorDirect){ qoRows[i].vendorDirect = vd; const vb = el.querySelector('.qo-vd'); if(vb) vb.classList.toggle('on', vd); } }
@@ -7206,7 +7273,8 @@ function renderQoRows(){
     if(bx) bx.addEventListener('input', ()=>{ qoRows[i].boxCode = bx.value.trim(); qoRows[i].boxTouched = true; });
     p.addEventListener('change', autoBox);
     sp.addEventListener('change', autoBox);
-    sp.addEventListener('input', ()=>{ qoRows[i].spec = sp.value.trim(); refreshCode(); });
+    attachSpecNormalizer(sp);
+    sp.addEventListener('input', ()=>{ qoRows[i].spec = normalizeSpec(sp.value); refreshCode(); });
     q.addEventListener('input', ()=>{ qoRows[i].qty = q.value; updateQoSummary(); });
     p.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); p.dispatchEvent(new Event('change')); sp.focus(); } });
     sp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); q.focus(); q.select(); } });
@@ -7288,7 +7356,7 @@ document.getElementById('qoSave').onclick = async ()=>{
   const items = rows.map((r, idx)=>{
     const it = {
       id: 'i_' + stamp + '_' + idx + '_' + Math.random().toString(36).slice(2,6), status: 'pending',
-      product: r.product, spec: r.spec || '', qty: parseInt(r.qty, 10), actualYieldQty: null, due, origin: r.origin || '',
+      product: r.product, spec: normalizeSpec(r.spec || ''), qty: parseInt(r.qty, 10), actualYieldQty: null, due, origin: r.origin || '',
       productExpDate:'', productMfgDate:'', productBatchNo:'', packagingDate:'', trayBatchNo:'', manualMaterialBatches: [],
       coa, coaConfirmBy:'', needsIrradiation: !!r.needsIrradiation, irradiationLabelConfirm:false, irradiationDestination: r.irradiationDestination || '', note,
       vendorDirect: !!r.vendorDirect,
@@ -9617,6 +9685,7 @@ function loadBomData(){
     semiBoms = data.semiBoms || [];
     inventoryTransactions = data.inventoryTransactions || [];
     stocktakes = data.stocktakes || [];
+    if(!(snap.metadata && snap.metadata.fromCache) && migrateFgSpecs() > 0) setTimeout(()=> saveBomData(true), 500);
     if(!snap.metadata || !snap.metadata.fromCache) setTimeout(async ()=>{
       const k = 'invTxArchivedDay';
       let d = ''; try{ d = localStorage.getItem(k) || ''; }catch(e){}
@@ -9981,7 +10050,7 @@ function buildBulkImportPlan(wb){
       const batch = hasBatch ? { batchNo, mfgDate: mfgDate||'', expDate: expDate||'', stock: qty && qty > 0 ? qty : 0 } : null;
 
       if(cfg.kind === 'finished'){
-        const spec = String(bulkCell(row,'規格') || '');
+        const spec = normalizeSpec(String(bulkCell(row,'規格') || ''));
         const key = 'fg|' + name + '|' + spec;
         const fgCode = String(bulkCell(row,'料號') || '');
         if(fgCode && usedCodes.has(fgCode)){ sec.skips.push({ rowNo, name: name + (spec?'（'+spec+'）':''), why:'料號 ' + fgCode + ' 已存在' }); return; }
