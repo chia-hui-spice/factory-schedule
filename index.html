@@ -673,6 +673,10 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 .trash-item-who b{ color:var(--ink); }
 .item-code-tag{ display:inline-block; margin-left:8px; padding:1px 8px; border-radius:7px; border:1.5px solid var(--teal); color:var(--teal); font-family:var(--mono); font-size:14px; font-weight:800; vertical-align:middle; white-space:nowrap; }
 .item-code-tag.none{ border-style:dashed; border-color:var(--ink-dim); color:var(--ink-dim); font-family:inherit; font-size:12.5px; font-weight:700; }
+.sync-badge{ align-self:center; padding:5px 10px; border-radius:999px; font-size:13.5px; font-weight:800; white-space:nowrap; border:1.5px solid var(--line); }
+.sync-badge.busy{ color:var(--amber); border-color:var(--amber); }
+.sync-badge.ok{ color:var(--green); border-color:var(--green); }
+.sync-badge.off{ color:var(--red); border-color:var(--red); }
 .code-line{ margin-top:4px; min-height:0; }
 .code-tag{ display:inline-block; font-size:14px; color:var(--ink-dim); }
 .code-tag b{ color:var(--teal); font-family:var(--mono); font-size:15px; }
@@ -745,6 +749,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
     <button class="i18n bell-btn" id="bellBtn" title="開啟出貨提醒通知">🔔</button>
     <button class="bell-btn" id="soundBtn" title="新訂單聲音提醒">🔇</button>
     <button class="bell-btn" id="idBtn" title="顯示印尼文 Tampilkan Bahasa Indonesia">🇮🇩</button>
+    <span id="syncBadge" class="sync-badge" style="display:none;"></span>
   </div>
   <div class="alert-banner" id="alertBanner"></div>
   <div class="new-order-pop" id="newOrderPop"><div id="newOrderPopTitle"></div><div class="nop-list" id="newOrderPopList"></div><button type="button" id="newOrderPopOk">知道了</button></div>
@@ -2397,7 +2402,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getFirestore, doc, onSnapshot, setDoc, getDoc, runTransaction } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, onSnapshot, setDoc, getDoc, runTransaction } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -2411,7 +2416,14 @@ const firebaseConfig = {
 const ALLOWED_EMAIL_DOMAIN = "chia-hui.com.tw";
 
 const fbApp = initializeApp(firebaseConfig);
-const db = getFirestore(fbApp);
+// 資料先存在這台裝置：打開時先用裝置上的資料馬上顯示，背景再跟雲端同步（網路慢時不用等）
+let db;
+try{
+  db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+}catch(e){
+  console.warn('local cache not available', e);
+  db = getFirestore(fbApp);
+}
 const auth = getAuth(fbApp);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ hd: ALLOWED_EMAIL_DOMAIN });
@@ -3085,6 +3097,74 @@ function addFinishedGoodBatchStock(f, qty, batchNo, mfgDate, expDate){
 let pendingNewFgId = null; // 追蹤透過卡片快速編輯新建、但尚未確認儲存的成品項目
 let semiGoods = []; // [{id, name, unit, batches:[{batchNo, mfgDate, expDate, stock}]}] 跟原料一樣改用批次結構
 let inventoryTransactions = []; // [{id, kind:'finishedGood'|'semiGood', itemId, itemName, type:'in'|'out', batchNo, qty, reason, relatedOrderId, relatedOrderNo, relatedCustomer, createdAt}]
+// ---- 📦 進出庫紀錄封存：進銷存資料每次都要整份上傳／下載，舊的進出庫紀錄（60 天前）移到封存文件 ----
+const INVTX_KEEP_DAYS = 60;
+let invTxArchived = [];
+const invTxArchiveData = new Map();
+const invTxSubscribed = new Set();
+function allInventoryTransactions(){
+  const ids = new Set(inventoryTransactions.map(t=> t.id));
+  return inventoryTransactions.concat(invTxArchived.filter(t=> !ids.has(t.id)));
+}
+function loadInvTxArchives(){
+  onSnapshot(doc(db, dataPrefix, 'invTxArchiveIndex'), (snap)=>{
+    const ids = (snap.exists() && snap.data().docs) ? snap.data().docs : [];
+    ids.forEach(id=>{
+      if(invTxSubscribed.has(id)) return;
+      invTxSubscribed.add(id);
+      onSnapshot(doc(db, dataPrefix, id), (ds)=>{
+        invTxArchiveData.set(id, (ds.exists() && ds.data().list) ? ds.data().list : []);
+        const out = []; invTxArchiveData.forEach(l=> l.forEach(t=> out.push(t))); invTxArchived = out;
+      }, (err)=> console.error(err));
+    });
+  }, (err)=> console.error(err));
+}
+let invTxArchiving = false;
+async function archiveOldInvTx(keepDays){
+  if(invTxArchiving) return 0;
+  const cutoff = Date.now() - keepDays * 86400000;
+  const old = inventoryTransactions.filter(t=> (t.createdAt || 0) < cutoff);
+  if(!old.length) return 0;
+  invTxArchiving = true;
+  try{
+    const byMonth = new Map();
+    old.forEach(t=>{ const d = new Date(t.createdAt || 0); const k = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); if(!byMonth.has(k)) byMonth.set(k, []); byMonth.get(k).push(t); });
+    const idxRef = doc(db, dataPrefix, 'invTxArchiveIndex');
+    await runTransaction(db, async (tx)=>{
+      const idxSnap = await tx.get(idxRef);
+      const idxDocs = (idxSnap.exists() && idxSnap.data().docs) ? idxSnap.data().docs.slice() : [];
+      const reads = new Map();
+      for(const k of byMonth.keys()){
+        const base = 'invTxArchive_' + k;
+        const parts = idxDocs.filter(id=> id === base || id.startsWith(base + '_'));
+        const last = parts.length ? parts[parts.length - 1] : base;
+        const ds = await tx.get(doc(db, dataPrefix, last));
+        reads.set(k, { base, last, list: (ds.exists() && ds.data().list) ? ds.data().list : [], partNo: parts.length || 1 });
+      }
+      byMonth.forEach((list, k)=>{
+        const r = reads.get(k);
+        let curId = r.last, cur = r.list.slice(), partNo = r.partNo, size = JSON.stringify(cur).length;
+        const have = new Set(cur.map(t=> t.id));
+        list.forEach(t=>{
+          if(have.has(t.id)) return;
+          const add = JSON.stringify(t).length + 1;
+          if(size + add > ARCHIVE_DOC_LIMIT && cur.length){
+            tx.set(doc(db, dataPrefix, curId), { list: cur }); if(!idxDocs.includes(curId)) idxDocs.push(curId);
+            partNo++; curId = r.base + '_' + partNo; cur = []; size = 2;
+          }
+          cur.push(t); have.add(t.id); size += add;
+        });
+        tx.set(doc(db, dataPrefix, curId), { list: cur }); if(!idxDocs.includes(curId)) idxDocs.push(curId);
+      });
+      tx.set(idxRef, { docs: idxDocs, updatedAt: Date.now() });
+    });
+    const oldIds = new Set(old.map(t=> t.id));
+    inventoryTransactions = inventoryTransactions.filter(t=> !oldIds.has(t.id));
+    invTxArchived = invTxArchived.concat(old.filter(t=> !invTxArchived.some(a=> a.id === t.id)));
+    return old.length;
+  }catch(e){ console.error(e); return -1; }
+  finally{ invTxArchiving = false; }
+}
 function logInventoryTransaction(kind, itemId, itemName, type, batchNo, qty, reason, relatedOrder){
   inventoryTransactions.push({
     id: 'tx_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
@@ -3113,6 +3193,24 @@ function activeOrders(){ return orders; }
 // ---- 📦 已出貨訂單封存：訂單文件有 1MB 上限，已全部出貨（或取消）一段時間的訂單移到「封存」文件 ----
 // 封存的訂單只是換地方放：統計報表、訂單查詢、客戶歷史、備份都照樣查得到，只是不能再修改
 let archivedOrders = [];                 // 從封存文件讀進來的（唯讀）
+// ---- ☁ 同步狀態：存檔時顯示「同步中…」，存好顯示「✓ 已存」，沒網路顯示「離線」 ----
+let pendingSaves = 0, syncOkTimer = null;
+function updateSyncBadge(state){
+  const b = document.getElementById('syncBadge'); if(!b) return;
+  if(!navigator.onLine){ b.style.display = ''; b.className = 'sync-badge off'; b.textContent = '⚠ 沒有網路'; return; }
+  if(pendingSaves > 0){ b.style.display = ''; b.className = 'sync-badge busy'; b.textContent = '☁ 同步中…'; return; }
+  if(state === 'ok'){
+    b.style.display = ''; b.className = 'sync-badge ok'; b.textContent = '✓ 已存';
+    clearTimeout(syncOkTimer); syncOkTimer = setTimeout(()=>{ if(pendingSaves === 0 && navigator.onLine) b.style.display = 'none'; }, 1500);
+    return;
+  }
+  if(state === 'loading'){ b.style.display = ''; b.className = 'sync-badge busy'; b.textContent = '☁ 讀取雲端…'; return; }
+  b.style.display = 'none';
+}
+window.addEventListener('online', ()=> updateSyncBadge());
+window.addEventListener('offline', ()=> updateSyncBadge());
+function syncStart(){ pendingSaves++; updateSyncBadge(); }
+function syncEnd(ok){ pendingSaves = Math.max(0, pendingSaves - 1); updateSyncBadge(ok ? 'ok' : ''); }
 const archiveDocsData = new Map();       // docId -> list
 const archiveSubscribed = new Set();
 const archiveIndexRef = doc(db, dataPrefix, 'ordersArchiveIndex');
@@ -3842,7 +3940,7 @@ function loadOrders(){
     const serverList = (snap.exists() && snap.data().list) ? snap.data().list : [];
     serverList.forEach(o=>{ if(!o.items) o.items = []; });
     try{ lastOrdersBytes = new Blob([JSON.stringify({ list: serverList })]).size; renderArchiveInfo(); }catch(e){}
-    try{ detectNewConfirmedOrders(serverList); }catch(e){ console.error(e); }
+    try{ if(snap.metadata && snap.metadata.fromCache){ prevItemStatus = null; updateSyncBadge('loading'); } else { detectNewConfirmedOrders(serverList); if(pendingSaves === 0) updateSyncBadge(); } }catch(e){ console.error(e); }
     // 不直接整份取代：這台裝置還沒存進雲端的修改要保留，其他品項用雲端最新的
     applyOrdersInPlace(mergeOrderLists(serverList, orders));
     recordSyncedOrders(serverList);
@@ -3950,6 +4048,12 @@ function applyOrdersInPlace(merged){
 }
 
 async function saveOrders(_retried){
+  syncStart();
+  let _ok = false;
+  try{ _ok = await saveOrdersInner(_retried); return _ok; }
+  finally{ syncEnd(_ok !== false); }
+}
+async function saveOrdersInner(_retried){
   const FIRESTORE_DOC_LIMIT = 1048576; // 1MB
   let merged = null, tooBig = 0, localAtMerge = null;
   try{
@@ -3971,7 +4075,7 @@ async function saveOrders(_retried){
     // 資料太大：先把已出貨的訂單封存，再自動重存一次
     if(!_retried && (tooBig || (e && (e.code === 'invalid-argument' || /longer than|exceeds|too large|maximum size/i.test(e.message||''))))){
       const moved = await archiveCompletedOrders(0, true);
-      if(moved > 0){ showToast('📦 資料量太大，已自動封存 ' + moved + ' 張已出貨訂單，重新儲存中…'); return await saveOrders(true); }
+      if(moved > 0){ showToast('📦 資料量太大，已自動封存 ' + moved + ' 張已出貨訂單，重新儲存中…'); return await saveOrdersInner(true); }
     }
     if(tooBig || (e && (e.code === 'invalid-argument' || /longer than|exceeds|too large|maximum size/i.test(e.message||'')))){
       showAlert('這次的變更沒有存進雲端，畫面會回到上一次成功儲存的狀態。\n原因：訂單資料量太大了' + (tooBig ? '（約 ' + (tooBig/1024).toFixed(0) + 'KB，上限約 1024KB）' : '') + '。\n請聯絡系統管理員處理，或先清空垃圾桶、刪除很久以前已出貨的舊訂單。', '❌ 儲存失敗');
@@ -7772,7 +7876,7 @@ function buildAdditiveLogbookRows(additiveId){
       operator: r.operator || '', createdAt: r.createdAt || 0
     });
   });
-  inventoryTransactions.filter(t=> t.kind==='additive' && t.itemId===additiveId).forEach(t=>{
+  allInventoryTransactions().filter(t=> t.kind==='additive' && t.itemId===additiveId).forEach(t=>{
     events.push({
       date: new Date(t.createdAt||Date.now()).toISOString().slice(0,10), type: t.type, batchNo: t.batchNo||'', qty: t.qty||0,
       detail: t.reason||'', operator: t.operator||'', createdAt: t.createdAt||0
@@ -9442,6 +9546,14 @@ function loadBomData(){
     semiBoms = data.semiBoms || [];
     inventoryTransactions = data.inventoryTransactions || [];
     stocktakes = data.stocktakes || [];
+    if(!snap.metadata || !snap.metadata.fromCache) setTimeout(async ()=>{
+      const k = 'invTxArchivedDay';
+      let d = ''; try{ d = localStorage.getItem(k) || ''; }catch(e){}
+      if(d === todayStr()) return;
+      try{ localStorage.setItem(k, todayStr()); }catch(e){}
+      const n = await archiveOldInvTx(INVTX_KEEP_DAYS);
+      if(n > 0) saveBomData(true);
+    }, 8000);
     renderStocktakePanel();
     setTimeout(migrateInlinePhotos, 1500);
     // 舊資料的產地（例如「台灣」「台灣TW」）一律以「台灣-TW」格式顯示，下次儲存時會一起寫回
@@ -9524,6 +9636,14 @@ async function migrateInlinePhotos(){
 const BOM_DOC_WARN_BYTES = 850000;
 let bomSizeWarned = false;
 async function saveBomData(silent){
+  syncStart();
+  let _ok = false;
+  try{ _ok = await saveBomDataInner(silent); return _ok; }
+  finally{ syncEnd(_ok !== false); }
+}
+async function saveBomDataInner(silent){
+  // 進銷存資料太大：先把舊的進出庫紀錄封存
+  try{ if(new Blob([JSON.stringify(inventoryTransactions)]).size > 250 * 1024) await archiveOldInvTx(INVTX_KEEP_DAYS); }catch(e){ console.error(e); }
   const payload = { materials, additives, packagings, boms, receipts, finishedGoods, semiGoods, semiBoms, inventoryTransactions, stocktakes };
   const size = new Blob([JSON.stringify(payload)]).size;
   if(size > BOM_DOC_WARN_BYTES && !bomSizeWarned){
@@ -11479,13 +11599,13 @@ function openInventoryLog(kind, itemId){
         }
       });
     });
-    const manualRows = inventoryTransactions.filter(tx=> tx.kind===kind && tx.itemId===itemId).map(tx=>({
+    const manualRows = allInventoryTransactions().filter(tx=> tx.kind===kind && tx.itemId===itemId).map(tx=>({
       type: tx.type, batchNo: tx.batchNo||'', qty: tx.qty, reason: tx.reason||'',
       relatedOrderNo: tx.relatedOrderNo||'', relatedCustomer: tx.relatedCustomer||'', createdAt: tx.createdAt || 0
     }));
     rows = inRows.concat(outRows).concat(manualRows).sort((a,b)=> b.createdAt - a.createdAt);
   }else{
-    rows = inventoryTransactions.filter(tx=> tx.kind===kind && tx.itemId===itemId).sort((a,b)=> b.createdAt - a.createdAt);
+    rows = allInventoryTransactions().filter(tx=> tx.kind===kind && tx.itemId===itemId).sort((a,b)=> b.createdAt - a.createdAt);
   }
   document.getElementById('inventoryLogTitle').textContent = itemName;
   document.getElementById('inventoryLogSub').textContent = kindLabel + '　' + t('共') + ' ' + rows.length + ' ' + t('筆');
@@ -13717,6 +13837,7 @@ onAuthStateChanged(auth, async (user)=>{
     loadClimateData();
     loadIdNames();
     loadArchives();
+    loadInvTxArchives();
   }
 });
 </script>
