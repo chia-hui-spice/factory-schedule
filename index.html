@@ -677,6 +677,11 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 .sync-badge.busy{ color:var(--amber); border-color:var(--amber); }
 .sync-badge.ok{ color:var(--green); border-color:var(--green); }
 .sync-badge.off{ color:var(--red); border-color:var(--red); }
+.dv-row{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:7px 10px; border:1px solid var(--line); border-radius:9px; margin-bottom:5px; font-size:14.5px; }
+.dv-row.old{ border-color:var(--red); background:rgba(229,72,77,0.10); }
+.dv-sub{ font-size:12.5px; color:var(--ink-dim); }
+.dv-ver{ font-family:var(--mono); font-weight:800; white-space:nowrap; }
+.dv-row.old .dv-ver{ color:var(--red); }
 .code-line{ margin-top:4px; min-height:0; }
 .code-tag{ display:inline-block; font-size:14px; color:var(--ink-dim); }
 .code-tag b{ color:var(--teal); font-family:var(--mono); font-size:15px; }
@@ -1832,6 +1837,9 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
   <div class="sheet">
     <div class="sheet-handle"></div>
     <h2 class="i18n">權限管理</h2>
+    <div class="section-label">📱 各裝置使用的版本</div>
+    <div class="report-updated">每台打開排程板的裝置都會出現在這裡。紅色＝還沒更新的舊版本，請到那台重新整理。（更舊、還沒有這個功能的版本不會出現在清單上）</div>
+    <div id="deviceVersionList" style="margin:6px 0 16px;"></div>
     <div class="report-updated">設定特定 Google 帳號能看到哪些分頁/功能按鈕。沒有特別設定的帳號預設可以看到全部。</div>
 
     <div class="field">
@@ -2715,7 +2723,70 @@ function shipMethodFullLabel(item){
 
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
+ // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
+const APP_VERSION = '2026.11.13-2';
+let latestAppVersion = '';
+function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
+function deviceId(){
+  let id = '';
+  try{ id = localStorage.getItem('deviceId') || ''; if(!id){ id = 'd_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); localStorage.setItem('deviceId', id); } }catch(e){ id = 'd_nolocal'; }
+  return id;
+}
+function deviceLabel(){
+  const ua = navigator.userAgent || '';
+  if(/iPad|Macintosh.*Mobile|Macintosh.*Safari/.test(ua) && 'ontouchend' in document) return 'iPad';
+  if(/iPhone/.test(ua)) return 'iPhone';
+  if(/Android/.test(ua)) return /Mobile/.test(ua) ? 'Android 手機' : 'Android 平板';
+  if(/Windows/.test(ua)) return 'Windows 電腦';
+  if(/Macintosh/.test(ua)) return 'Mac 電腦';
+  return '其他裝置';
+}
+let deviceMap = {};
+function startVersionTracking(){
+  const vRef = doc(db, dataPrefix, 'appVersion');
+  const dRef = doc(db, dataPrefix, 'deviceVersions');
+  onSnapshot(vRef, async (snap)=>{
+    latestAppVersion = (snap.exists() && snap.data().latest) || '';
+    if(!latestAppVersion || latestAppVersion < APP_VERSION){
+      try{ await setDoc(vRef, { latest: APP_VERSION, updatedAt: Date.now(), by: currentUserEmail || '' }); }catch(e){ console.error(e); }
+      latestAppVersion = APP_VERSION;
+    }
+    updateOutdatedBanner();
+  }, (err)=> console.error(err));
+  const beat = async ()=>{
+    try{
+      const id = deviceId();
+      await setDoc(dRef, { map: { [id]: { email: currentUserEmail || '', device: deviceLabel(), version: APP_VERSION, lastSeen: Date.now() } } }, { merge: true });
+    }catch(e){ console.error(e); }
+  };
+  beat(); setInterval(beat, 10 * 60 * 1000);
+  onSnapshot(dRef, (snap)=>{ deviceMap = (snap.exists() && snap.data().map) || {}; try{ renderDeviceVersions(); }catch(e){} }, (err)=> console.error(err));
+}
+function updateOutdatedBanner(){
+  let b = document.getElementById('outdatedBanner');
+  if(!isOutdated()){ if(b) b.remove(); return; }
+  if(!b){
+    b = document.createElement('div'); b.id = 'outdatedBanner';
+    b.style.cssText = 'position:sticky; top:0; z-index:9998; background:#c62828; color:#fff; font-weight:800; font-size:17px; padding:12px 16px; text-align:center; line-height:1.5;';
+    document.body.insertBefore(b, document.body.firstChild);
+  }
+  try{ render(); }catch(e){}
+  b.innerHTML = '⚠ 這台裝置是舊版本（' + APP_VERSION + '），最新是 ' + escapeHtml(latestAppVersion) + '。請重新整理網頁，或換成最新的檔案。<br><span style="font-weight:600; font-size:14px;">舊版本暫時不能刪除訂單，避免出錯。</span>';
+}
+function renderDeviceVersions(){
+  const el = document.getElementById('deviceVersionList'); if(!el) return;
+  const rows = Object.entries(deviceMap).map(([id, d])=> Object.assign({ id }, d)).sort((a,b)=> (b.lastSeen||0) - (a.lastSeen||0));
+  if(!rows.length){ el.innerHTML = '<div class="ship-list-empty">還沒有裝置回報</div>'; return; }
+  el.innerHTML = rows.map(d=>{
+    const old = latestAppVersion && (d.version || '') < latestAppVersion;
+    const ago = d.lastSeen ? Math.round((Date.now() - d.lastSeen) / 60000) : null;
+    const agoTxt = ago === null ? '' : ago < 60 ? ago + ' 分鐘前' : ago < 1440 ? Math.round(ago / 60) + ' 小時前' : Math.round(ago / 1440) + ' 天前';
+    return '<div class="dv-row' + (old ? ' old' : '') + '"><div><b>' + escapeHtml(whoShort(d.email) || '（未登入）') + '</b>　' + escapeHtml(d.device || '') + (d.id === deviceId() ? '　<span style="color:var(--teal);">（這台）</span>' : '') +
+      '<br><span class="dv-sub">最後使用：' + agoTxt + '</span></div><div class="dv-ver">' + (old ? '⚠ 舊版 ' : '✓ ') + escapeHtml(d.version || '?') + '</div></div>';
+  }).join('');
+}
 function canDeleteOrders(){
+  if(isOutdated()) return false; // 舊版本不能刪除
   const p = (typeof permissions !== 'undefined') && currentUserEmail && permissions[currentUserEmail];
   // 管理者預設可以刪除，除非在權限管理把他的「可以刪除」取消勾選
   if(isCurrentUserAdmin) return !(p && p.canDelete === false);
@@ -13838,6 +13909,7 @@ onAuthStateChanged(auth, async (user)=>{
     loadIdNames();
     loadArchives();
     loadInvTxArchives();
+    startVersionTracking();
   }
 });
 </script>
