@@ -682,6 +682,15 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 .dv-sub{ font-size:12.5px; color:var(--ink-dim); }
 .dv-ver{ font-family:var(--mono); font-weight:800; white-space:nowrap; }
 .dv-row.old .dv-ver{ color:var(--red); }
+.sq-panel{ margin:8px 0; padding:8px 12px; border:1.5px solid var(--line); border-radius:10px; }
+.sq-panel.diff{ border-color:var(--orange); background:rgba(255,140,60,0.08); }
+.sq-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:4px 0; font-size:16px; }
+.sq-label{ min-width:72px; font-weight:800; color:var(--ink-dim); font-size:14.5px; }
+.sq-row input{ width:110px; font-size:18px; font-weight:800; padding:5px 8px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel-raised); color:var(--ink); }
+.sq-panel.diff .sq-ship{ border-color:var(--orange); color:var(--orange); }
+.sq-btn{ padding:5px 10px; font-size:14px; font-weight:800; border-radius:8px; border:1.5px solid var(--teal); background:rgba(45,212,191,0.10); color:var(--teal); cursor:pointer; }
+.sq-note{ font-size:13.5px; font-weight:700; color:var(--orange); margin-top:2px; }
+.os-shipq{ display:block; font-size:12.5px; font-weight:800; color:var(--orange); }
 .code-line{ margin-top:4px; min-height:0; }
 .code-tag{ display:inline-block; font-size:14px; color:var(--ink-dim); }
 .code-tag b{ color:var(--teal); font-family:var(--mono); font-size:15px; }
@@ -2724,7 +2733,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.13-5';
+const APP_VERSION = '2026.11.16-1';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -3774,7 +3783,7 @@ const ID_PHRASES = {
   '原料批號 / 日期':'No. batch bahan / Tanggal', '廠商直出（只貼標）':'Langsung dari pemasok (hanya label)', '廠商直出':'Langsung dari pemasok',
   '廠商批號':'No. batch pemasok', '廠商製造日期':'Tgl produksi pemasok', '廠商有效日期':'Tgl kedaluwarsa pemasok',
   '廠商製造日期（可不填）':'Tgl produksi pemasok (opsional)', '廠商有效日期（可不填）':'Tgl kedaluwarsa pemasok (opsional)', '產品製造日期（可不填）':'Tgl produksi produk (opsional)',
-  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '2年':'2 thn', '1年':'1 thn', '3年':'3 thn', '5年':'5 thn', '還沒到這步':'Belum sampai sini', '這一步要做':'Kerjakan di sini', '點這一列填寫':'Ketuk baris untuk isi', '已過這步':'Sudah lewat', '目前在':'Sekarang di', '已完成':'Selesai', '已出貨':'Sudah dikirim', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
+  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '訂購數量':'Jumlah pesanan', '實際產出':'Hasil produksi', '實際出貨':'Jumlah dikirim', '2年':'2 thn', '1年':'1 thn', '3年':'3 thn', '5年':'5 thn', '還沒到這步':'Belum sampai sini', '這一步要做':'Kerjakan di sini', '點這一列填寫':'Ketuk baris untuk isi', '已過這步':'Sudah lewat', '目前在':'Sekarang di', '已完成':'Selesai', '已出貨':'Sudah dikirim', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
   '設為廠商直出（只貼標）':'Set: langsung dari pemasok', '點一下取消':'ketuk untuk batal', '廠商批號 / 日期':'No. batch pemasok / Tanggal',
   '產品批號 / 日期（印在標籤上）':'No. batch produk / Tanggal (di label)', '輸入廠商批號':'Ketik no. batch pemasok',   '需要COA（隨貨附）　請填寫原料批號':'Perlu COA (ikut barang) — isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
   '（隨貨附），出貨確認後將進入品管抽樣確認':'(ikut barang), setelah kirim akan dicek sampel QC', '今天':'Hari ini', '明天':'Besok',
@@ -4335,6 +4344,57 @@ function warehouseConfirmNames(){
   const base = Array.from(document.getElementById('fWarehouseConfirm').options).map(o=>o.value).filter(v=> v && v !== '自訂');
   orders.forEach(o=> (o.items||[]).forEach(it=>{ if(it.warehouseConfirm && !base.includes(it.warehouseConfirm)) base.push(it.warehouseConfirm); }));
   return base;
+}
+// ---- 📦 實際出貨數量：客人訂 900、做出 907、客人全收 → 實際出貨填 907（成品庫存照實際出貨扣）----
+function shipQtyOf(item){ const v = item.shipQty; return (v !== undefined && v !== null && v !== '' && !isNaN(Number(v))) ? Number(v) : Number(item.qty || 0); }
+function deductedQtyOf(item){ const v = item.shippedDeductedQty; return (v !== undefined && v !== null && v !== '') ? Number(v) : Number(item.qty || 0); }
+function hasShipQtyDiff(item){ return item.shipQty !== undefined && item.shipQty !== null && item.shipQty !== '' && Number(item.shipQty) !== Number(item.qty); }
+function shipQtyPanelHtml(order, item){
+  if(!(['done','refill','boxing','shipped'].includes(item.status) && currentTab === item.status)) return '';
+  const ids = 'data-sq-oid="' + order.id + '" data-sq-iid="' + item.id + '"';
+  const u = orderUnit(item);
+  const y = (item.actualYieldQty !== undefined && item.actualYieldQty !== null && item.actualYieldQty !== '') ? Number(item.actualYieldQty) : null;
+  const sq = shipQtyOf(item);
+  return '<div class="sq-panel' + (hasShipQtyDiff(item) ? ' diff' : '') + '">' +
+    '<div class="sq-row"><span class="sq-label">訂購數量</span><b>' + escapeHtml(String(item.qty)) + '</b> ' + escapeHtml(u) + '</div>' +
+    '<div class="sq-row"><span class="sq-label">實際產出</span><input type="number" inputmode="decimal" step="any" class="sq-yield" ' + ids + ' value="' + (y !== null ? y : '') + '" placeholder="做出幾' + escapeHtml(u || '個') + '"> ' + escapeHtml(u) + '</div>' +
+    '<div class="sq-row"><span class="sq-label">實際出貨</span><input type="number" inputmode="decimal" step="any" class="sq-ship" ' + ids + ' value="' + sq + '"> ' + escapeHtml(u) +
+      (y !== null && y !== sq ? '<button type="button" class="sq-btn" ' + ids + ' data-sq-set="' + y + '">＝實際產出 ' + y + '（客人全收）</button>' : '') +
+      (sq !== Number(item.qty) ? '<button type="button" class="sq-btn" ' + ids + ' data-sq-set="' + item.qty + '">＝訂購 ' + item.qty + '</button>' : '') + '</div>' +
+    (hasShipQtyDiff(item) ? '<div class="sq-note">⚠ 實際出貨跟訂購不一樣：' + (sq > item.qty ? '多出 ' + (Math.round((sq - item.qty) * 1000) / 1000) : '少 ' + (Math.round((item.qty - sq) * 1000) / 1000)) + ' ' + escapeHtml(u) + '，成品庫存會照實際出貨數量扣</div>' : '') +
+  '</div>';
+}
+function wireShipQty(root){
+  const find = (el)=>{ const o = orders.find(x=> x.id === el.dataset.sqOid); return { o, it: o && (o.items || []).find(i=> i.id === el.dataset.sqIid) }; };
+  const setShip = async (o, it, v)=>{
+    const n = Number(v);
+    if(isNaN(n) || n < 0){ showToast('請輸入正確的數量'); return; }
+    const prevShip = it.shipQty;
+    it.shipQty = (n === Number(it.qty)) ? null : n;
+    // 已經在出貨確認（庫存已經扣過）：補扣或退回差額
+    if(it.status === 'shipped' && !it.stockPreDeducted){
+      const diff = Math.round((shipQtyOf(it) - deductedQtyOf(it)) * 1e6) / 1e6;
+      if(diff > 0) await deductFinishedGoodStock(it, true, o, diff);
+      else if(diff < 0){ const fg = findOrCreateFinishedGood(it.product, it.spec); addFinishedGoodBatchStock(fg, -diff, it.productBatchNo||'', it.productMfgDate||'', it.productExpDate||''); logInventoryTransaction('finishedGood', fg.id, fg.product, 'in', it.productBatchNo||'', -diff, '修改實際出貨數量（退回差額）', o); await saveBomData(true); }
+      it.shippedDeductedQty = shipQtyOf(it);
+    }
+    const ok = await saveOrders();
+    if(!ok){ it.shipQty = prevShip; }
+    renderList();
+    if(ok) showToast('實際出貨數量：' + shipQtyOf(it) + ' ' + orderUnit(it) + (hasShipQtyDiff(it) ? '（訂購 ' + it.qty + '）' : ''));
+  };
+  root.querySelectorAll('input.sq-ship').forEach(inp=> inp.addEventListener('change', ()=>{ const { o, it } = find(inp); if(it && inp.value !== '') setShip(o, it, inp.value); }));
+  root.querySelectorAll('.sq-btn').forEach(b=> b.onclick = ()=>{ const { o, it } = find(b); if(it) setShip(o, it, b.dataset.sqSet); });
+  root.querySelectorAll('input.sq-yield').forEach(inp=> inp.addEventListener('change', async ()=>{
+    const { o, it } = find(inp); if(!it) return;
+    const v = inp.value === '' ? null : Number(inp.value);
+    const prev = it.actualYieldQty;
+    it.actualYieldQty = v;
+    const ok = await saveOrders();
+    if(!ok) it.actualYieldQty = prev;
+    renderList();
+    if(ok && v !== null && v !== Number(it.qty)) showToast('實際產出 ' + v + '（訂購 ' + it.qty + '）。客人全收的話，按「＝實際產出」');
+  }));
 }
 function shipConfirmPanelHtml(order, item){
   // 只在「出貨確認」頁顯示（含用現有庫存直接送來的品項）
@@ -5207,7 +5267,7 @@ function orderSummaryHtml(order){
             })() : '') +
             ((currentTab === 'refill' && it.status === 'refill') ? (function(){ const ps = it.packagingStaff || defaultPackagingStaff(it); return '<br>包裝人員 ' + (ps ? '<b>' + escapeHtml(ps) + '</b>' + (it.packagingStaff ? '' : '（預設）') : '<i class="os-miss">未選</i>'); })() : '') + '</span>';
         })() : '') + '</span>' +
-      '<span class="os-qty">' + escapeHtml(qtyWithUnit(it.qty, it)) + '</span>' +
+      '<span class="os-qty">' + escapeHtml(qtyWithUnit(it.qty, it)) + (hasShipQtyDiff(it) ? '<small class="os-shipq">實出 ' + escapeHtml(String(shipQtyOf(it))) + '</small>' : '') + '</span>' +
       ((isHere && (currentTab === 'inprogress' || currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing' || currentTab === 'shipped'))
         ? '<button type="button" class="os-go" data-act="forward" data-oid="' + order.id + '" data-iid="' + it.id + '">' + (currentTab === 'inprogress' ? (it.vendorDirect ? '送標籤<br>印製' : '無庫存<br>請生產' + '<span class="id-sub">Produksi</span>') : bi('完成')) + '</button>'
         : stagePillHtml(it)) +
@@ -5504,6 +5564,7 @@ function renderListInner(){
           (item.vendorDirect ? '' : coaMaterialBatchHtml(order, item)) +
           refillPanelHtml(order, item) +
           boxingPanelHtml(order, item) +
+          shipQtyPanelHtml(order, item) +
           shipConfirmPanelHtml(order, item) +
           ((item.qty > 1 && item.status !== 'shipped' && item.status !== 'qc') ? '<button type="button" class="split-btn" data-act="split" data-oid="'+order.id+'" data-iid="'+item.id+'">✂️ 拆分數量</button>' : '') +
           '<div class="item-actions">' + actionsHtml + '</div>' +
@@ -5526,6 +5587,7 @@ function renderListInner(){
         (item.vendorDirect ? '' : coaMaterialBatchHtml(order, item)) +
         refillPanelHtml(order, item) +
         boxingPanelHtml(order, item) +
+        shipQtyPanelHtml(order, item) +
         shipConfirmPanelHtml(order, item) +
         '<div class="item-actions">' + actionsHtml + '</div>' +
         splitBtnHtml +
@@ -5623,7 +5685,8 @@ function renderListInner(){
     if(!ok) return;
     const prev = ready.map(it=> ({ s: it.status, p: it.packagingStaff, d: it.packagingDate, r: it.releaseBy, c: it.checklist, sa: it.shippedAt }));
     ready.forEach(it=>{
-      if(tab === 'done' && it.vendorDirect){ it.status = 'shipped'; it.shippedAt = Date.now(); return; } // 廠商直出：標籤印製完成直接到出貨確認
+      if(tab === 'done' && it.vendorDirect){ it.status = 'shipped'; it.shippedAt = Date.now(); if(!it.stockPreDeducted) it.shippedDeductedQty = shipQtyOf(it); return; }
+      if(tab === 'boxing' && !it.stockPreDeducted) it.shippedDeductedQty = shipQtyOf(it); // 廠商直出：標籤印製完成直接到出貨確認
       if(tab === 'refill'){ if(!it.packagingStaff) it.packagingStaff = defaultPackagingStaff(it); if(!it.packagingDate) it.packagingDate = todayMMDD(); }
       if(tab === 'boxing'){ if(!it.releaseBy) it.releaseBy = DEFAULT_RELEASE_BY; if(!it.checklistTouched) it.checklist = effectiveChecklist(it); it.shippedAt = Date.now(); }
       it.status = next;
@@ -5691,6 +5754,7 @@ function renderListInner(){
   wireLabelingEdit(wrap);
   wireCoaBatchInline(wrap);
   wireVendorDirect(wrap);
+  wireShipQty(wrap);
   wrap.querySelectorAll('[data-order-view]').forEach(b=> b.onclick = ()=>{
     const o = orders.find(x=> x.id === b.dataset.orderView); if(!o) return;
     const toDetail = isSimpleFor(o);
@@ -5843,6 +5907,7 @@ function renderListInner(){
       const wasBoxing = item.status === 'boxing';
       const wasDone = item.status === 'done';
       if(nextStatus === 'qc') item.qcAt = Date.now();
+      if(nextStatus === 'shipped' && !item.stockPreDeducted) item.shippedDeductedQty = shipQtyOf(item); // 跟著訂單一起存，換裝置也知道扣了多少
       const prevStatus = item.status, prevCompletedAt = item.completedAt, prevShippedAt = item.shippedAt;
       if(item.status === 'pending') localConfirmedIds.add(item.id);
       item.status = nextStatus;
@@ -5915,7 +5980,8 @@ function renderListInner(){
         await deductFinishedGoodStock(item, true, order, yieldQty);
       }
       if(wasShipped && (item.status === 'boxing' || item.status === 'done') && !item.stockPreDeducted){
-        await addFinishedGoodStock(item, true, order);
+        await addFinishedGoodStock(item, true, order, deductedQtyOf(item));
+        delete item.shippedDeductedQty;
       }
     };
   });
@@ -7597,8 +7663,8 @@ document.getElementById('ciOk').onclick = async ()=>{
   }
   if(from === 'shipped' && rf && rf.checked){
     const fg = findOrCreateFinishedGood(item.product, item.spec);
-    addFinishedGoodBatchStock(fg, item.qty||0, item.productBatchNo||'', item.productMfgDate||'', item.productExpDate||'');
-    logInventoryTransaction('finishedGood', fg.id, fg.product, 'in', item.productBatchNo||'', item.qty||0, '取消品項，成品退回庫存', order);
+    addFinishedGoodBatchStock(fg, deductedQtyOf(item), item.productBatchNo||'', item.productMfgDate||'', item.productExpDate||'');
+    logInventoryTransaction('finishedGood', fg.id, fg.product, 'in', item.productBatchNo||'', deductedQtyOf(item), '取消品項，成品退回庫存', order);
     info.fgReturned = true;
     await saveBomData(true);
     try{ renderFinishedGoodList(); }catch(e){}
@@ -13765,7 +13831,9 @@ async function addFinishedGoodStock(item, silent, order, qtyOverride){
 }
 
 async function deductFinishedGoodStock(item, silent, order, qtyOverride){
-  const qty = (qtyOverride !== undefined && qtyOverride !== null && qtyOverride !== '') ? qtyOverride : (item.qty||0);
+  const useDefault = !(qtyOverride !== undefined && qtyOverride !== null && qtyOverride !== '');
+  const qty = useDefault ? shipQtyOf(item) : qtyOverride;
+  if(useDefault) item.shippedDeductedQty = qty; // 出貨時實際扣了多少（之後改實際出貨數量時補扣／退回差額）
   const f = findOrCreateFinishedGood(item.product, item.spec);
   const { shortage, consumed } = deductFinishedGoodStockFIFO(f, qty);
   (consumed||[]).forEach(c=>{
