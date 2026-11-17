@@ -727,6 +727,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
   .zl-row .zl-q{ grid-column:3; grid-row:1; }
   .zl-row .zl-st{ grid-column:3; grid-row:2; text-align:right; }
 }
+.lb-clear{ margin-top:8px; width:100%; padding:8px; font-size:14.5px; font-weight:800; border-radius:9px; border:1.5px dashed var(--red); background:transparent; color:var(--red); cursor:pointer; }
 .code-line{ margin-top:4px; min-height:0; }
 .code-tag{ display:inline-block; font-size:14px; color:var(--ink-dim); }
 .code-tag b{ color:var(--teal); font-family:var(--mono); font-size:15px; }
@@ -2769,7 +2770,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.17-1';
+const APP_VERSION = '2026.11.17-2';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -3819,7 +3820,7 @@ const ID_PHRASES = {
   '原料批號 / 日期':'No. batch bahan / Tanggal', '廠商直出（只貼標）':'Langsung dari pemasok (hanya label)', '廠商直出':'Langsung dari pemasok',
   '廠商批號':'No. batch pemasok', '廠商製造日期':'Tgl produksi pemasok', '廠商有效日期':'Tgl kedaluwarsa pemasok',
   '廠商製造日期（可不填）':'Tgl produksi pemasok (opsional)', '廠商有效日期（可不填）':'Tgl kedaluwarsa pemasok (opsional)', '產品製造日期（可不填）':'Tgl produksi produk (opsional)',
-  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '訂購數量':'Jumlah pesanan', '實際產出':'Hasil produksi', '實際出貨':'Jumlah dikirim', '只看清單':'Hanya daftar', '同品項合計':'Total per item', '批號日期':'Batch & tanggal', '未填':'Belum diisi', '已填':'Sudah diisi', '2年':'2 thn', '1年':'1 thn', '3年':'3 thn', '5年':'5 thn', '還沒到這步':'Belum sampai sini', '這一步要做':'Kerjakan di sini', '點這一列填寫':'Ketuk baris untuk isi', '已過這步':'Sudah lewat', '目前在':'Sekarang di', '已完成':'Selesai', '已出貨':'Sudah dikirim', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
+  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '訂購數量':'Jumlah pesanan', '實際產出':'Hasil produksi', '實際出貨':'Jumlah dikirim', '只看清單':'Hanya daftar', '清除製造日期、有效日期、製造批號（打錯時用）':'Hapus tanggal & batch (jika salah)', '同品項合計':'Total per item', '批號日期':'Batch & tanggal', '未填':'Belum diisi', '已填':'Sudah diisi', '2年':'2 thn', '1年':'1 thn', '3年':'3 thn', '5年':'5 thn', '還沒到這步':'Belum sampai sini', '這一步要做':'Kerjakan di sini', '點這一列填寫':'Ketuk baris untuk isi', '已過這步':'Sudah lewat', '目前在':'Sekarang di', '已完成':'Selesai', '已出貨':'Sudah dikirim', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
   '設為廠商直出（只貼標）':'Set: langsung dari pemasok', '點一下取消':'ketuk untuk batal', '廠商批號 / 日期':'No. batch pemasok / Tanggal',
   '產品批號 / 日期（印在標籤上）':'No. batch produk / Tanggal (di label)', '輸入廠商批號':'Ketik no. batch pemasok',   '需要COA（隨貨附）　請填寫原料批號':'Perlu COA (ikut barang) — isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
   '（隨貨附），出貨確認後將進入品管抽樣確認':'(ikut barang), setelah kirim akan dicek sampel QC', '今天':'Hari ini', '明天':'Besok',
@@ -4705,6 +4706,13 @@ function wireLabelingEdit(root){
     if(shouldAutoExp(item)){ const ex = itemAutoExp(item, inp.value); if(ex){ changes.productExpDate = ex; showToast('有效日期自動帶入 ' + ex.replace(/-/g,'/') + '（' + shelfLifeText(item) + '）'); } }
     save(item, changes);
   }));
+  // 打錯品項：一鍵把製造日期、有效日期、製造批號清空
+  root.querySelectorAll('button.lb-clear').forEach(b=> b.onclick = async ()=>{
+    const item = find(b); if(!item) return;
+    const ok = await showConfirm('「' + item.product + '」的製造日期、有效日期、製造批號都會清空（包材批號不動）。', '清除日期和批號？');
+    if(!ok) return;
+    save(item, { productMfgDate:'', productExpDate:'', productBatchNo:'' });
+  });
   root.querySelectorAll('input.lb-exp').forEach(inp=> inp.addEventListener('change', ()=>{ const item = find(inp); if(item && inp.value && inp.value !== (item.productExpDate || '')) save(item, { productExpDate: inp.value }); }));
   [['input.lb-batch','productBatchNo'], ['input.lb-tray','trayBatchNo']].forEach(([sel, field])=>{
     root.querySelectorAll(sel).forEach(inp=>{
@@ -5598,7 +5606,9 @@ function renderListInner(){
             : '<div><span>製造批號' + (item.vendorDirect ? ' <b style="color:var(--red);">*</b>' : '') + '</span><input type="text" class="lb-batch" ' + lbIds + ' value="' + escapeHtml(item.productBatchNo || '') + '" placeholder="' + (item.vendorDirect ? '輸入批號' : '預設為製造日期') + '" autocomplete="off"></div>') +
           '<div><span>產品有效日期' + (item.vendorDirect ? '（可不填）' : '') + (shelfLifeText(item) ? ' <b style="color:var(--teal); font-weight:700;">（自動＋' + shelfLifeText(item) + '）</b>' : '') + '</span><input type="date" class="lb-exp" ' + lbIds + ' value="' + escapeHtml(item.productExpDate || '') + '">' + expQuickBtns('lb', order.id, item.id) + '</div>' +
           (item.vendorDirect ? '' : '<div><span>包材批號</span><input type="text" class="lb-tray" ' + lbIds + ' value="' + escapeHtml(item.trayBatchNo || '') + '" placeholder="包材批號" autocomplete="off"></div>') +
-        '</div></div>' : '';
+        '</div>' +
+        ((item.productMfgDate || item.productExpDate || item.productBatchNo) ? '<button type="button" class="lb-clear" ' + lbIds + '>🗑 清除製造日期、有效日期、製造批號（打錯時用）</button>' : '') +
+        '</div>' : '';
       // 標籤印製、充填包裝：批號／製造日期／有效日期都還可以改（成品庫存批次跟著移），到裝箱確認以後就不能改
       const doneEditHtml = ((currentTab === 'done' && item.status === 'done') || (currentTab === 'refill' && item.status === 'refill')) ? '<div class="simple-batch editable">' +
                 '<div><span>批號 ✎</span><input type="text" class="db-batch" data-db-oid="' + order.id + '" data-db-iid="' + item.id + '" value="' + escapeHtml(item.productBatchNo || '') + '" placeholder="未填" autocomplete="off"></div>' +
