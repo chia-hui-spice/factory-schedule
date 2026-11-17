@@ -691,6 +691,42 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 .sq-btn{ padding:5px 10px; font-size:14px; font-weight:800; border-radius:8px; border:1.5px solid var(--teal); background:rgba(45,212,191,0.10); color:var(--teal); cursor:pointer; }
 .sq-note{ font-size:13.5px; font-weight:700; color:var(--orange); margin-top:2px; }
 .os-shipq{ display:block; font-size:12.5px; font-weight:800; color:var(--orange); }
+.zone-list{ margin:0 0 14px; border:2px solid var(--purple); border-radius:14px; background:var(--panel); overflow:hidden; }
+.zl-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px; background:rgba(160,110,255,0.10); flex-wrap:wrap; }
+.zl-toggle{ background:none; border:none; color:var(--ink); font-size:17px; font-weight:800; cursor:pointer; text-align:left; padding:4px 0; }
+.zl-toggle b{ color:var(--purple); }
+.zl-only{ font-size:14.5px; font-weight:700; display:flex; align-items:center; gap:6px; white-space:nowrap; }
+.zl-table{ padding:4px 8px; }
+.zl-row{ display:grid; grid-template-columns:78px minmax(70px,1fr) minmax(110px,2fr) 90px 72px; gap:8px; align-items:center; padding:8px 6px; border-bottom:1px solid var(--line); cursor:pointer; font-size:15.5px; }
+.zl-row:last-child{ border-bottom:none; }
+.zl-row:not(.zl-th):hover{ background:rgba(255,255,255,0.04); }
+.zl-th{ font-size:13px; font-weight:800; color:var(--ink-dim); cursor:default; }
+.zl-due{ display:flex; flex-direction:column; font-weight:900; font-size:16px; color:var(--teal); line-height:1.15; }
+.zl-due small{ font-size:11.5px; font-weight:700; }
+.zl-due.soon{ color:var(--amber); } .zl-due.late{ color:var(--red); }
+.zl-cust{ font-weight:700; word-break:break-all; }
+.zl-prod b{ font-size:16px; }
+.zl-prod small{ display:block; font-size:12.5px; color:var(--ink-dim); }
+.zl-prod .zl-code{ color:var(--teal); font-family:var(--mono); }
+.zl-q{ text-align:right; font-weight:900; font-size:16.5px; color:var(--amber); }
+.zl-th .zl-q{ color:var(--ink-dim); font-size:13px; }
+.zl-st{ text-align:center; font-size:13px; font-weight:800; }
+.zl-ok{ color:var(--green); } .zl-no{ color:var(--red); }
+.zl-sum{ margin:4px 10px 8px; padding:8px 10px; border-radius:10px; background:rgba(242,183,5,0.08); border:1px dashed var(--amber); font-size:14.5px; }
+.zl-sum-row{ display:flex; gap:10px; align-items:baseline; padding:3px 0; }
+.zl-sum-row span{ flex:1; }
+.zl-sum-row b{ color:var(--amber); font-size:16px; }
+.zl-sum-row small{ color:var(--ink-dim); }
+.zl-hint{ font-size:12.5px; color:var(--ink-dim); padding:0 12px 8px; }
+@media (max-width:640px){
+  .zl-th{ display:none !important; }
+  .zl-row{ grid-template-columns:58px 1fr auto; grid-template-rows:auto auto; row-gap:2px; }
+  .zl-row .zl-due{ grid-column:1; grid-row:1 / span 2; }
+  .zl-row .zl-cust{ grid-column:2; grid-row:1; font-size:14px; color:var(--ink-dim); }
+  .zl-row .zl-prod{ grid-column:2; grid-row:2; }
+  .zl-row .zl-q{ grid-column:3; grid-row:1; }
+  .zl-row .zl-st{ grid-column:3; grid-row:2; text-align:right; }
+}
 .code-line{ margin-top:4px; min-height:0; }
 .code-tag{ display:inline-block; font-size:14px; color:var(--ink-dim); }
 .code-tag b{ color:var(--teal); font-family:var(--mono); font-size:15px; }
@@ -2733,7 +2769,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.16-1';
+const APP_VERSION = '2026.11.17-1';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -3783,7 +3819,7 @@ const ID_PHRASES = {
   '原料批號 / 日期':'No. batch bahan / Tanggal', '廠商直出（只貼標）':'Langsung dari pemasok (hanya label)', '廠商直出':'Langsung dari pemasok',
   '廠商批號':'No. batch pemasok', '廠商製造日期':'Tgl produksi pemasok', '廠商有效日期':'Tgl kedaluwarsa pemasok',
   '廠商製造日期（可不填）':'Tgl produksi pemasok (opsional)', '廠商有效日期（可不填）':'Tgl kedaluwarsa pemasok (opsional)', '產品製造日期（可不填）':'Tgl produksi produk (opsional)',
-  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '訂購數量':'Jumlah pesanan', '實際產出':'Hasil produksi', '實際出貨':'Jumlah dikirim', '2年':'2 thn', '1年':'1 thn', '3年':'3 thn', '5年':'5 thn', '還沒到這步':'Belum sampai sini', '這一步要做':'Kerjakan di sini', '點這一列填寫':'Ketuk baris untuk isi', '已過這步':'Sudah lewat', '目前在':'Sekarang di', '已完成':'Selesai', '已出貨':'Sudah dikirim', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
+  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '訂購數量':'Jumlah pesanan', '實際產出':'Hasil produksi', '實際出貨':'Jumlah dikirim', '只看清單':'Hanya daftar', '同品項合計':'Total per item', '批號日期':'Batch & tanggal', '未填':'Belum diisi', '已填':'Sudah diisi', '2年':'2 thn', '1年':'1 thn', '3年':'3 thn', '5年':'5 thn', '還沒到這步':'Belum sampai sini', '這一步要做':'Kerjakan di sini', '點這一列填寫':'Ketuk baris untuk isi', '已過這步':'Sudah lewat', '目前在':'Sekarang di', '已完成':'Selesai', '已出貨':'Sudah dikirim', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
   '設為廠商直出（只貼標）':'Set: langsung dari pemasok', '點一下取消':'ketuk untuk batal', '廠商批號 / 日期':'No. batch pemasok / Tanggal',
   '產品批號 / 日期（印在標籤上）':'No. batch produk / Tanggal (di label)', '輸入廠商批號':'Ketik no. batch pemasok',   '需要COA（隨貨附）　請填寫原料批號':'Perlu COA (ikut barang) — isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
   '（隨貨附），出貨確認後將進入品管抽樣確認':'(ikut barang), setelah kirim akan dicek sampel QC', '今天':'Hari ini', '明天':'Besok',
@@ -4210,6 +4246,63 @@ function renderTabs(){
   });
 }
 
+// ---- 🏭 產線生產清單：排程生產／充填包裝選了某一條產線時，最上面列出這條線「所有訂單的品項」在同一個表 ----
+let zoneListOpen = true;
+let zoneListOnly = false; // 只看清單（把下面的訂單卡藏起來）
+try{ zoneListOnly = localStorage.getItem('zoneListOnly') === '1'; }catch(e){}
+function zoneListActive(){ return (currentTab === 'labeling' || currentTab === 'refill') && !!currentZoneFilter; }
+function zoneListOnlyActive(){ return zoneListActive() && zoneListOnly; }
+function zoneListHtml(matchingOrders){
+  if(!zoneListActive()) return '';
+  const rows = [];
+  matchingOrders.forEach(o=> (o.items || []).forEach(it=>{
+    if(itemBelongsToTab(it, currentTab) && itemMatchesZoneFilter(it) && itemMatchesTabSearch(it, o)) rows.push({ o, it });
+  }));
+  rows.sort((a, b)=> String(a.it.due || '9999').localeCompare(String(b.it.due || '9999')) || String(a.o.customer || '').localeCompare(String(b.o.customer || ''), 'zh-Hant') || String(a.it.product || '').localeCompare(String(b.it.product || ''), 'zh-Hant'));
+  const sums = new Map();
+  rows.forEach(({ it })=>{
+    const k = it.product + '｜' + (it.spec || '');
+    if(!sums.has(k)) sums.set(k, { product: it.product, spec: it.spec || '', qty: 0, n: 0, it });
+    const x = sums.get(k); x.qty += Number(it.qty) || 0; x.n++;
+  });
+  const dueCell = (d)=>{
+    if(!d) return '<span class="zl-due">－</span>';
+    const n = dueDiffDays(d);
+    return '<span class="zl-due ' + (n <= 0 ? 'late' : n === 1 ? 'soon' : '') + '">' + escapeHtml(fmtDueShort(d)) + '<small>' + (n < 0 ? '逾' + (-n) + '天' : n === 0 ? '今天' : n === 1 ? '明天' : n + '天後') + '</small></span>';
+  };
+  const done = (it)=> currentTab === 'labeling' ? !!(it.productMfgDate && it.productBatchNo) : !!it.packagingStaff;
+  return '<div class="zone-list' + (zoneListOpen ? ' open' : '') + '">' +
+    '<div class="zl-head"><button type="button" class="zl-toggle">' + (zoneListOpen ? '▾' : '▸') + ' 🏭 ' + escapeHtml(currentZoneFilter) + '　全部品項 <b>' + rows.length + '</b> 項・<b>' + matchingOrders.length + '</b> 張單</button>' +
+      '<label class="zl-only"><input type="checkbox" class="zl-only-cb"' + (zoneListOnly ? ' checked' : '') + '> 只看清單</label></div>' +
+    (zoneListOpen ?
+      '<div class="zl-table"><div class="zl-row zl-th"><span>出貨日</span><span>客戶</span><span>品項 / 規格</span><span class="zl-q">數量</span><span class="zl-st">' + (currentTab === 'labeling' ? '批號日期' : '包裝人員') + '</span></div>' +
+      rows.map(({ o, it })=>
+        '<div class="zl-row" data-zl-iid="' + it.id + '">' + dueCell(it.due) +
+          '<span class="zl-cust">' + escapeHtml(o.customer || '') + '</span>' +
+          '<span class="zl-prod"><b>' + escapeHtml(it.product || '') + '</b>' + idNameLine(it.product) + (it.spec ? '<small>' + escapeHtml(it.spec) + '</small>' : '') + (itemCodeText(it) ? '<small class="zl-code">' + escapeHtml(itemCodeText(it)) + '</small>' : '') + (it.vendorDirect ? '<small style="color:#a98bff;">🏭 廠商直出</small>' : '') + '</span>' +
+          '<span class="zl-q">' + escapeHtml(qtyWithUnit(it.qty, it)) + '</span>' +
+          '<span class="zl-st">' + (done(it) ? '<span class="zl-ok">✓ 已填</span>' : '<span class="zl-no">未填</span>') + '</span>' +
+        '</div>').join('') + '</div>' +
+      (sums.size ? '<div class="zl-sum"><b>📦 同品項合計</b>' + Array.from(sums.values()).sort((a,b)=> b.qty - a.qty).map(x=>
+        '<div class="zl-sum-row"><span>' + escapeHtml(x.product) + (x.spec ? '　<small>' + escapeHtml(x.spec) + '</small>' : '') + '</span><b>' + escapeHtml(qtyWithUnit(Math.round(x.qty * 1000) / 1000, x.it)) + '</b><small>' + x.n + ' 張單</small></div>').join('') + '</div>' : '') +
+      '<div class="zl-hint">點一列可以展開那個品項（' + (zoneListOnly ? '會先切回顯示訂單卡' : '在下面的訂單裡') + '）</div>'
+    : '') +
+  '</div>';
+}
+function wireZoneList(root){
+  const t = root.querySelector('.zl-toggle'); if(t) t.onclick = ()=>{ zoneListOpen = !zoneListOpen; renderList(); };
+  const cb = root.querySelector('.zl-only-cb'); if(cb) cb.onchange = ()=>{ zoneListOnly = cb.checked; try{ localStorage.setItem('zoneListOnly', zoneListOnly ? '1' : '0'); }catch(e){} if(zoneListOnly) zoneListOpen = true; renderList(); };
+  root.querySelectorAll('[data-zl-iid]').forEach(r=> r.onclick = (e)=>{
+    if(e.target.closest('button, a, input')) return;
+    const id = r.dataset.zlIid;
+    if(zoneListOnly){ zoneListOnly = false; try{ localStorage.setItem('zoneListOnly', '0'); }catch(e){} }
+    // 跟點總表一樣：只展開這一項
+    orders.forEach(o=>{ if(allExpandedOrders.has(o.id)) return; (o.items || []).forEach(x=>{ if(x.status === currentTab && x.id !== id) labelingExpanded.delete(x.id); }); });
+    labelingExpanded.add(id);
+    renderList();
+    scrollToItemRow(id);
+  });
+}
 function itemMatchesZoneFilter(item){
   if((currentTab !== 'labeling' && currentTab !== 'refill') || !currentZoneFilter) return true;
   return (item.productionZones || []).includes(currentZoneFilter);
@@ -5379,7 +5472,8 @@ function renderListInner(){
     return currentSortMode === 'dueDesc' ? -cmp : cmp;
   });
 
-  listEl.innerHTML = refillBatchBarHtml() + '<div class="order-list" id="orderList"></div>';
+  listEl.innerHTML = zoneListHtml(matchingOrders) + refillBatchBarHtml() + '<div class="order-list" id="orderList"' + (zoneListOnlyActive() ? ' style="display:none;"' : '') + '></div>';
+  wireZoneList(listEl);
   const wrap = document.getElementById('orderList');
 
   matchingOrders.forEach(order=>{
