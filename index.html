@@ -731,12 +731,21 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 .choice-btn{ text-align:left; padding:12px 14px; font-size:16.5px; border-radius:10px; border:1.5px solid var(--line); background:var(--panel-raised); color:var(--ink); cursor:pointer; }
 .choice-btn.primary{ border-color:var(--teal); background:rgba(45,212,191,0.10); }
 .choice-btn small{ color:var(--ink-dim); font-size:13px; }
+.new-cust-cb{ display:inline-flex; align-items:center; gap:6px; margin-top:6px; font-size:14px; font-weight:700; color:var(--ink-dim); }
 .cust-hint{ margin:6px 0 4px; padding:7px 10px; border-radius:9px; border:1.5px solid var(--amber); background:rgba(242,183,5,0.10); color:var(--amber); font-size:14px; font-weight:700; line-height:1.8; }
 .cust-hint button{ margin-left:6px; padding:3px 10px; border-radius:8px; border:1.5px solid var(--teal); background:var(--panel-raised); color:var(--teal); font-weight:800; cursor:pointer; }
 .cm-group{ border:1px solid var(--line); border-radius:10px; padding:8px 10px; margin-bottom:8px; }
 .cm-opt{ display:block; padding:3px 0; font-size:15px; }
 .cm-opt small{ color:var(--ink-dim); }
 .cm-merge{ margin-top:6px; padding:6px 12px; border-radius:8px; border:1.5px solid var(--teal); background:transparent; color:var(--teal); font-weight:800; cursor:pointer; }
+.cl-row{ display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; margin-bottom:6px; }
+.cl-row.dup{ border-color:var(--amber); }
+.cl-main{ flex:1; min-width:0; }
+.cl-name{ font-size:17px; font-weight:800; }
+.cl-sub{ font-size:13.5px; color:var(--ink-dim); margin-top:2px; line-height:1.5; }
+.cl-dup{ font-size:12.5px; color:var(--amber); border:1px solid var(--amber); border-radius:6px; padding:0 6px; }
+.cl-active{ font-size:12.5px; color:var(--teal); border:1px solid var(--teal); border-radius:6px; padding:0 6px; }
+.cl-rename{ flex:0 0 auto; padding:6px 12px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel-raised); color:var(--ink); font-weight:700; cursor:pointer; }
 .code-line{ margin-top:4px; min-height:0; }
 .code-tag{ display:inline-block; font-size:14px; color:var(--ink-dim); }
 .code-tag b{ color:var(--teal); font-family:var(--mono); font-size:15px; }
@@ -883,6 +892,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
       <div class="field">
         <label class="i18n">客戶名稱</label>
         <input type="text" id="fCustomer" data-cust-suggest placeholder="輸入客戶名稱關鍵字，會跳出選項" autocomplete="off" required>
+        <label class="new-cust-cb"><input type="checkbox" id="fCustomerNew"> 🆕 新客戶（自訂名稱，清單裡沒有的）</label>
       </div>
       <div id="fPickWrap" style="display:none; margin:-4px 0 12px;"></div>
       <div class="row2">
@@ -1207,6 +1217,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
       <button type="button" class="i18n report-tab" data-report-tab="search">🔍 訂單查詢</button>
       <button type="button" class="i18n report-tab" data-report-tab="materialTrace">🔎 原料追溯</button>
       <button type="button" class="i18n report-tab" data-report-tab="additiveLogbook">📒 添加物紀錄簿</button>
+      <button type="button" class="report-tab" data-report-tab="customers">👥 客戶清單</button>
       <button type="button" class="i18n report-tab" data-report-tab="backup">💾 備份</button>
     </div>
 
@@ -1352,6 +1363,19 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
       </div>
       <button type="button" class="i18n btn-primary" id="logbookExportBtn" style="width:100%; margin-bottom:14px;">📥 匯出全部添加物紀錄簿 Excel</button>
       <div id="additiveLogbookWrap"></div>
+    </div>
+
+    <div class="report-tab-panel" id="reportPanelCustomers" style="display:none;">
+      <div class="report-section-title" style="margin-top:0;">👥 所有客戶</div>
+      <div class="report-updated">列出所有訂過貨的客戶（包含已封存的舊訂單）。名稱打錯可以按「改名」，會把這個客戶所有訂單一起改；改成已經有的名稱就等於合併。</div>
+      <div style="display:flex; gap:8px; margin:10px 0; flex-wrap:wrap;">
+        <input type="text" id="custListSearch" placeholder="搜尋客戶名稱" autocomplete="off" style="flex:1; min-width:150px; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); font-size:16px;">
+        <select id="custListSort" style="padding:8px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink); font-size:15px;">
+          <option value="name">依名稱</option><option value="recent">最近有下單的在前</option><option value="count">訂單多的在前</option>
+        </select>
+      </div>
+      <div class="report-updated" id="custListCount"></div>
+      <div id="custListBody"></div>
     </div>
 
     <div class="report-tab-panel" id="reportPanelBackup" style="display:none;">
@@ -2048,6 +2072,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
     <div class="field">
       <label>客戶名稱 <span style="color:var(--red);">*</span></label>
       <input type="text" id="qoCustomer" data-cust-suggest placeholder="輸入客戶名稱關鍵字，會跳出選項" autocomplete="off">
+      <label class="new-cust-cb"><input type="checkbox" id="qoCustomerNew"> 🆕 新客戶（自訂名稱，清單裡沒有的）</label>
       <datalist id="qoCustomerList"></datalist>
     </div>
     <div id="qoRecent"></div>
@@ -2793,7 +2818,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.18-2';
+const APP_VERSION = '2026.11.18-4';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -3047,17 +3072,21 @@ function showChoice(title, msg, options){
   });
 }
 // 存檔前確認客戶名稱：回傳要用的名稱；按「返回修改」回傳 null
+// 新訂單只能用已建檔的客戶名稱；不在清單裡的，一定要選「🆕 新客戶（自訂）」才能存
 async function confirmCustomerName(inputId){
   const el = document.getElementById(inputId);
   const typed = normalizeCustomerName(el.value);
   el.value = typed;
+  if(!typed) return typed;
+  if(customerInfoMap().has(typed)) return typed; // 已建檔
   const sims = similarCustomers(typed);
-  if(!typed || !sims.length) return typed;
+  const newCb = document.getElementById(inputId + 'New');
+  if(newCb && newCb.checked && !sims.length) return typed; // 已經勾「新客戶」，而且沒有很像的
   const fmt = (t)=>{ if(!t) return ''; const d = new Date(t); return '最近 ' + (d.getMonth()+1) + '/' + d.getDate(); };
-  const pick = await showChoice('👥 是不是這個客戶？',
-    '你打的是「' + typed + '」\n系統裡有很像的客戶名稱，請選正確的那一個：',
+  const pick = await showChoice(sims.length ? '👥 是不是這個客戶？' : '👥 這不是已建檔的客戶',
+    '你打的是「' + typed + '」\n' + (sims.length ? '系統裡有很像的客戶名稱，請選正確的那一個：' : '客戶清單裡沒有這個名稱。如果是打錯，請按「返回修改」，從跳出的選項裡選客戶。'),
     sims.map((x, i)=> ({ value: x.name, primary: i === 0, html: '✅ 用「<b>' + escapeHtml(x.name) + '</b>」<small>（' + x.count + ' 張訂單' + (x.last ? '・' + fmt(x.last) : '') + '）</small>' }))
-      .concat([{ value: typed, html: '🆕 是新客戶，就用「' + escapeHtml(typed) + '」' }]));
+      .concat([{ value: typed, html: '🆕 這是新客戶（自訂），建立「' + escapeHtml(typed) + '」' }]));
   if(pick === null) return null;
   el.value = pick;
   el.dispatchEvent(new Event('input', { bubbles:true }));
@@ -7113,6 +7142,7 @@ function openSheetInner(order, item){
   document.getElementById('sheetSub').textContent = isNewOrder ? '' : ('訂單編號 ' + (order.orderNo || '') + '　客戶：' + (order.customer || ''));
 
   document.getElementById('fCustomer').value = order ? (order.customer || '') : '';
+  document.getElementById('fCustomerNew').checked = false;
   fPickEnabled = isNewOrder;
   setTimeout(renderFPick, 0);
   setFlexDateValue('fFillFormDate', item ? (item.fillFormDate || todayStr()) : todayStr());
@@ -7368,6 +7398,7 @@ function openQuickOrder(){
   [...orders].sort((a,b)=>(orderCreatedDate(b)||0)-(orderCreatedDate(a)||0)).forEach(o=>{ if(o.customer && !custs.includes(o.customer)) custs.push(o.customer); });
   document.getElementById('qoCustomerList').innerHTML = custs.map(c=>'<option value="'+escapeHtml(c)+'">').join('');
   document.getElementById('qoCustomer').value = '';
+  document.getElementById('qoCustomerNew').checked = false;
   document.getElementById('qoDue').value = todayStr();
   // 填寫人員：固定名單 + 以前訂單用「自訂」填過的名字 + 「自訂」
   {
@@ -8766,6 +8797,7 @@ document.getElementById('shipFilterClearBtn').onclick = ()=>{
 const reportOverlay = document.getElementById('reportOverlay');
 const REPORT_PANELS = {
   alerts: 'reportPanelAlerts',
+  customers: 'reportPanelCustomers',
   coaPending: 'reportPanelCoaPending',
   progress: 'reportPanelProgress',
   shipping: 'reportPanelShipping',
@@ -8782,7 +8814,53 @@ function switchReportTab(key){
     document.getElementById(id).style.display = (k === key) ? '' : 'none';
   });
   if(key === 'additiveLogbook') renderAdditiveLogbook();
+  if(key === 'customers') renderCustomerList();
 }
+// ---- 👥 客戶清單：所有客戶、幾張訂單、最近一次下單、常訂的品項；可以改名／合併 ----
+function renderCustomerList(){
+  const body = document.getElementById('custListBody'); if(!body) return;
+  const info = new Map();
+  historyOrders().forEach(o=>{
+    const n = (o.customer || '').trim(); if(!n) return;
+    const live = (o.items || []).filter(it=> !it.deleted);
+    if(!live.length) return;
+    const h = info.get(n) || { name: n, count: 0, last: 0, first: Infinity, active: 0, products: new Map() };
+    h.count++;
+    const d = orderCreatedDate(o); const t = d ? d.getTime() : 0;
+    if(t > h.last) h.last = t; if(t && t < h.first) h.first = t;
+    live.forEach(it=>{ if(!['qc','cancelled','shipped'].includes(it.status)) h.active++; h.products.set(it.product, (h.products.get(it.product) || 0) + 1); });
+    info.set(n, h);
+  });
+  const q = document.getElementById('custListSearch').value.trim().toLowerCase();
+  const mode = document.getElementById('custListSort').value;
+  let list = Array.from(info.values()).filter(h=> !q || h.name.toLowerCase().includes(q));
+  list.sort((a, b)=> mode === 'recent' ? b.last - a.last : mode === 'count' ? (b.count - a.count || a.name.localeCompare(b.name, 'zh-Hant')) : a.name.localeCompare(b.name, 'zh-Hant'));
+  const groups = new Map(); info.forEach(h=>{ const k = customerKey(h.name); groups.set(k, (groups.get(k) || 0) + 1); });
+  document.getElementById('custListCount').textContent = '共 ' + info.size + ' 位客戶' + (q ? '，符合「' + q + '」的 ' + list.length + ' 位' : '');
+  const fmt = (t)=>{ if(!t || t === Infinity) return '－'; const d = new Date(t); return d.getFullYear() + '/' + (d.getMonth()+1) + '/' + d.getDate(); };
+  body.innerHTML = list.length ? list.map(h=>{
+    const dup = groups.get(customerKey(h.name)) > 1;
+    const top = Array.from(h.products.entries()).sort((a, b)=> b[1] - a[1]).slice(0, 3).map(([p])=> escapeHtml(p)).join('、');
+    return '<div class="cl-row' + (dup ? ' dup' : '') + '">' +
+      '<div class="cl-main"><div class="cl-name">' + escapeHtml(h.name) + (dup ? ' <span class="cl-dup">⚠ 有相似寫法</span>' : '') + (h.active ? ' <span class="cl-active">進行中 ' + h.active + ' 項</span>' : '') + '</div>' +
+        '<div class="cl-sub">' + h.count + ' 張訂單・最近 ' + fmt(h.last) + '・第一次 ' + fmt(h.first) + (top ? '<br>常訂：' + top : '') + '</div></div>' +
+      '<button type="button" class="cl-rename" data-cl-name="' + escapeHtml(h.name) + '">✏️ 改名</button>' +
+    '</div>';
+  }).join('') : '<div class="ship-list-empty">沒有符合的客戶</div>';
+  body.querySelectorAll('[data-cl-name]').forEach(b=> b.onclick = async ()=>{
+    const old = b.dataset.clName;
+    const nv = prompt('把「' + old + '」改成：\n（改成已經有的客戶名稱＝合併）', old);
+    if(nv === null) return;
+    const target = normalizeCustomerName(nv);
+    if(!target || target === old) return;
+    const exists = info.has(target);
+    if(!(await showConfirm('「' + old + '」的所有訂單（' + info.get(old).count + ' 張）客戶名稱都會改成「' + target + '」' + (exists ? '\n「' + target + '」已經有了，等於把兩個合併成一個。' : '。'), exists ? '合併客戶？' : '客戶改名？'))) return;
+    await mergeCustomerNames([old], target);
+    renderCustomerList();
+  });
+}
+document.getElementById('custListSearch').addEventListener('input', renderCustomerList);
+document.getElementById('custListSort').addEventListener('change', renderCustomerList);
 document.querySelectorAll('.report-tab').forEach(btn=>{
   btn.onclick = ()=> switchReportTab(btn.dataset.reportTab);
 });
