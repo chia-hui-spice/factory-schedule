@@ -728,6 +728,15 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
   .zl-row .zl-st{ grid-column:3; grid-row:2; text-align:right; }
 }
 .lb-clear{ margin-top:8px; width:100%; padding:8px; font-size:14.5px; font-weight:800; border-radius:9px; border:1.5px dashed var(--red); background:transparent; color:var(--red); cursor:pointer; }
+.choice-btn{ text-align:left; padding:12px 14px; font-size:16.5px; border-radius:10px; border:1.5px solid var(--line); background:var(--panel-raised); color:var(--ink); cursor:pointer; }
+.choice-btn.primary{ border-color:var(--teal); background:rgba(45,212,191,0.10); }
+.choice-btn small{ color:var(--ink-dim); font-size:13px; }
+.cust-hint{ margin:6px 0 4px; padding:7px 10px; border-radius:9px; border:1.5px solid var(--amber); background:rgba(242,183,5,0.10); color:var(--amber); font-size:14px; font-weight:700; line-height:1.8; }
+.cust-hint button{ margin-left:6px; padding:3px 10px; border-radius:8px; border:1.5px solid var(--teal); background:var(--panel-raised); color:var(--teal); font-weight:800; cursor:pointer; }
+.cm-group{ border:1px solid var(--line); border-radius:10px; padding:8px 10px; margin-bottom:8px; }
+.cm-opt{ display:block; padding:3px 0; font-size:15px; }
+.cm-opt small{ color:var(--ink-dim); }
+.cm-merge{ margin-top:6px; padding:6px 12px; border-radius:8px; border:1.5px solid var(--teal); background:transparent; color:var(--teal); font-weight:800; cursor:pointer; }
 .code-line{ margin-top:4px; min-height:0; }
 .code-tag{ display:inline-block; font-size:14px; color:var(--ink-dim); }
 .code-tag b{ color:var(--teal); font-family:var(--mono); font-size:15px; }
@@ -1351,6 +1360,10 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
       <div class="sheet-actions" style="margin-top:0;">
         <button type="button" class="i18n btn-primary" id="btnExportBackup">📥 匯出 Excel（含垃圾桶）</button>
       </div>
+
+      <div class="section-label">👥 客戶名稱整理</div>
+      <div class="report-updated" style="margin-bottom:6px;">同一個客戶被打成好幾種寫法（多空白、全形半形、有沒有「有限公司」…）會列在這裡，選一個正確的名稱按「合併」，所有訂單（包含已封存的）都會改成同一個名稱。</div>
+      <div id="custMergeList" style="margin-bottom:16px;"></div>
 
       <div class="section-label">📦 訂單資料量／封存</div>
       <div class="report-updated" id="archiveInfo" style="margin-bottom:8px; line-height:1.7;"></div>
@@ -2385,6 +2398,16 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
   </div>
 </div>
 
+<div class="overlay" id="choiceOverlay" style="z-index:62;">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 id="choiceTitle"></h2>
+    <div class="report-updated" id="choiceMsg" style="white-space:pre-line; font-size:15px;"></div>
+    <div id="choiceList" style="display:flex; flex-direction:column; gap:8px; margin:12px 0;"></div>
+    <div class="sheet-actions"><button type="button" class="btn-secondary" id="choiceCancel">返回修改</button></div>
+  </div>
+</div>
+
 <div class="overlay" id="cancelItemOverlay" style="z-index:55;">
   <div class="sheet">
     <div class="sheet-handle"></div>
@@ -2770,7 +2793,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.18-1';
+const APP_VERSION = '2026.11.18-2';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -2951,6 +2974,158 @@ document.addEventListener('keydown', (e)=>{
   } else if(e.key === 'Escape'){ hideOriginDrop(); }
 });
 // ---- 客戶名稱提示：打到任何一段關鍵字就跳出符合的客戶（電腦、iPad 都一樣），點一下就填入 ----
+// ---- 👥 客戶名稱防呆：打字時跟已有的客戶比對，很像的就提醒「是不是○○？」；存檔前再確認一次 ----
+function normalizeCustomerName(v){
+  let t = String(v || '');
+  t = t.replace(/[\uFF01-\uFF5E]/g, c=> String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/\u3000/g, ' ');
+  t = t.replace(/[－—–―]/g, '-').replace(/\s+/g, ' ').trim();
+  t = t.replace(/\s*-\s*/g, '-');
+  return t;
+}
+function customerKey(n){
+  let t = normalizeCustomerName(n).toLowerCase();
+  t = t.replace(/臺/g, '台');
+  t = t.replace(/[\s\-_.,，。、・·()（）\[\]【】「」'"]/g, '');
+  t = t.replace(/(股份有限公司|有限公司|股份公司|企業有限公司|企業社|公司|商行|商號|工作室)$/,'');
+  return t;
+}
+function editDistance1(a, b){
+  if(a === b) return true;
+  if(Math.abs(a.length - b.length) > 1) return false;
+  let i = 0, j = 0, diff = 0;
+  while(i < a.length && j < b.length){
+    if(a[i] === b[j]){ i++; j++; continue; }
+    if(++diff > 1) return false;
+    if(a.length > b.length) i++; else if(b.length > a.length) j++; else { i++; j++; }
+  }
+  return diff + (a.length - i) + (b.length - j) <= 1;
+}
+// 短的名稱每個字都依序出現在長的名稱裡（例如「康達盛岡山倉」↔「康達盛通雜貨岡山倉」）
+function isSubseqLoose(a, b){
+  const [sh, lo] = a.length <= b.length ? [a, b] : [b, a];
+  if(sh.length < 4 || lo.length - sh.length > 6) return false;
+  let i = 0; for(const c of lo){ if(c === sh[i]) i++; if(i === sh.length) break; }
+  return i === sh.length && sh[0] === lo[0];
+}
+function customerInfoMap(){
+  const info = new Map();
+  historyOrders().forEach(o=>{
+    const n = (o.customer || '').trim(); if(!n) return;
+    const h = info.get(n) || { count: 0, last: 0 };
+    h.count++; const d = orderCreatedDate(o); const t = d ? d.getTime() : 0; if(t > h.last) h.last = t;
+    info.set(n, h);
+  });
+  return info;
+}
+function similarCustomers(name){
+  const n = normalizeCustomerName(name); const k = customerKey(n);
+  if(!k) return [];
+  const info = customerInfoMap();
+  if(info.has(n)) return [];
+  const out = [];
+  info.forEach((h, other)=>{
+    const ok = customerKey(other);
+    if(!ok) return;
+    const similar = ok === k ||
+      (Math.min(ok.length, k.length) >= 2 && (ok.includes(k) || k.includes(ok)) && Math.abs(ok.length - k.length) <= 4) ||
+      (Math.min(ok.length, k.length) >= 3 && editDistance1(ok, k)) ||
+      isSubseqLoose(ok, k);
+    if(similar) out.push({ name: other, count: h.count, last: h.last, same: ok === k });
+  });
+  return out.sort((a, b)=> (b.same - a.same) || (b.count - a.count)).slice(0, 5);
+}
+function showChoice(title, msg, options){
+  document.getElementById('choiceTitle').textContent = title;
+  document.getElementById('choiceMsg').textContent = msg;
+  const list = document.getElementById('choiceList');
+  list.innerHTML = options.map((o, i)=> '<button type="button" class="choice-btn' + (o.primary ? ' primary' : '') + '" data-ci="' + i + '">' + o.html + '</button>').join('');
+  const ov = document.getElementById('choiceOverlay');
+  ov.classList.add('show');
+  return new Promise(resolve=>{
+    list.querySelectorAll('[data-ci]').forEach(b=> b.onclick = ()=>{ ov.classList.remove('show'); resolve(options[+b.dataset.ci].value); });
+    document.getElementById('choiceCancel').onclick = ()=>{ ov.classList.remove('show'); resolve(null); };
+  });
+}
+// 存檔前確認客戶名稱：回傳要用的名稱；按「返回修改」回傳 null
+async function confirmCustomerName(inputId){
+  const el = document.getElementById(inputId);
+  const typed = normalizeCustomerName(el.value);
+  el.value = typed;
+  const sims = similarCustomers(typed);
+  if(!typed || !sims.length) return typed;
+  const fmt = (t)=>{ if(!t) return ''; const d = new Date(t); return '最近 ' + (d.getMonth()+1) + '/' + d.getDate(); };
+  const pick = await showChoice('👥 是不是這個客戶？',
+    '你打的是「' + typed + '」\n系統裡有很像的客戶名稱，請選正確的那一個：',
+    sims.map((x, i)=> ({ value: x.name, primary: i === 0, html: '✅ 用「<b>' + escapeHtml(x.name) + '</b>」<small>（' + x.count + ' 張訂單' + (x.last ? '・' + fmt(x.last) : '') + '）</small>' }))
+      .concat([{ value: typed, html: '🆕 是新客戶，就用「' + escapeHtml(typed) + '」' }]));
+  if(pick === null) return null;
+  el.value = pick;
+  el.dispatchEvent(new Event('input', { bubbles:true }));
+  return pick;
+}
+// 打完客戶名稱離開欄位時，下面先顯示提醒
+function attachCustomerHint(inputId){
+  const el = document.getElementById(inputId); if(!el) return;
+  let hint = document.createElement('div'); hint.className = 'cust-hint'; hint.style.display = 'none';
+  el.parentNode.insertBefore(hint, el.nextSibling);
+  const update = ()=>{
+    const v = el.value.trim();
+    const sims = v ? similarCustomers(v) : [];
+    if(!sims.length){ hint.style.display = 'none'; return; }
+    hint.innerHTML = '⚠ 系統裡有很像的客戶，點一下改成：' + sims.slice(0, 3).map(x=> '<button type="button" data-cust-fix="' + escapeHtml(x.name) + '">' + escapeHtml(x.name) + '</button>').join('');
+    hint.style.display = '';
+    hint.querySelectorAll('[data-cust-fix]').forEach(b=> b.onclick = ()=>{ el.value = b.dataset.custFix; hint.style.display = 'none'; el.dispatchEvent(new Event('input', { bubbles:true })); el.dispatchEvent(new Event('change', { bubbles:true })); });
+  };
+  el.addEventListener('change', update);
+  el.addEventListener('blur', ()=> setTimeout(update, 200));
+  el.addEventListener('input', ()=>{ if(hint.style.display !== 'none') update(); });
+}
+// 客戶名稱整理：把同一個客戶的不同寫法合併
+function customerVariantGroups(){
+  const info = customerInfoMap();
+  const groups = new Map();
+  info.forEach((h, name)=>{ const k = customerKey(name); if(!k) return; if(!groups.has(k)) groups.set(k, []); groups.get(k).push({ name, count: h.count }); });
+  return Array.from(groups.values()).filter(g=> g.length > 1).map(g=> g.sort((a, b)=> b.count - a.count));
+}
+function renderCustomerMerge(){
+  const el = document.getElementById('custMergeList'); if(!el) return;
+  const groups = customerVariantGroups();
+  if(!groups.length){ el.innerHTML = '<div class="ship-list-empty">✓ 目前沒有寫法不一樣的客戶名稱</div>'; return; }
+  el.innerHTML = groups.map((g, gi)=> '<div class="cm-group" data-cm="' + gi + '">' +
+    g.map((v, vi)=> '<label class="cm-opt"><input type="radio" name="cm' + gi + '" value="' + escapeHtml(v.name) + '"' + (vi === 0 ? ' checked' : '') + '> <b>' + escapeHtml(v.name) + '</b> <small>' + v.count + ' 張</small></label>').join('') +
+    '<button type="button" class="cm-merge" data-cm-btn="' + gi + '">合併成選的這個名稱</button></div>').join('');
+  el.querySelectorAll('[data-cm-btn]').forEach(b=> b.onclick = async ()=>{
+    const gi = +b.dataset.cmBtn; const g = groups[gi];
+    const target = el.querySelector('input[name="cm' + gi + '"]:checked').value;
+    const from = g.map(v=> v.name).filter(n=> n !== target);
+    if(!(await showConfirm('「' + from.join('」「') + '」的所有訂單，客戶名稱都會改成「' + target + '」。', '合併客戶名稱？'))) return;
+    await mergeCustomerNames(from, target);
+  });
+}
+async function mergeCustomerNames(from, target){
+  const set = new Set(from);
+  let n = 0;
+  set.add(target); // 順便把前後多打空白的也改好
+  orders.forEach(o=>{ if(set.has((o.customer || '').trim()) && o.customer !== target){ o.customer = target; n++; } });
+  if(n){ const ok = await saveOrders(); if(!ok) return; }
+  // 已封存的訂單也一起改
+  let an = 0;
+  for(const [id, list] of archiveDocsData.entries()){
+    if(!(list || []).some(o=> set.has((o.customer || '').trim()))) continue;
+    try{
+      await runTransaction(db, async (tx)=>{
+        const ref = doc(db, dataPrefix, id);
+        const ds = await tx.get(ref);
+        const l = (ds.exists() && ds.data().list) ? ds.data().list : [];
+        l.forEach(o=>{ if(set.has((o.customer || '').trim()) && o.customer !== target){ o.customer = target; an++; } });
+        tx.set(ref, { list: l });
+      });
+    }catch(e){ console.error(e); }
+  }
+  archivedOrders.forEach(o=>{ if(set.has((o.customer || '').trim())) o.customer = target; });
+  render(); renderCustomerMerge();
+  showToast('✅ 已合併：' + (n + an) + ' 張訂單改成「' + target + '」');
+}
 function customerSuggestList(q){
   const info = new Map(); // 名稱 -> { last, count }
   historyOrders().forEach(o=>{
@@ -3443,6 +3618,7 @@ async function autoArchiveIfNeeded(){
   await archiveCompletedOrders(big ? 0 : ARCHIVE_AFTER_DAYS, true);
 }
 function renderArchiveInfo(){
+  setTimeout(()=>{ try{ renderCustomerMerge(); }catch(e){} }, 0);
   const el = document.getElementById('archiveInfo'); if(!el) return;
   const kb = lastOrdersBytes ? Math.round(lastOrdersBytes / 1024) : 0;
   el.innerHTML = '目前訂單資料量：<b>' + kb + ' KB</b> / 上限約 1024 KB' + (kb > 750 ? ' <b style="color:var(--red);">（快滿了）</b>' : '') +
@@ -6857,6 +7033,8 @@ function attachSpecNormalizer(el){
   });
 }
 ['fSpecCustom','fgSpecCustom'].forEach(id=> attachSpecNormalizer(document.getElementById(id)));
+['fCustomer','qoCustomer'].forEach(id=> attachCustomerHint(id));
+document.addEventListener('click', (e)=>{ if(e.target.closest && e.target.closest('#reportBtn, [data-report-tab]')) setTimeout(()=>{ try{ renderCustomerMerge(); }catch(err){} }, 80); }, true);
 [['fReleaseBy','fReleaseByCustom'], ['fFilledBy','fFilledByCustom'], ['fWarehouseConfirm','fWarehouseConfirmCustom'], ['fPackagingStaff','fPackagingStaffCustom'], ['fCoaConfirmBy','fCoaConfirmByCustom'], ['fOrigin','fOriginCustom'], ['fSpec','fSpecCustom'], ['fgSpec','fgSpecCustom']].forEach(([selectId, customId])=>{
   document.getElementById(selectId).addEventListener('change', function(){
     document.getElementById(customId).style.display = (this.value === '自訂') ? '' : 'none';
@@ -7494,6 +7672,7 @@ document.getElementById('qoCancel').onclick = async ()=>{
   qoOverlay.classList.remove('show');
 };
 document.getElementById('qoSave').onclick = async ()=>{
+  if(document.getElementById('qoCustomer').value.trim()){ const chk = await confirmCustomerName('qoCustomer'); if(chk === null) return; }
   const customer = document.getElementById('qoCustomer').value.trim();
   const due = document.getElementById('qoDue').value;
   const rows = qoRows.filter(r=>r.product || r.qty);
@@ -7553,6 +7732,8 @@ document.getElementById('btnCancel').onclick = closeSheet;
 // 按「XX完成」時因為缺資料被帶去填表單，填完儲存後自動幫你繼續往下一個階段
 let pendingAdvanceItemId = null;
 async function handleSaveOrder(){
+  { const cur = editingOrderId && orders.find(o=> o.id === editingOrderId); const typed = document.getElementById('fCustomer').value.trim();
+    if(typed && !(cur && cur.customer === typed)){ const chk = await confirmCustomerName('fCustomer'); if(chk === null) return; } }
   const customer = document.getElementById('fCustomer').value.trim();
   const product = document.getElementById('fProduct').value.trim();
   const spec = getPickerValue('fSpec', 'fSpecCustom');
