@@ -746,6 +746,8 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 .cl-dup{ font-size:12.5px; color:var(--amber); border:1px solid var(--amber); border-radius:6px; padding:0 6px; }
 .cl-active{ font-size:12.5px; color:var(--teal); border:1px solid var(--teal); border-radius:6px; padding:0 6px; }
 .cl-rename{ flex:0 0 auto; padding:6px 12px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel-raised); color:var(--ink); font-weight:700; cursor:pointer; }
+.qty-btn{ border-color:var(--orange); color:var(--orange); }
+.qty-changed{ display:inline-block; margin-left:6px; font-size:13px; font-weight:800; color:var(--orange); border:1px dashed var(--orange); border-radius:6px; padding:0 6px; }
 .code-line{ margin-top:4px; min-height:0; }
 .code-tag{ display:inline-block; font-size:14px; color:var(--ink-dim); }
 .code-tag b{ color:var(--teal); font-family:var(--mono); font-size:15px; }
@@ -2423,6 +2425,23 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
   </div>
 </div>
 
+<div class="overlay" id="qtyChangeOverlay" style="z-index:56;">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>🔢 客人改數量</h2>
+    <div class="report-updated" id="qcSub" style="line-height:1.7;"></div>
+    <div class="field"><label>新的訂購數量 <span style="color:var(--red);">*</span></label>
+      <div style="display:flex; align-items:center; gap:8px;"><input type="number" id="qcNewQty" inputmode="numeric" min="1" step="1" style="flex:1; font-size:22px; font-weight:900;"><span id="qcUnit" style="font-size:18px; font-weight:800;"></span></div>
+    </div>
+    <div id="qcPreview" style="font-size:15px; line-height:1.7; margin:6px 0 10px;"></div>
+    <div class="field"><label>原因（選填）</label><input type="text" id="qcReason" placeholder="例如：11/19 客人來電加訂 100 包" autocomplete="off"></div>
+    <div class="sheet-actions">
+      <button type="button" class="btn-secondary" id="qcCancel">返回</button>
+      <button type="button" class="btn-primary" id="qcOk">確定修改</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="choiceOverlay" style="z-index:62;">
   <div class="sheet">
     <div class="sheet-handle"></div>
@@ -2818,7 +2837,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.18-4';
+const APP_VERSION = '2026.11.19-1';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -4025,7 +4044,7 @@ const ID_PHRASES = {
   '原料批號 / 日期':'No. batch bahan / Tanggal', '廠商直出（只貼標）':'Langsung dari pemasok (hanya label)', '廠商直出':'Langsung dari pemasok',
   '廠商批號':'No. batch pemasok', '廠商製造日期':'Tgl produksi pemasok', '廠商有效日期':'Tgl kedaluwarsa pemasok',
   '廠商製造日期（可不填）':'Tgl produksi pemasok (opsional)', '廠商有效日期（可不填）':'Tgl kedaluwarsa pemasok (opsional)', '產品製造日期（可不填）':'Tgl produksi produk (opsional)',
-  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '訂購數量':'Jumlah pesanan', '實際產出':'Hasil produksi', '實際出貨':'Jumlah dikirim', '只看清單':'Hanya daftar', '清除製造日期、有效日期、製造批號（打錯時用）':'Hapus tanggal & batch (jika salah)', '同品項合計':'Total per item', '批號日期':'Batch & tanggal', '未填':'Belum diisi', '已填':'Sudah diisi', '2年':'2 thn', '1年':'1 thn', '3年':'3 thn', '4年':'4 thn', '5年':'5 thn', '還沒到這步':'Belum sampai sini', '這一步要做':'Kerjakan di sini', '點這一列填寫':'Ketuk baris untuk isi', '已過這步':'Sudah lewat', '目前在':'Sekarang di', '已完成':'Selesai', '已出貨':'Sudah dikirim', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
+  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '訂購數量':'Jumlah pesanan', '實際產出':'Hasil produksi', '實際出貨':'Jumlah dikirim', '只看清單':'Hanya daftar', '清除製造日期、有效日期、製造批號（打錯時用）':'Hapus tanggal & batch (jika salah)', '同品項合計':'Total per item', '批號日期':'Batch & tanggal', '未填':'Belum diisi', '已填':'Sudah diisi', '改數量':'Ubah jumlah', '2年':'2 thn', '1年':'1 thn', '3年':'3 thn', '4年':'4 thn', '5年':'5 thn', '還沒到這步':'Belum sampai sini', '這一步要做':'Kerjakan di sini', '點這一列填寫':'Ketuk baris untuk isi', '已過這步':'Sudah lewat', '目前在':'Sekarang di', '已完成':'Selesai', '已出貨':'Sudah dikirim', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
   '設為廠商直出（只貼標）':'Set: langsung dari pemasok', '點一下取消':'ketuk untuk batal', '廠商批號 / 日期':'No. batch pemasok / Tanggal',
   '產品批號 / 日期（印在標籤上）':'No. batch produk / Tanggal (di label)', '輸入廠商批號':'Ketik no. batch pemasok',   '需要COA（隨貨附）　請填寫原料批號':'Perlu COA (ikut barang) — isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
   '（隨貨附），出貨確認後將進入品管抽樣確認':'(ikut barang), setelah kirim akan dicek sampel QC', '今天':'Hari ini', '明天':'Besok',
@@ -4317,7 +4336,12 @@ function mergeOrderLists(serverList, localList){
       if(!li){ if(syncedItemJson.has(si.id)) return; items.push(_cloneJ(si)); return; }
       items.push(_cloneJ(_itemKey(li) !== syncedItemJson.get(si.id) ? li : si)); // 本機改過用本機的，沒改過用雲端最新的
     });
-    (lo.items || []).forEach(li=>{ if(!serverItemIds.has(li.id) && !syncedItemJson.has(li.id)) items.push(_cloneJ(li)); }); // 本機新增的品項
+    (lo.items || []).forEach((li, idx)=>{ // 本機新增的品項：放在本機排序中前一個品項的後面（拆分、加訂的會排在原品項旁邊）
+      if(serverItemIds.has(li.id) || syncedItemJson.has(li.id)) return;
+      let at = -1;
+      for(let k = idx - 1; k >= 0 && at < 0; k--){ const pid = lo.items[k].id; at = items.findIndex(x=> x.id === pid); }
+      if(at >= 0) items.splice(at + 1, 0, _cloneJ(li)); else items.push(_cloneJ(li));
+    });
     base.items = items;
     out.push(base);
   });
@@ -4978,8 +5002,98 @@ function dueChangedTag(item){
 }
 function dueChangeBtn(order, item){
   if(item.status === 'qc' || item.status === 'cancelled') return '';
-  return ' <button type="button" class="due-btn" data-due-oid="' + order.id + '" data-due-iid="' + item.id + '">📅 改交期</button>';
+  return ' <button type="button" class="due-btn" data-due-oid="' + order.id + '" data-due-iid="' + item.id + '">📅 改交期</button>' +
+    (item.status !== 'shipped' ? ' <button type="button" class="due-btn qty-btn" data-qc-oid="' + order.id + '" data-qc-iid="' + item.id + '">🔢 改數量</button>' : '');
 }
+// ---- 🔢 客人在生產中增減數量 ----
+// 訂單確認／庫存確認：直接改數量
+// 排程生產（已扣原料、還沒做好）：改數量，原料照新數量重新扣
+// 標籤印製以後（成品已經做好）：減少 → 直接改，多做的留在成品庫存；增加 → 多的部分拆成新品項，回到「庫存確認」重新生產
+function qtyChangedTag(item){
+  const h = item.qtyHistory || [];
+  if(!h.length) return '';
+  const first = h[0].from;
+  return ' <span class="qty-changed" title="' + escapeHtml(h.map(x=> fmtDT(x.at) + ' ' + x.from + '→' + x.to + (x.reason ? '（' + x.reason + '）' : '')).join('\n')) + '">🔢 原訂 ' + escapeHtml(String(first)) + ' → ' + escapeHtml(String(item.qty)) + '</span>';
+}
+let qcTarget = null;
+function qcPlan(item, newQty){
+  const old = Number(item.qty) || 0, n = Number(newQty);
+  const u = orderUnit(item);
+  if(!(n > 0) || n === old) return { ok:false, html:'' };
+  const diff = n - old;
+  const made = ['done','refill','boxing'].includes(item.status);
+  if(item.status === 'pending' || item.status === 'inprogress'){
+    return { ok:true, mode:'direct', html: '✅ 數量從 <b>' + old + '</b> 改成 <b>' + n + '</b> ' + escapeHtml(u) + '（還沒開始生產，直接改）' };
+  }
+  if(item.status === 'labeling'){
+    return { ok:true, mode:'labeling', html: '✅ 數量從 <b>' + old + '</b> 改成 <b>' + n + '</b> ' + escapeHtml(u) + '<br>🧪 原料扣帳會照新數量重新計算（' + (diff > 0 ? '再多扣 ' + diff : '退回 ' + (-diff)) + ' ' + escapeHtml(u) + ' 的用量）' };
+  }
+  if(made && diff < 0){
+    return { ok:true, mode:'direct', html: '✅ 數量從 <b>' + old + '</b> 改成 <b>' + n + '</b> ' + escapeHtml(u) + '<br>📦 已經做好的成品，多出的 ' + (-diff) + ' ' + escapeHtml(u) + ' 會留在成品庫存（出貨時只扣 ' + n + '）' };
+  }
+  if(made && diff > 0){
+    return { ok:true, mode:'addSplit', html: '✅ 這一批維持 <b>' + old + '</b> ' + escapeHtml(u) + '（已經做好了）<br>➕ 多加的 <b>' + diff + '</b> ' + escapeHtml(u) + ' 會變成同一張訂單的新品項，回到「庫存確認」重新生產<br><small>（兩筆會標示「拆分」並排在一起，總數 ' + n + '）</small>' };
+  }
+  return { ok:false, html:'' };
+}
+function openQtyChange(order, item){
+  qcTarget = { orderId: order.id, itemId: item.id };
+  document.getElementById('qcSub').innerHTML = escapeHtml(order.customer || '') + '　<b>' + escapeHtml(item.product) + '</b>' + (item.spec ? '（' + escapeHtml(item.spec) + '）' : '') +
+    '<br>目前數量 <b style="color:var(--ink); font-size:18px;">' + escapeHtml(String(item.qty)) + '</b> ' + escapeHtml(orderUnit(item)) + '　目前階段 <span class="badge stage st-' + item.status + '">' + STATUS_LABEL[item.status] + '</span>';
+  document.getElementById('qcUnit').textContent = orderUnit(item);
+  document.getElementById('qcNewQty').value = item.qty;
+  document.getElementById('qcReason').value = '';
+  document.getElementById('qcPreview').innerHTML = '';
+  document.getElementById('qtyChangeOverlay').classList.add('show');
+  setTimeout(()=>{ const i = document.getElementById('qcNewQty'); i.focus(); i.select(); }, 100);
+}
+document.getElementById('qcNewQty').addEventListener('input', ()=>{
+  if(!qcTarget) return;
+  const o = orders.find(x=> x.id === qcTarget.orderId); const it = o && o.items.find(i=> i.id === qcTarget.itemId);
+  if(!it) return;
+  document.getElementById('qcPreview').innerHTML = qcPlan(it, document.getElementById('qcNewQty').value).html;
+});
+document.getElementById('qcCancel').onclick = ()=> document.getElementById('qtyChangeOverlay').classList.remove('show');
+document.getElementById('qcOk').onclick = async ()=>{
+  if(!qcTarget) return;
+  const order = orders.find(x=> x.id === qcTarget.orderId); const item = order && order.items.find(i=> i.id === qcTarget.itemId);
+  if(!item) return;
+  const n = Number(document.getElementById('qcNewQty').value);
+  const plan = qcPlan(item, n);
+  if(!plan.ok){ showToast(n === Number(item.qty) ? '數量沒有改變' : '請輸入正確的數量'); return; }
+  const reason = document.getElementById('qcReason').value.trim();
+  const old = Number(item.qty);
+  const rec = { from: old, to: n, at: Date.now(), by: currentUserEmail || '', reason, stage: item.status };
+  if(plan.mode === 'direct'){
+    item.qty = n;
+    item.qtyHistory = (item.qtyHistory || []).concat([rec]);
+    if(item.shipQty !== undefined && item.shipQty !== null && Number(item.shipQty) === old) item.shipQty = null;
+  }else if(plan.mode === 'labeling'){
+    await restoreStockForItem(item, order);   // 先照舊數量退回
+    item.qty = n;
+    item.qtyHistory = (item.qtyHistory || []).concat([rec]);
+    await deductStockForItem(item, order);    // 再照新數量扣
+  }else if(plan.mode === 'addSplit'){
+    const diff = n - old;
+    const splitGroupId = item.splitGroupId || ('sg_' + Date.now() + '_' + Math.random().toString(36).slice(2,7));
+    const newItem = {
+      id: 'i_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+      product: item.product, spec: item.spec || '', qty: diff, due: item.due, origin: item.origin || '', coa: item.coa, filledBy: item.filledBy || '',
+      productionZones: (item.productionZones || []).slice(), needsIrradiation: !!item.needsIrradiation, irradiationDestination: item.irradiationDestination || '',
+      note: item.note || '', boxCode: item.boxCode || '', vendorDirect: !!item.vendorDirect, priority: item.priority || 'normal',
+      status: 'inprogress', splitGroupId, originalQty: n,
+      qtyHistory: [Object.assign({}, rec, { note: '加訂的部分，從原品項拆出來' })]
+    };
+    item.splitGroupId = splitGroupId; item.originalQty = n;
+    item.qtyHistory = (item.qtyHistory || []).concat([Object.assign({}, rec, { to: old, note: '加訂 ' + diff + '，另外拆一筆重新生產' })]);
+    let pos = -1; order.items.forEach((x, i)=>{ if(x.id === item.id || x.splitGroupId === splitGroupId) pos = i; });
+    order.items.splice(pos + 1, 0, newItem);
+  }
+  const ok = await saveOrders();
+  document.getElementById('qtyChangeOverlay').classList.remove('show');
+  render();
+  if(ok) showToast(plan.mode === 'addSplit' ? '➕ 加訂的 ' + (n - old) + ' ' + orderUnit(item) + ' 已送回「庫存確認」重新生產' : '🔢 數量已改成 ' + n + ' ' + orderUnit(item));
+};
 let dcTarget = null;
 function openDueChange(order, item){
   dcTarget = { orderId: order.id, itemId: item.id };
@@ -5573,7 +5687,7 @@ function orderSummaryHtml(order){
             })() : '') +
             ((currentTab === 'refill' && it.status === 'refill') ? (function(){ const ps = it.packagingStaff || defaultPackagingStaff(it); return '<br>包裝人員 ' + (ps ? '<b>' + escapeHtml(ps) + '</b>' + (it.packagingStaff ? '' : '（預設）') : '<i class="os-miss">未選</i>'); })() : '') + '</span>';
         })() : '') + '</span>' +
-      '<span class="os-qty">' + escapeHtml(qtyWithUnit(it.qty, it)) + (hasShipQtyDiff(it) ? '<small class="os-shipq">實出 ' + escapeHtml(String(shipQtyOf(it))) + '</small>' : '') + '</span>' +
+      '<span class="os-qty">' + escapeHtml(qtyWithUnit(it.qty, it)) + ((it.qtyHistory && it.qtyHistory.length && it.qtyHistory[0].from !== it.qty && !it.splitGroupId) ? '<small class="os-shipq" style="color:var(--blue);">原訂 ' + escapeHtml(String(it.qtyHistory[0].from)) + '</small>' : '') + (hasShipQtyDiff(it) ? '<small class="os-shipq">實出 ' + escapeHtml(String(shipQtyOf(it))) + '</small>' : '') + '</span>' +
       ((isHere && (currentTab === 'inprogress' || currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing' || currentTab === 'shipped'))
         ? '<button type="button" class="os-go" data-act="forward" data-oid="' + order.id + '" data-iid="' + it.id + '">' + (currentTab === 'inprogress' ? (it.vendorDirect ? '送標籤<br>印製' : '無庫存<br>請生產' + '<span class="id-sub">Produksi</span>') : bi('完成')) + '</button>'
         : stagePillHtml(it)) +
@@ -5761,7 +5875,7 @@ function renderListInner(){
       if(item.actualYieldQty !== undefined && item.actualYieldQty !== null && item.actualYieldQty !== '' && Number(item.actualYieldQty) !== Number(item.qty)){
         metaBits.push('<div class="meta-item">實際產出 <b style="color:var(--orange);">' + item.actualYieldQty + '</b></div>');
       }
-      metaBits.push('<div class="meta-item">出貨日 <b>' + item.due + '</b>' + dueChangedTag(item) + dueChangeBtn(order, item) + '</div>');
+      metaBits.push('<div class="meta-item">出貨日 <b>' + item.due + '</b>' + dueChangedTag(item) + qtyChangedTag(item) + dueChangeBtn(order, item) + '</div>');
       if(item.origin) metaBits.push('<div class="meta-item">產地 <b>' + escapeHtml(item.origin) + '</b></div>');
 
       const splitBtnHtml = (item.qty > 1 && item.status !== 'shipped')
@@ -5849,7 +5963,7 @@ function renderListInner(){
  '<div class="simple-name">' + escapeHtml(item.product) + idNameLine(item.product) + itemCodeTagHtml(item, currentTab) + (item.spec ? '<div class="simple-spec">' + escapeHtml(item.spec) + idSpecSub(item.spec) + '</div>' : '') + '</div>' +
             '<div class="simple-qty"><span>' + bi('數量') + '</span>' + escapeHtml(qtyWithUnit(item.qty, item)) + idQtySub(item) + '</div>' +
           '</div>' +
-          '<div class="simple-sub">' + bi('出貨日') + ' <b>' + escapeHtml((item.due || '').slice(0,4) === String(new Date().getFullYear()) ? (item.due || '').slice(5).replace('-', '/') : (item.due || '').replace(/-/g, '/')) + '</b>' + dueChangedTag(item) + dueChangeBtn(order, item) + zonesTxt + (tags.length ? '　' + tags.join(' ') : '') + '</div>' +
+          '<div class="simple-sub">' + bi('出貨日') + ' <b>' + escapeHtml((item.due || '').slice(0,4) === String(new Date().getFullYear()) ? (item.due || '').slice(5).replace('-', '/') : (item.due || '').replace(/-/g, '/')) + '</b>' + dueChangedTag(item) + qtyChangedTag(item) + dueChangeBtn(order, item) + zonesTxt + (tags.length ? '　' + tags.join(' ') : '') + '</div>' +
           (showBatch ? ((tab === 'done' && item.status === 'done') || (tab === 'refill' && item.status === 'refill')
             ? doneEditHtml
             : bigBatch
@@ -6052,6 +6166,11 @@ function renderListInner(){
     const saved = await saveOrders();
     if(!saved){ item.coaDone = prev.d; item.coaDoneAt = prev.at; render(); return; }
     showToast('「' + item.product + '」品管COA確認完成');
+  });
+  wrap.querySelectorAll('[data-qc-oid]').forEach(b=> b.onclick = (e)=>{
+    e.stopPropagation();
+    const o = orders.find(x=> x.id === b.dataset.qcOid); const it = o && o.items.find(i=> i.id === b.dataset.qcIid);
+    if(o && it) openQtyChange(o, it);
   });
   wrap.querySelectorAll('[data-due-oid]').forEach(b=> b.onclick = (e)=>{
     e.stopPropagation();
