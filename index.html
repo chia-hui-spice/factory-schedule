@@ -2838,7 +2838,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.20-2';
+const APP_VERSION = '2026.11.20-4';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -3528,7 +3528,7 @@ const ZONE_PERSON_COLORS = [
   [['美足','Mei Zu'], '#ff7a6b'], [['葵珠','Kui Zhu'], '#8fe3e0'], [['燕束','Yan Shu'], '#d6f06a']
 ];
 const ZONE_PERSON_COLOR = {}; ZONE_PERSON_COLORS.forEach(([names, c])=> names.forEach(n=> ZONE_PERSON_COLOR[n] = c));
-const ZONE_PERSON_RE = new RegExp('\\((' + Object.keys(ZONE_PERSON_COLOR).map(n=> n.replace(/[-]/g,'\\-')).join('|') + ')\\)(?=\\s*(?:[一-鿿]|Lini))', 'g');
+const ZONE_PERSON_RE = new RegExp('\\((' + Object.keys(ZONE_PERSON_COLOR).map(n=> n.replace(/[-]/g,'\\-')).join('|') + ')\\)(?=\\s*(?:[一-鿿]|Lini|isi))', 'g');
 function colorZoneNames(root){
   if(!root) return;
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode(n){
@@ -4079,7 +4079,7 @@ const ID_PHRASES = {
   '廠商製造日期（可不填）':'Tgl produksi pemasok (opsional)', '廠商有效日期（可不填）':'Tgl kedaluwarsa pemasok (opsional)', '產品製造日期（可不填）':'Tgl produksi produk (opsional)',
   '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '訂購數量':'Jumlah pesanan', '實際產出':'Hasil produksi', '實際出貨':'Jumlah dikirim', '只看清單':'Hanya daftar', '清除製造日期、有效日期、製造批號（打錯時用）':'Hapus tanggal & batch (jika salah)', '同品項合計':'Total per item', '批號日期':'Batch & tanggal', '未填':'Belum diisi', '已填':'Sudah diisi', '改數量':'Ubah jumlah', '2年':'2 thn', '1年':'1 thn', '3年':'3 thn', '4年':'4 thn', '5年':'5 thn', '還沒到這步':'Belum sampai sini', '這一步要做':'Kerjakan di sini', '點這一列填寫':'Ketuk baris untuk isi', '已過這步':'Sudah lewat', '目前在':'Sekarang di', '已完成':'Selesai', '已出貨':'Sudah dikirim', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
   '設為廠商直出（只貼標）':'Set: langsung dari pemasok', '點一下取消':'ketuk untuk batal', '廠商批號 / 日期':'No. batch pemasok / Tanggal',
-  '產品批號 / 日期（印在標籤上）':'No. batch produk / Tanggal (di label)', '輸入廠商批號':'Ketik no. batch pemasok',   '需要COA（隨貨附）　請填寫原料批號':'Perlu COA (ikut barang) — isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
+  '產品批號 / 日期（印在標籤上）':'No. batch produk / Tanggal (di label)', '輸入廠商批號':'Ketik no. batch pemasok',   '需要COA（隨貨附）　請(燕束)填寫原料批號':'Perlu COA (ikut barang) — (Yan Shu) isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
   '（隨貨附），出貨確認後將進入品管抽樣確認':'(ikut barang), setelah kirim akan dicek sampel QC', '今天':'Hari ini', '明天':'Besok',
   '還沒有填寫原料批號，點下面黃色的「＋ 新增原料批號」開始記錄':'Belum ada batch bahan, klik tombol kuning untuk menambah',
   '出貨方式、倉管會計在上面一次選好，可以每項按「完成」或整張一起完成':'Pilih cara kirim & petugas gudang di atas, lalu tekan Selesai',
@@ -5222,7 +5222,7 @@ function coaMaterialBatchHtml(order, item){
     '</div>';
  return '<div class="coa-batch cb-inline' + ((manual.length || !coa) ? ' ok' : '') + '" data-oid="' + order.id + '" data-iid="' + item.id + '">' +
     (item.vendorDirect ? '<div class="cb-title">🏭 廠商批號 / 日期' + (coa ? '（需要COA）' : '') + '</div><div class="cb-note">都可以不填：產品批號預設是出貨日（' + escapeHtml(vdDefaultBatch(item)) + '）。有填廠商批號，就改用廠商批號。</div>'
-      : coa ? '<div class="cb-title">📄 需要COA' + (item.coa === '需要(Email)' ? '（Email）' : '（隨貨附）') + '　請填寫原料批號</div>'
+      : coa ? '<div class="cb-title">📄 需要COA' + (item.coa === '需要(Email)' ? '（Email）　請填寫原料批號' : '（隨貨附）　請(燕束)填寫原料批號') + '</div>'
          : '<div class="cb-title">🧾 原料批號 / 日期</div>') +
     ((!manual.length && ok) ? '<div class="cb-note">系統依配方自動帶入：' + uniq.map(t=> escapeHtml(t)).join('、') + '。實際用的不一樣，請直接填在下面。</div>' : '') +
     ((!ok && coa) ? '<div class="cb-empty">⚠ 還沒有填寫原料批號</div>' : '') +
