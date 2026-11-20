@@ -2837,7 +2837,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.19-1';
+const APP_VERSION = '2026.11.20-1';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -3517,9 +3517,9 @@ function logInventoryTransaction(kind, itemId, itemName, type, batchNo, qty, rea
 let semiBoms = []; // [{id, semiGoodId, rows:[{materialId, qtyPerUnit}]}]
 let currentTab = 'pending';
 let currentEditingStage = 'pending';
-const PRODUCTION_ZONES = ['自動包裝區產線','大包裝區產線','小包裝區產線','醉香滷包包裝區產線','醬料包裝區產線','清真包裝區產線','調味粉攪拌產線','半成品產線','原料產線'];
+const PRODUCTION_ZONES = ['(安娜)自動包裝區產線','(陳鶯)大包裝區產線','(亞哥)小包裝區產線','(阿金)醉香滷包包裝區產線','(梅瓊)醬料包裝區產線','(SONIA)清真包裝區產線','(美足)調味粉攪拌產線','(葵珠)半成品產線','(燕束)原料產線'];
 // 產線改名對照：舊名稱的訂單、權限設定讀進來時自動換成新名稱
-const ZONE_RENAMES = { '調味粉產線': '調味粉攪拌產線', '半成品樣品產線': '半成品產線', '滷包包裝區產線': '醉香滷包包裝區產線' };
+const ZONE_RENAMES = { '調味粉產線': '(美足)調味粉攪拌產線', '半成品樣品產線': '(葵珠)半成品產線', '滷包包裝區產線': '(阿金)醉香滷包包裝區產線', '自動包裝區產線': '(安娜)自動包裝區產線', '大包裝區產線': '(陳鶯)大包裝區產線', '小包裝區產線': '(亞哥)小包裝區產線', '醉香滷包包裝區產線': '(阿金)醉香滷包包裝區產線', '醬料包裝區產線': '(梅瓊)醬料包裝區產線', '清真包裝區產線': '(SONIA)清真包裝區產線', '調味粉攪拌產線': '(美足)調味粉攪拌產線', '半成品產線': '(葵珠)半成品產線', '原料產線': '(燕束)原料產線' }; // 舊名稱自動換成新名稱（2026.11.20 產線名稱前面加上負責人）
 function normalizeZone(z){ return ZONE_RENAMES[z] || z; }
 function normalizeZoneList(list){ return [...new Set((list || []).map(normalizeZone))]; }
 let currentZoneFilter = null; // null = 全部
@@ -3564,7 +3564,7 @@ function historyOrders(){
 function findOrderAny(id){ return orders.find(o=> o.id === id) || archivedOrders.find(o=> o.id === id) || null; }
 function rebuildArchivedOrders(){
   const out = [];
-  archiveDocsData.forEach(list=> (list || []).forEach(o=>{ o._archived = true; if(!o.items) o.items = []; o.items.forEach(it=>{ if(it.spec) it.spec = normalizeSpec(it.spec); }); out.push(o); }));
+  archiveDocsData.forEach(list=> (list || []).forEach(o=>{ o._archived = true; if(!o.items) o.items = []; o.items.forEach(it=>{ if(it.spec) it.spec = normalizeSpec(it.spec); if(it.productionZones) it.productionZones = normalizeZoneList(it.productionZones); }); out.push(o); }));
   archivedOrders = out;
 }
 function subscribeArchiveDoc(id){
@@ -3897,9 +3897,9 @@ const ID_WORDS = {
   '包裝人員':'Petugas kemas', '包裝日期':'Tgl kemas', '照射滅菌':'Sterilisasi iradiasi', '展開':'Buka', '收合':'Tutup'
 };
 const ID_ZONES = {
-  '自動包裝區產線':'Lini Kemas Otomatis', '大包裝區產線':'Lini Kemas Besar', '小包裝區產線':'Lini Kemas Kecil',
-  '醉香滷包包裝區產線':'Lini Kemas Bumbu Rendam Zuixiang', '醬料包裝區產線':'Lini Kemas Saus', '清真包裝區產線':'Lini Kemas Halal',
-  '調味粉攪拌產線':'Lini Pencampuran Bumbu Bubuk', '半成品產線':'Lini Barang Setengah Jadi', '原料產線':'Lini Bahan Baku'
+  '(安娜)自動包裝區產線':'(Anna) Lini Kemas Otomatis', '(陳鶯)大包裝區產線':'(Chen Ying) Lini Kemas Besar', '(亞哥)小包裝區產線':'(Yage) Lini Kemas Kecil',
+  '(阿金)醉香滷包包裝區產線':'(A-Jin) Lini Kemas Bumbu Rendam Zuixiang', '(梅瓊)醬料包裝區產線':'(Mei Qiong) Lini Kemas Saus', '(SONIA)清真包裝區產線':'(Sonia) Lini Kemas Halal',
+  '(美足)調味粉攪拌產線':'(Mei Zu) Lini Pencampuran Bumbu Bubuk', '(葵珠)半成品產線':'(Kui Zhu) Lini Barang Setengah Jadi', '(燕束)原料產線':'(Yan Shu) Lini Bahan Baku'
 };
 const ID_UNITS = [['補充包','isi ulang'],['公斤','kg'],['公克','g'],['毫升','ml'],['公升','L'],['包','bungkus'],['箱','dus'],['袋','kantong'],['桶','ember'],['罐','kaleng'],['瓶','botol'],['盒','kotak'],['入','isi'],['克','g'],['斤','jin'],['件','pcs'],['個','pcs'],['支','batang'],['條','batang'],['片','lembar'],['顆粒','butiran'],['粒','butir'],['粉','bubuk']];
 function idWord(zh){ return ID_WORDS[zh] || (typeof ID_DICT !== 'undefined' && ID_DICT[zh]) || ''; }
@@ -7191,20 +7191,20 @@ document.addEventListener('click', (e)=>{ if(e.target.closest && e.target.closes
 });
 
 const PACKAGING_STAFF_BY_ZONE = {
-  '自動包裝區產線': ['安娜','德迪'],
-  '大包裝區產線': ['陳鶯','潘秀子'],
-  '清真包裝區產線': ['Sonia','曼多','羅尼'],
-  '醬料包裝區產線': ['張梅瓊','萬淑芳'],
-  '醉香滷包包裝區產線': ['陳金安'],
-  '小包裝區產線': ['德迪'],
-  '調味粉攪拌產線': ['劉美足','尼寧'],
-  '原料產線': ['李燕束'],
-  '半成品產線': ['陳張葵珠']
+  '(安娜)自動包裝區產線': ['安娜','德迪'],
+  '(陳鶯)大包裝區產線': ['陳鶯','潘秀子'],
+  '(SONIA)清真包裝區產線': ['Sonia','曼多','羅尼'],
+  '(梅瓊)醬料包裝區產線': ['張梅瓊','萬淑芳'],
+  '(阿金)醉香滷包包裝區產線': ['陳金安'],
+  '(亞哥)小包裝區產線': ['德迪'],
+  '(美足)調味粉攪拌產線': ['劉美足','尼寧'],
+  '(燕束)原料產線': ['李燕束'],
+  '(葵珠)半成品產線': ['陳張葵珠']
 };
 // 各產線的預設包裝人員（充填包裝時沒選就用這位，可以改）
 const DEFAULT_PACKAGING_STAFF_BY_ZONE = {
-  '自動包裝區產線':'安娜', '大包裝區產線':'陳鶯', '小包裝區產線':'亞哥', '醉香滷包包裝區產線':'陳金安', '醬料包裝區產線':'張梅瓊',
-  '清真包裝區產線':'Sonia', '調味粉攪拌產線':'劉美足', '半成品產線':'陳張葵珠', '原料產線':'李燕束'
+  '(安娜)自動包裝區產線':'安娜', '(陳鶯)大包裝區產線':'陳鶯', '(亞哥)小包裝區產線':'亞哥', '(阿金)醉香滷包包裝區產線':'陳金安', '(梅瓊)醬料包裝區產線':'張梅瓊',
+  '(SONIA)清真包裝區產線':'Sonia', '(美足)調味粉攪拌產線':'劉美足', '(葵珠)半成品產線':'陳張葵珠', '(燕束)原料產線':'李燕束'
 };
 // 預設人員也放進該產線的選單（排第一個）
 Object.keys(DEFAULT_PACKAGING_STAFF_BY_ZONE).forEach(z=>{
