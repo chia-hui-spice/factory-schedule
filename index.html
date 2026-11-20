@@ -746,6 +746,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 .cl-dup{ font-size:12.5px; color:var(--amber); border:1px solid var(--amber); border-radius:6px; padding:0 6px; }
 .cl-active{ font-size:12.5px; color:var(--teal); border:1px solid var(--teal); border-radius:6px; padding:0 6px; }
 .cl-rename{ flex:0 0 auto; padding:6px 12px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel-raised); color:var(--ink); font-weight:700; cursor:pointer; }
+.zn{ font-weight:900; }
 .qty-btn{ border-color:var(--orange); color:var(--orange); }
 .qty-changed{ display:inline-block; margin-left:6px; font-size:13px; font-weight:800; color:var(--orange); border:1px dashed var(--orange); border-radius:6px; padding:0 6px; }
 .code-line{ margin-top:4px; min-height:0; }
@@ -2837,7 +2838,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.20-1';
+const APP_VERSION = '2026.11.20-2';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -3520,6 +3521,38 @@ let currentEditingStage = 'pending';
 const PRODUCTION_ZONES = ['(安娜)自動包裝區產線','(陳鶯)大包裝區產線','(亞哥)小包裝區產線','(阿金)醉香滷包包裝區產線','(梅瓊)醬料包裝區產線','(SONIA)清真包裝區產線','(美足)調味粉攪拌產線','(葵珠)半成品產線','(燕束)原料產線'];
 // 產線改名對照：舊名稱的訂單、權限設定讀進來時自動換成新名稱
 const ZONE_RENAMES = { '調味粉產線': '(美足)調味粉攪拌產線', '半成品樣品產線': '(葵珠)半成品產線', '滷包包裝區產線': '(阿金)醉香滷包包裝區產線', '自動包裝區產線': '(安娜)自動包裝區產線', '大包裝區產線': '(陳鶯)大包裝區產線', '小包裝區產線': '(亞哥)小包裝區產線', '醉香滷包包裝區產線': '(阿金)醉香滷包包裝區產線', '醬料包裝區產線': '(梅瓊)醬料包裝區產線', '清真包裝區產線': '(SONIA)清真包裝區產線', '調味粉攪拌產線': '(美足)調味粉攪拌產線', '半成品產線': '(葵珠)半成品產線', '原料產線': '(燕束)原料產線' }; // 舊名稱自動換成新名稱（2026.11.20 產線名稱前面加上負責人）
+// 產線名稱前面的負責人名字，每個人一個顏色（中文、印尼文拼音都會上色）
+const ZONE_PERSON_COLORS = [
+  [['安娜','Anna'], '#ff8fb8'], [['陳鶯','Chen Ying'], '#ffa94d'], [['亞哥','Yage'], '#5cc8ff'],
+  [['阿金','A-Jin'], '#ffe066'], [['梅瓊','Mei Qiong'], '#c49bff'], [['SONIA','Sonia'], '#4ee39b'],
+  [['美足','Mei Zu'], '#ff7a6b'], [['葵珠','Kui Zhu'], '#8fe3e0'], [['燕束','Yan Shu'], '#d6f06a']
+];
+const ZONE_PERSON_COLOR = {}; ZONE_PERSON_COLORS.forEach(([names, c])=> names.forEach(n=> ZONE_PERSON_COLOR[n] = c));
+const ZONE_PERSON_RE = new RegExp('\\((' + Object.keys(ZONE_PERSON_COLOR).map(n=> n.replace(/[-]/g,'\\-')).join('|') + ')\\)(?=\\s*(?:[一-鿿]|Lini))', 'g');
+function colorZoneNames(root){
+  if(!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode(n){
+    const p = n.parentElement;
+    if(!p || p.closest('.zn, script, style, option, textarea, select, title')) return NodeFilter.FILTER_REJECT;
+    ZONE_PERSON_RE.lastIndex = 0;
+    return ZONE_PERSON_RE.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+  }});
+  const nodes = []; let n; while((n = walker.nextNode())) nodes.push(n);
+  nodes.forEach(t=>{
+    const txt = t.nodeValue; const frag = document.createDocumentFragment(); let last = 0; let m;
+    ZONE_PERSON_RE.lastIndex = 0;
+    while((m = ZONE_PERSON_RE.exec(txt))){
+      if(m.index > last) frag.appendChild(document.createTextNode(txt.slice(last, m.index)));
+      const sp = document.createElement('span'); sp.className = 'zn'; sp.style.color = ZONE_PERSON_COLOR[m[1]]; sp.textContent = m[0];
+      frag.appendChild(sp); last = m.index + m[0].length;
+    }
+    if(last < txt.length) frag.appendChild(document.createTextNode(txt.slice(last)));
+    t.parentNode.replaceChild(frag, t);
+  });
+}
+let _znTimer = null;
+try{ new MutationObserver(()=>{ clearTimeout(_znTimer); _znTimer = setTimeout(()=> colorZoneNames(document.body), 30); }).observe(document.body, { childList:true, subtree:true, characterData:true }); }catch(e){ console.error(e); }
+setTimeout(()=> colorZoneNames(document.body), 300);
 function normalizeZone(z){ return ZONE_RENAMES[z] || z; }
 function normalizeZoneList(list){ return [...new Set((list || []).map(normalizeZone))]; }
 let currentZoneFilter = null; // null = 全部
@@ -4133,7 +4166,7 @@ function idAnnotate(root){
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(n){
       const p = n.parentElement;
-      if(!p || p.closest('.id-sub, .id-name, .id-note, .zh-orig, script, style, option, textarea, .idn-row, #idNamesOverlay')) return NodeFilter.FILTER_REJECT;
+      if(!p || p.closest('.id-sub, .id-name, .id-note, .zh-orig, .zn, script, style, option, textarea, .idn-row, #idNamesOverlay')) return NodeFilter.FILTER_REJECT;
       return /[一-鿿]/.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
     }
   });
