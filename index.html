@@ -748,6 +748,12 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 .cl-rename{ flex:0 0 auto; padding:6px 12px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel-raised); color:var(--ink); font-weight:700; cursor:pointer; }
 .zn{ font-weight:900; }
 .irr-off-btn{ border-color:var(--amber); color:var(--amber); }
+.inv-cross-box{ margin-top:12px; padding:10px; border:1.5px dashed var(--teal); border-radius:12px; }
+.inv-cross-title{ font-size:15px; font-weight:800; color:var(--teal); margin-bottom:8px; }
+.inv-cross-hit{ display:flex; align-items:center; gap:8px; width:100%; text-align:left; padding:10px; margin-bottom:6px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--ink); font-size:15.5px; cursor:pointer; }
+.inv-cross-kind{ flex:0 0 auto; font-size:13px; font-weight:800; color:var(--amber); border:1px solid var(--amber); border-radius:6px; padding:1px 6px; }
+.inv-cross-name{ flex:1; min-width:0; }
+.inv-cross-stock{ flex:0 0 auto; font-weight:800; color:var(--teal); }
 .qty-btn{ border-color:var(--orange); color:var(--orange); }
 .qty-changed{ display:inline-block; margin-left:6px; font-size:13px; font-weight:800; color:var(--orange); border:1px dashed var(--orange); border-radius:6px; padding:0 6px; }
 .code-line{ margin-top:4px; min-height:0; }
@@ -1716,7 +1722,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
     <div class="report-tab-panel" id="bomPanelMaterials" style="display:none;">
       <button type="button" class="i18n add-item-btn" id="btnAddMaterial" style="margin-bottom:12px;">+ 新增原料</button>
       <div class="field" style="margin-bottom:10px;">
-        <input type="text" id="materialSearchInput" placeholder="搜尋原料名稱或料號">
+        <input type="text" id="materialSearchInput" placeholder="搜尋原料、添加物、包材的名稱或料號">
       </div>
       <div id="materialList"></div>
     </div>
@@ -1725,7 +1731,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
       <button type="button" class="i18n add-item-btn" id="btnAddAdditive" style="margin-bottom:8px;">+ 新增食品添加物</button>
       <button type="button" class="split-btn" id="btnPermitOverview" style="width:100%; margin-bottom:12px; padding:11px; font-size:16px; font-weight:800; color:var(--orange); border-color:var(--orange);">📄 許可證／登錄碼總覽（可依供應商查）</button>
       <div class="field" style="margin-bottom:10px;">
-        <input type="text" id="additiveSearchInput" placeholder="搜尋添加物名稱、料號、登錄碼、許可證字號">
+        <input type="text" id="additiveSearchInput" placeholder="搜尋添加物、原料、包材（名稱、料號、登錄碼、許可證字號）">
       </div>
       <div id="additiveList"></div>
     </div>
@@ -1733,7 +1739,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
     <div class="report-tab-panel" id="bomPanelPackagings" style="display:none;">
       <button type="button" class="add-item-btn" id="btnAddPackaging" style="margin-bottom:12px;">+ 新增包材</button>
       <div class="field" style="margin-bottom:10px;">
-        <input type="text" id="packagingSearchInput" placeholder="搜尋包材名稱或料號（例如 鋁箔袋、紙箱、標籤）">
+        <input type="text" id="packagingSearchInput" placeholder="搜尋包材、原料、添加物的名稱或料號（例如 鋁箔袋、紙箱）">
       </div>
       <div id="packagingList"></div>
     </div>
@@ -2839,7 +2845,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.24-6';
+const APP_VERSION = '2026.11.24-7';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -11769,6 +11775,39 @@ function halalBlock(title, lines, tail){
 function renderInventoryList(kind){
   _renderInventoryList(kind);
   if(kind === 'additive') addAdditiveAlertBanner();
+  addCrossKindSearchResults(kind);
+}
+// 原料／食品添加物／包材的搜尋列：三種都找得到。這個分頁以外找到的，列在下面，點一下跳過去
+const INV_KIND_TAB = { material:'materials', additive:'additives', packaging:'packagings' };
+const INV_KIND_ICON = { material:'📦', additive:'🧂', packaging:'🛍' };
+function invMatches(m, keyword){
+  return [m.name, m.code, m.halalCode, m.regCode, m.permitNo, m.halal ? '清真 halal' : '', m.halalBody].some(v=> String(v||'').toLowerCase().includes(keyword));
+}
+function addCrossKindSearchResults(kind){
+  const cfg = INVENTORY_KIND_CONFIG[kind];
+  const listEl = document.getElementById(cfg.listElId); if(!listEl) return;
+  const keyword = (document.getElementById(cfg.searchElId).value || '').trim().toLowerCase();
+  if(!keyword) return;
+  const others = Object.keys(INVENTORY_KIND_CONFIG).filter(k=> k !== kind);
+  const hits = [];
+  others.forEach(k=> INVENTORY_KIND_CONFIG[k].getList().forEach(m=>{ if(invMatches(m, keyword)) hits.push({ k, m }); }));
+  if(!hits.length) return;
+  const rows = hits.slice(0, 30).map(h=>{
+    const c = INVENTORY_KIND_CONFIG[h.k];
+    return '<button type="button" class="inv-cross-hit" data-xk="' + h.k + '" data-xid="' + escapeHtml(h.m.id) + '">' +
+      '<span class="inv-cross-kind">' + INV_KIND_ICON[h.k] + ' ' + c.label + '</span>' +
+      '<span class="inv-cross-name">' + (h.m.code ? '<b>' + escapeHtml(h.m.code) + '</b> ' : '') + escapeHtml(h.m.name || '') + '</span>' +
+      '<span class="inv-cross-stock">' + materialTotalStock(h.m) + ' ' + escapeHtml(h.m.unit || '') + ' ›</span></button>';
+  }).join('');
+  listEl.insertAdjacentHTML('beforeend', '<div class="inv-cross-box"><div class="inv-cross-title">🔎 在其他分類也找到 ' + hits.length + ' 項（點一下過去看）</div>' + rows + (hits.length > 30 ? '<div style="font-size:13px; color:var(--ink-dim);">…還有 ' + (hits.length - 30) + ' 項，請打更完整的名稱或料號</div>' : '') + '</div>');
+  listEl.querySelectorAll('.inv-cross-hit').forEach(b=> b.onclick = ()=>{
+    const k = b.dataset.xk, c = INVENTORY_KIND_CONFIG[k];
+    const m = c.getList().find(x=> x.id === b.dataset.xid); if(!m) return;
+    document.getElementById(c.searchElId).value = m.code || m.name || '';
+    switchBomTab(INV_KIND_TAB[k]);
+    renderInventoryList(k);
+    const panel = document.getElementById(c.listElId); if(panel) panel.scrollIntoView({ block:'start', behavior:'smooth' });
+  });
 }
 function _renderInventoryList(kind){
   const cfg = INVENTORY_KIND_CONFIG[kind];
@@ -11783,7 +11822,7 @@ function _renderInventoryList(kind){
     return;
   }
   if(filtered.length === 0){
-    listEl.innerHTML = '<div class="ship-list-empty">沒有符合「'+escapeHtml(keyword)+'」的' + cfg.label + '</div>';
+    listEl.innerHTML = '<div class="ship-list-empty">' + cfg.label + '裡沒有符合「'+escapeHtml(keyword)+'」的項目</div>';
     return;
   }
   listEl.innerHTML = filtered.map(m=>{
