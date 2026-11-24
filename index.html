@@ -2838,7 +2838,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.24-3';
+const APP_VERSION = '2026.11.24-4';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -3587,7 +3587,7 @@ function syncEnd(ok){ pendingSaves = Math.max(0, pendingSaves - 1); updateSyncBa
 const archiveDocsData = new Map();       // docId -> list
 const archiveSubscribed = new Set();
 const archiveIndexRef = doc(db, dataPrefix, 'ordersArchiveIndex');
-const ARCHIVE_AFTER_DAYS = 7;            // 全部出貨後 7 天自動封存
+const ARCHIVE_AFTER_DAYS = 3;            // 全部出貨後 3 天自動封存（2026.11.24 從 7 天縮短，讓每次存檔傳的資料變少）
 const ARCHIVE_DOC_LIMIT = 900 * 1024;    // 每份封存文件最多放約 900KB
 let lastOrdersBytes = 0;
 function historyOrders(){
@@ -3622,7 +3622,10 @@ function orderArchivableAt(o){
   let t = 0;
   for(const it of items){
     if(it.deleted) return -1;
-    if(it.status === 'qc') t = Math.max(t, it.qcAt || it.shippedAt || it.completedAt || 0);
+    if(it.status === 'qc'){
+      if(needsCoa(it) && !coaComplete(it)) return -1;   // 品管COA還沒確認完成的不要封存，不然會從「品管COA」頁消失
+      t = Math.max(t, it.qcAt || it.shippedAt || it.completedAt || 0);
+    }
     else if(it.status === 'cancelled') t = Math.max(t, (it.cancelInfo && it.cancelInfo.at) || 0);
     else return -1;
   }
@@ -3689,7 +3692,7 @@ async function archiveCompletedOrders(minDays, silent){
   }finally{ archiveRunning = false; }
   return moved;
 }
-// 每天自動封存一次；訂單資料量超過 75% 就不等 7 天，已出貨的全部封存
+// 每天自動封存一次；訂單資料量超過 75% 就不等 3 天，已出貨的全部封存
 let lastAutoArchiveDay = '';
 async function autoArchiveIfNeeded(){
   const today = todayStr();
