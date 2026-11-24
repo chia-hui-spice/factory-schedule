@@ -2838,7 +2838,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.20-4';
+const APP_VERSION = '2026.11.24-2';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -5741,7 +5741,8 @@ function orderSummaryHtml(order){
 // 各分頁：作業員用的「簡潔顯示」（預設開啟，每個分頁、每台裝置各自記住）
 const SIMPLE_VIEW_TABS = { pending:'simpleViewPending', inprogress:'simpleViewInprogress', labeling:'simpleViewLabeling', done:'simpleViewDone', refill:'simpleViewRefill', boxing:'simpleViewBoxing', shipped:'simpleViewShipped', coa:'simpleViewCoa' };
 const simpleViewOn = {}; Object.keys(SIMPLE_VIEW_TABS).forEach(t=> simpleViewOn[t] = true);
-Object.keys(SIMPLE_VIEW_TABS).forEach(t=>{ try{ const v = localStorage.getItem(SIMPLE_VIEW_TABS[t]); if(v !== null) simpleViewOn[t] = v === '1'; }catch(e){} });
+// 2026.11.24：上方「簡潔／詳細」總開關拿掉，所有標籤頁固定簡潔顯示；要看細節按每張訂單右上角的「📋 詳細」
+Object.keys(SIMPLE_VIEW_TABS).forEach(t=>{ try{ localStorage.removeItem(SIMPLE_VIEW_TABS[t]); }catch(e){} });
 // 展開品項後自動捲到那個品項（扣掉上方固定的標題列高度）
 function scrollToItemRow(id){
   requestAnimationFrame(()=> requestAnimationFrame(()=>{
@@ -5771,7 +5772,7 @@ function isSimpleFor(order){
 function updateSimpleViewToggle(){
   const b = document.getElementById('simpleViewToggle');
   if(!b) return;
-  b.style.display = SIMPLE_VIEW_TABS[currentTab] ? '' : 'none';
+  b.style.display = 'none';   // 總開關不顯示
   b.textContent = isSimpleView() ? '📋 顯示詳細內容' : '🔍 簡潔顯示';
 }
 document.getElementById('simpleViewToggle').onclick = ()=>{
@@ -7854,7 +7855,58 @@ document.getElementById('qoCancel').onclick = async ()=>{
   if(qoRows.some(r=>r.product)){ const ok = await showConfirm('已輸入的品項不會儲存。', '確定要取消嗎？'); if(!ok) return; }
   qoOverlay.classList.remove('show');
 };
+// ---- 🛑 防止重複 key 單 ----
+// 同一個客戶、同品項同規格：還沒出貨完成的，或 3 天內建立的訂單 → 先跳出提醒，確認不是重複才建立
+const DUP_RECENT_DAYS = 3;
+function findDuplicateItems(customer, rows, opts){
+  opts = opts || {};
+  const ck = customerKey(customer); if(!ck) return [];
+  const recentCut = Date.now() - DUP_RECENT_DAYS * 86400000;
+  const hits = [];
+  orders.forEach(o=>{
+    if(customerKey(o.customer) !== ck) return;
+    (o.items || []).forEach(it=>{
+      if(it.deleted || it.status === 'cancelled') return;
+      if(it.status === 'qc' && !((o.createdAt || 0) >= recentCut)) return;
+      rows.forEach(r=>{
+        if(!r.product || String(it.product).trim() !== String(r.product).trim()) return;
+        if(normalizeSpec(it.spec || '') !== normalizeSpec(r.spec || '')) return;
+        const same = Number(it.qty) === Number(r.qty) && (!r.due || it.due === r.due);
+        hits.push({ order:o, item:it, same });
+      });
+    });
+  });
+  const seen = new Set();
+  return hits.filter(h=>{ if(seen.has(h.item.id)) return false; seen.add(h.item.id); return true; })
+    .sort((a,b)=> (b.same - a.same) || ((b.order.createdAt||0) - (a.order.createdAt||0)));
+}
+async function confirmNotDuplicate(customer, rows){
+  const hits = findDuplicateItems(customer, rows);
+  if(!hits.length) return true;
+  const anySame = hits.some(h=> h.same);
+  const lines = hits.slice(0, 6).map(h=>{
+    const it = h.item, o = h.order;
+    return (h.same ? '⚠️ 完全一樣　' : '・') + '訂單 ' + (o.orderNo || '') + '（' + (o.createdAt ? fmtDT(o.createdAt) : '') + ' 建立' + (it.filledBy ? '，' + it.filledBy : '') + '）\n　 ' +
+      it.product + (it.spec ? '（' + it.spec + '）' : '') + ' × ' + qtyWithUnit(it.qty, it) + '　出貨日 ' + fmtMD(it.due) + '　在「' + (STATUS_LABEL_RAW[it.status] || it.status) + '」';
+  });
+  const msg = '客戶「' + customer + '」已經有這些相同品項的訂單：\n\n' + lines.join('\n') + (hits.length > 6 ? '\n…還有 ' + (hits.length - 6) + ' 筆' : '') +
+    '\n\n' + (anySame ? '數量、出貨日都一樣，很可能是重複 key 單！\n' : '') + '確認是客人「另外再加訂」才按「確定」建立；重複的請按「取消」。';
+  const mEl = document.getElementById('confirmMessage'); const oldWs = mEl.style.whiteSpace; mEl.style.whiteSpace = 'pre-line';
+  const okB = document.getElementById('confirmOkBtn'), cB = document.getElementById('confirmCancelBtn');
+  const okT = okB.textContent, cT = cB.textContent;
+  okB.textContent = '是加訂，還是要建立'; cB.textContent = '不要建立';
+  const ok = await showConfirm(msg.replace('才按「確定」建立；重複的請按「取消」', '才按「是加訂，還是要建立」；重複的請按「不要建立」'), anySame ? '🛑 可能重複 key 單' : '⚠️ 這個客戶已經有相同品項');
+  okB.textContent = okT; cB.textContent = cT;
+  mEl.style.whiteSpace = oldWs;
+  return ok;
+}
+let _orderSaving = false;
 document.getElementById('qoSave').onclick = async ()=>{
+  if(_orderSaving) return;   // 防止連按兩下建立兩張
+  _orderSaving = true;
+  try{ await qoSaveOrder(); } finally { _orderSaving = false; }
+};
+async function qoSaveOrder(){
   if(document.getElementById('qoCustomer').value.trim()){ const chk = await confirmCustomerName('qoCustomer'); if(chk === null) return; }
   const customer = document.getElementById('qoCustomer').value.trim();
   const due = document.getElementById('qoDue').value;
@@ -7883,6 +7935,7 @@ document.getElementById('qoSave').onclick = async ()=>{
   const irrCount = rows.filter(r=>r.needsIrradiation).length;
   const ok = await showConfirm('客戶「' + customer + '」，出貨日 ' + due + '，共 ' + rows.length + ' 個品項' + (irrCount ? '（其中 ' + irrCount + ' 項需要照射滅菌）' : '') + '。\n填寫人員：' + filledBy + '　COA：' + coa, '建立這張訂單？');
   if(!ok) return;
+  if(!(await confirmNotDuplicate(customer, rows.map(r=> ({ product:r.product, spec:r.spec || '', qty:parseInt(r.qty,10), due }))))) return;
   const fillFormDate = todayStr(), fillFormTime = nowTimeStr();
   const stamp = Date.now();
   const items = rows.map((r, idx)=>{
@@ -7906,7 +7959,7 @@ document.getElementById('qoSave').onclick = async ()=>{
   qoOverlay.classList.remove('show');
   render();
   showToast('✅ 已建立訂單，共 ' + items.length + ' 個品項');
-};
+}
 
 document.getElementById('btnCancel').onclick = closeSheet;
 // 移除點擊外部背景關閉表單的行為，避免手機誤觸導致輸入內容遺失
@@ -7915,6 +7968,11 @@ document.getElementById('btnCancel').onclick = closeSheet;
 // 按「XX完成」時因為缺資料被帶去填表單，填完儲存後自動幫你繼續往下一個階段
 let pendingAdvanceItemId = null;
 async function handleSaveOrder(){
+  if(_orderSaving) return;   // 防止連按兩下
+  _orderSaving = true;
+  try{ await handleSaveOrderInner(); } finally { _orderSaving = false; }
+}
+async function handleSaveOrderInner(){
   { const cur = editingOrderId && orders.find(o=> o.id === editingOrderId); const typed = document.getElementById('fCustomer').value.trim();
     if(typed && !(cur && cur.customer === typed)){ const chk = await confirmCustomerName('fCustomer'); if(chk === null) return; } }
   const customer = document.getElementById('fCustomer').value.trim();
@@ -7984,6 +8042,9 @@ async function handleSaveOrder(){
     ...((editingItemId && (()=>{ const o = orders.find(x=>x.id===editingOrderId); const it = o && (o.items||[]).find(i=>i.id===editingItemId); return it && it.status === 'boxing'; })()) ? { checklistTouched: true } : {})
   };
 
+  if(!editingItemId){   // 新訂單、或在舊訂單新增品項 → 檢查有沒有重複
+    if(!(await confirmNotDuplicate(customer, [{ product, spec, qty, due }]))) return;
+  }
   if(!editingOrderId){
     const newItem = Object.assign({ id: 'i_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), status: 'pending' }, itemPayload);
     syncManualMaterialTraceability(newItem, manualMaterialBatches);
