@@ -727,7 +727,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
   .zl-row .zl-q{ grid-column:3; grid-row:1; }
   .zl-row .zl-st{ grid-column:3; grid-row:2; text-align:right; }
 }
-.lb-clear{ margin-top:8px; width:100%; padding:8px; font-size:14.5px; font-weight:800; border-radius:9px; border:1.5px dashed var(--red); background:transparent; color:var(--red); cursor:pointer; }
+.lb-clear, .db-clear{ margin-top:8px; width:100%; padding:8px; font-size:14.5px; font-weight:800; border-radius:9px; border:1.5px dashed var(--red); background:transparent; color:var(--red); cursor:pointer; }
 .choice-btn{ text-align:left; padding:12px 14px; font-size:16.5px; border-radius:10px; border:1.5px solid var(--line); background:var(--panel-raised); color:var(--ink); cursor:pointer; }
 .choice-btn.primary{ border-color:var(--teal); background:rgba(45,212,191,0.10); }
 .choice-btn small{ color:var(--ink-dim); font-size:13px; }
@@ -2839,7 +2839,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.24-5';
+const APP_VERSION = '2026.11.24-6';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -5005,6 +5005,14 @@ function wireDoneBatchEdit(root){
     updateDoneItemBatch(order, item, ch);
   }));
   root.querySelectorAll('input.db-exp').forEach(inp=> inp.addEventListener('change', ()=>{ const { order, item } = find(inp); if(item && inp.value && inp.value !== (item.productExpDate || '')) updateDoneItemBatch(order, item, { exp: inp.value }); }));
+  // 標籤印製／充填包裝打錯：一鍵清空批號、製造日期、有效日期（成品庫存那一批的批號、日期也一起清掉，重新填好會再移過去）
+  root.querySelectorAll('button.db-clear').forEach(b=> b.onclick = async (e)=>{
+    e.stopPropagation();
+    const { order, item } = find(b); if(!item) return;
+    const ok = await showConfirm('「' + item.product + '」的批號、製造日期、有效日期都會清空，清空後請重新填正確的。', '清除批號和日期？');
+    if(!ok) return;
+    updateDoneItemBatch(order, item, { batchNo:'', mfg:'', exp:'' });
+  });
 }
 function wireShipConfirmPanels(root){
   const find = (el)=>{ const o = orders.find(x=>x.id === el.dataset.scOid); return { order:o, item: o && (o.items||[]).find(i=>i.id === el.dataset.scIid) }; };
@@ -5994,7 +6002,7 @@ function renderListInner(){
                 '<div><span>批號 ✎</span><input type="text" class="db-batch" data-db-oid="' + order.id + '" data-db-iid="' + item.id + '" value="' + escapeHtml(item.productBatchNo || '') + '" placeholder="未填" autocomplete="off"></div>' +
                 '<div><span>製造日期 ✎</span><input type="date" class="db-mfg" data-db-oid="' + order.id + '" data-db-iid="' + item.id + '" value="' + escapeHtml(item.productMfgDate || '') + '"></div>' +
                 '<div><span>有效日期 ✎</span><input type="date" class="db-exp" data-db-oid="' + order.id + '" data-db-iid="' + item.id + '" value="' + escapeHtml(item.productExpDate || '') + '">' + expQuickBtns('db', order.id, item.id) + '</div>' +
-              '</div>' : '';
+              '</div>' + ((item.productMfgDate || item.productExpDate || item.productBatchNo) ? '<button type="button" class="db-clear" data-db-oid="' + order.id + '" data-db-iid="' + item.id + '">🗑 清除批號、製造日期、有效日期（打錯時用）</button>' : '') : '';
       const irrConfirmHtml = (item.status === 'done' && item.needsIrradiation) ? (function(){
           const ok = !!item.irradiationLabelConfirm;
           return '<div style="text-align:right; margin:4px 0 -4px;"><button type="button" class="due-btn irr-off-btn" data-irroff-oid="' + order.id + '" data-irroff-iid="' + item.id + '">☢️ 這個品項不用照射？按這裡取消照射</button></div>' + '<label data-irr-oid="' + order.id + '" data-irr-iid="' + item.id + '" style="display:flex; align-items:center; gap:10px; margin:8px 0; padding:12px; border-radius:10px; cursor:pointer; border:2px solid ' + (ok ? 'var(--teal)' : 'var(--red)') + '; background:' + (ok ? 'rgba(43,182,163,0.10)' : 'rgba(229,84,77,0.10)') + ';">' +
