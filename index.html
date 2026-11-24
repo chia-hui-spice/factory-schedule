@@ -747,6 +747,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 .cl-active{ font-size:12.5px; color:var(--teal); border:1px solid var(--teal); border-radius:6px; padding:0 6px; }
 .cl-rename{ flex:0 0 auto; padding:6px 12px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel-raised); color:var(--ink); font-weight:700; cursor:pointer; }
 .zn{ font-weight:900; }
+.irr-off-btn{ border-color:var(--amber); color:var(--amber); }
 .qty-btn{ border-color:var(--orange); color:var(--orange); }
 .qty-changed{ display:inline-block; margin-left:6px; font-size:13px; font-weight:800; color:var(--orange); border:1px dashed var(--orange); border-radius:6px; padding:0 6px; }
 .code-line{ margin-top:4px; min-height:0; }
@@ -2838,7 +2839,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.24-4';
+const APP_VERSION = '2026.11.24-5';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -4080,7 +4081,7 @@ const ID_PHRASES = {
   '原料批號 / 日期':'No. batch bahan / Tanggal', '廠商直出（只貼標）':'Langsung dari pemasok (hanya label)', '廠商直出':'Langsung dari pemasok',
   '廠商批號':'No. batch pemasok', '廠商製造日期':'Tgl produksi pemasok', '廠商有效日期':'Tgl kedaluwarsa pemasok',
   '廠商製造日期（可不填）':'Tgl produksi pemasok (opsional)', '廠商有效日期（可不填）':'Tgl kedaluwarsa pemasok (opsional)', '產品製造日期（可不填）':'Tgl produksi produk (opsional)',
-  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '訂購數量':'Jumlah pesanan', '實際產出':'Hasil produksi', '實際出貨':'Jumlah dikirim', '只看清單':'Hanya daftar', '清除製造日期、有效日期、製造批號（打錯時用）':'Hapus tanggal & batch (jika salah)', '同品項合計':'Total per item', '批號日期':'Batch & tanggal', '未填':'Belum diisi', '已填':'Sudah diisi', '改數量':'Ubah jumlah', '2年':'2 thn', '1年':'1 thn', '3年':'3 thn', '4年':'4 thn', '5年':'5 thn', '還沒到這步':'Belum sampai sini', '這一步要做':'Kerjakan di sini', '點這一列填寫':'Ketuk baris untuk isi', '已過這步':'Sudah lewat', '目前在':'Sekarang di', '已完成':'Selesai', '已出貨':'Sudah dikirim', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
+  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '訂購數量':'Jumlah pesanan', '實際產出':'Hasil produksi', '實際出貨':'Jumlah dikirim', '只看清單':'Hanya daftar', '清除製造日期、有效日期、製造批號（打錯時用）':'Hapus tanggal & batch (jika salah)', '同品項合計':'Total per item', '批號日期':'Batch & tanggal', '未填':'Belum diisi', '已填':'Sudah diisi', '改數量':'Ubah jumlah', '取消照射':'Batal iradiasi', '已取消照射':'Iradiasi dibatalkan', '2年':'2 thn', '1年':'1 thn', '3年':'3 thn', '4年':'4 thn', '5年':'5 thn', '還沒到這步':'Belum sampai sini', '這一步要做':'Kerjakan di sini', '點這一列填寫':'Ketuk baris untuk isi', '已過這步':'Sudah lewat', '目前在':'Sekarang di', '已完成':'Selesai', '已出貨':'Sudah dikirim', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
   '設為廠商直出（只貼標）':'Set: langsung dari pemasok', '點一下取消':'ketuk untuk batal', '廠商批號 / 日期':'No. batch pemasok / Tanggal',
   '產品批號 / 日期（印在標籤上）':'No. batch produk / Tanggal (di label)', '輸入廠商批號':'Ketik no. batch pemasok',   '需要COA（隨貨附）　請(燕束)填寫原料批號':'Perlu COA (ikut barang) — (Yan Shu) isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
   '（隨貨附），出貨確認後將進入品管抽樣確認':'(ikut barang), setelah kirim akan dicek sampel QC', '今天':'Hari ini', '明天':'Besok',
@@ -5042,7 +5043,27 @@ function dueChangedTag(item){
 function dueChangeBtn(order, item){
   if(item.status === 'qc' || item.status === 'cancelled') return '';
   return ' <button type="button" class="due-btn" data-due-oid="' + order.id + '" data-due-iid="' + item.id + '">📅 改交期</button>' +
-    (item.status !== 'shipped' ? ' <button type="button" class="due-btn qty-btn" data-qc-oid="' + order.id + '" data-qc-iid="' + item.id + '">🔢 改數量</button>' : '');
+    (item.status !== 'shipped' ? ' <button type="button" class="due-btn qty-btn" data-qc-oid="' + order.id + '" data-qc-iid="' + item.id + '">🔢 改數量</button>' : '') +
+    ((item.needsIrradiation && item.status !== 'shipped') ? ' <button type="button" class="due-btn irr-off-btn" data-irroff-oid="' + order.id + '" data-irroff-iid="' + item.id + '">☢️ 取消照射</button>' : '');
+}
+// ---- ☢️ 後來發現不用照射滅菌：取消照射（出貨確認以前都可以改），留紀錄 ----
+function irrChangedTag(item){
+  const h = item.irradiationHistory || [];
+  if(!h.length || item.needsIrradiation) return '';
+  const last = h[h.length - 1];
+  return ' <span class="qty-changed" style="color:var(--ink-dim); border-color:var(--ink-dim);" title="' + escapeHtml(fmtDT(last.at) + ' ' + (last.by || '') + (last.reason ? '：' + last.reason : '')) + '">☢️ 已取消照射</span>';
+}
+async function cancelIrradiation(order, item){
+  if(!item || !item.needsIrradiation) return;
+  const ok = await showConfirm('「' + item.product + (item.spec ? '（' + item.spec + '）' : '') + '」改成「不用照射滅菌」。\n\n・不用再勾「確認已印有照射滅菌標籤」，可以直接往下一步\n・如果已經印了照射滅菌標籤，請把標籤換掉', '這個品項不用照射滅菌？');
+  if(!ok) return;
+  item.irradiationHistory = (item.irradiationHistory || []).concat([{ from:true, to:false, at: Date.now(), by: currentUserEmail || '', stage: item.status, destination: item.irradiationDestination || '' }]);
+  item.needsIrradiation = false;
+  item.irradiationLabelConfirm = false;
+  delete item.irradiationLabelConfirmBy; delete item.irradiationLabelConfirmAt;
+  item.irradiationDestination = '';
+  await saveOrders(); render();
+  showToast('☢️ 已改成不用照射滅菌');
 }
 // ---- 🔢 客人在生產中增減數量 ----
 // 訂單確認／庫存確認：直接改數量
@@ -5915,7 +5936,7 @@ function renderListInner(){
       if(item.actualYieldQty !== undefined && item.actualYieldQty !== null && item.actualYieldQty !== '' && Number(item.actualYieldQty) !== Number(item.qty)){
         metaBits.push('<div class="meta-item">實際產出 <b style="color:var(--orange);">' + item.actualYieldQty + '</b></div>');
       }
-      metaBits.push('<div class="meta-item">出貨日 <b>' + item.due + '</b>' + dueChangedTag(item) + qtyChangedTag(item) + dueChangeBtn(order, item) + '</div>');
+      metaBits.push('<div class="meta-item">出貨日 <b>' + item.due + '</b>' + dueChangedTag(item) + qtyChangedTag(item) + irrChangedTag(item) + dueChangeBtn(order, item) + '</div>');
       if(item.origin) metaBits.push('<div class="meta-item">產地 <b>' + escapeHtml(item.origin) + '</b></div>');
 
       const splitBtnHtml = (item.qty > 1 && item.status !== 'shipped')
@@ -5976,7 +5997,7 @@ function renderListInner(){
               '</div>' : '';
       const irrConfirmHtml = (item.status === 'done' && item.needsIrradiation) ? (function(){
           const ok = !!item.irradiationLabelConfirm;
-          return '<label data-irr-oid="' + order.id + '" data-irr-iid="' + item.id + '" style="display:flex; align-items:center; gap:10px; margin:8px 0; padding:12px; border-radius:10px; cursor:pointer; border:2px solid ' + (ok ? 'var(--teal)' : 'var(--red)') + '; background:' + (ok ? 'rgba(43,182,163,0.10)' : 'rgba(229,84,77,0.10)') + ';">' +
+          return '<div style="text-align:right; margin:4px 0 -4px;"><button type="button" class="due-btn irr-off-btn" data-irroff-oid="' + order.id + '" data-irroff-iid="' + item.id + '">☢️ 這個品項不用照射？按這裡取消照射</button></div>' + '<label data-irr-oid="' + order.id + '" data-irr-iid="' + item.id + '" style="display:flex; align-items:center; gap:10px; margin:8px 0; padding:12px; border-radius:10px; cursor:pointer; border:2px solid ' + (ok ? 'var(--teal)' : 'var(--red)') + '; background:' + (ok ? 'rgba(43,182,163,0.10)' : 'rgba(229,84,77,0.10)') + ';">' +
             '<input type="checkbox" class="irrConfirmChk"' + (ok ? ' checked' : '') + ' style="width:26px; height:26px; flex:0 0 26px; accent-color:var(--teal);">' +
             '<span style="font-size:17px; font-weight:800; color:' + (ok ? 'var(--teal)' : 'var(--red)') + ';">☢️ 確認已印有「照射滅菌」標籤' +
             (ok && item.irradiationLabelConfirmBy ? '<br><span style="font-size:13px; font-weight:400; color:var(--ink-dim);">' + escapeHtml(item.irradiationLabelConfirmBy) + (item.irradiationLabelConfirmAt ? '　' + new Date(item.irradiationLabelConfirmAt).toLocaleString('zh-TW') : '') + '</span>' : (ok ? '' : '<br><span style="font-size:13px; font-weight:400;">勾選後才能進入充填包裝</span>')) + '</span></label>';
@@ -6003,7 +6024,7 @@ function renderListInner(){
  '<div class="simple-name">' + escapeHtml(item.product) + idNameLine(item.product) + itemCodeTagHtml(item, currentTab) + (item.spec ? '<div class="simple-spec">' + escapeHtml(item.spec) + idSpecSub(item.spec) + '</div>' : '') + '</div>' +
             '<div class="simple-qty"><span>' + bi('數量') + '</span>' + escapeHtml(qtyWithUnit(item.qty, item)) + idQtySub(item) + '</div>' +
           '</div>' +
-          '<div class="simple-sub">' + bi('出貨日') + ' <b>' + escapeHtml((item.due || '').slice(0,4) === String(new Date().getFullYear()) ? (item.due || '').slice(5).replace('-', '/') : (item.due || '').replace(/-/g, '/')) + '</b>' + dueChangedTag(item) + qtyChangedTag(item) + dueChangeBtn(order, item) + zonesTxt + (tags.length ? '　' + tags.join(' ') : '') + '</div>' +
+          '<div class="simple-sub">' + bi('出貨日') + ' <b>' + escapeHtml((item.due || '').slice(0,4) === String(new Date().getFullYear()) ? (item.due || '').slice(5).replace('-', '/') : (item.due || '').replace(/-/g, '/')) + '</b>' + dueChangedTag(item) + qtyChangedTag(item) + irrChangedTag(item) + dueChangeBtn(order, item) + zonesTxt + (tags.length ? '　' + tags.join(' ') : '') + '</div>' +
           (showBatch ? ((tab === 'done' && item.status === 'done') || (tab === 'refill' && item.status === 'refill')
             ? doneEditHtml
             : bigBatch
@@ -6206,6 +6227,11 @@ function renderListInner(){
     const saved = await saveOrders();
     if(!saved){ item.coaDone = prev.d; item.coaDoneAt = prev.at; render(); return; }
     showToast('「' + item.product + '」品管COA確認完成');
+  });
+  wrap.querySelectorAll('[data-irroff-oid]').forEach(b=> b.onclick = (e)=>{
+    e.stopPropagation(); e.preventDefault();
+    const o = orders.find(x=> x.id === b.dataset.irroffOid); const it = o && o.items.find(i=> i.id === b.dataset.irroffIid);
+    if(o && it) cancelIrradiation(o, it);
   });
   wrap.querySelectorAll('[data-qc-oid]').forEach(b=> b.onclick = (e)=>{
     e.stopPropagation();
