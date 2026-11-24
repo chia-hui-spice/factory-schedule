@@ -2838,7 +2838,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.24-2';
+const APP_VERSION = '2026.11.24-3';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -4316,11 +4316,14 @@ function loadOrders(){
     try{ lastOrdersBytes = new Blob([JSON.stringify({ list: serverList })]).size; renderArchiveInfo(); }catch(e){}
     try{ if(snap.metadata && snap.metadata.fromCache){ prevItemStatus = null; updateSyncBadge('loading'); } else { detectNewConfirmedOrders(serverList); if(pendingSaves === 0) updateSyncBadge(); } }catch(e){ console.error(e); }
     // 不直接整份取代：這台裝置還沒存進雲端的修改要保留，其他品項用雲端最新的
+    let beforeJson = ''; try{ beforeJson = JSON.stringify(orders); }catch(e){}
     applyOrdersInPlace(mergeOrderLists(serverList, orders));
     recordSyncedOrders(serverList);
     orders.forEach(o=>{ o.items.forEach(it=>{ if(it.productionZones) it.productionZones = normalizeZoneList(it.productionZones); }); });
     await purgeExpiredTrash();
-    render();
+    // 加速：內容跟畫面上的一樣（例如自己剛存的資料從雲端傳回來）就不要整頁重畫
+    let afterJson = ''; try{ afterJson = JSON.stringify(orders); }catch(e){}
+    if(!firstOrdersSnapshotHandled || !beforeJson || beforeJson !== afterJson) scheduleSnapshotRender();
     checkShipmentAlerts();
     if(!firstOrdersSnapshotHandled){
       firstOrdersSnapshotHandled = true;
@@ -6657,7 +6660,17 @@ function renderListInner(){
   });
 }
 
+// 雲端資料更新時的重畫：短時間內連續更新只畫一次；畫面在背景（切到別的 App、螢幕關掉）時等回來再畫
+let _snapRenderTimer = null, _snapRenderPending = false;
+function scheduleSnapshotRender(){
+  _snapRenderPending = true;
+  if(document.hidden) return;
+  clearTimeout(_snapRenderTimer);
+  _snapRenderTimer = setTimeout(()=>{ if(!_snapRenderPending) return; _snapRenderPending = false; render(); }, 120);
+}
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && _snapRenderPending) scheduleSnapshotRender(); });
 function render(){
+  _snapRenderPending = false;
   renderTabs(); renderZoneFilterBar(); renderList(); renderAlertBanner(); updateQuickStatBadges();
   document.getElementById('fabAdd').style.display = (currentTab === 'pending') ? '' : 'none';
   document.getElementById('fabQuickOrder').style.display = (currentTab === 'pending') ? '' : 'none';
