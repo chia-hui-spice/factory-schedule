@@ -2854,7 +2854,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.25-5';
+const APP_VERSION = '2026.11.25-6';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -5554,7 +5554,9 @@ function orderProgressHtml(order){
 }
 // 排程生產：整張訂單的品項總表（品項、規格、數量、目前階段），點一列展開／收合那個品項
 const labelingExpanded = new Set(); // 排程生產、標籤印製共用：展開中的品項
-const SUMMARY_TABS = ['inprogress','labeling','done','refill','boxing','shipped'];
+const SUMMARY_TABS = ['inprogress','labeling','done','refill','boxing','shipped','coa'];
+// 這一列是不是「這一頁要處理的」：品管COA頁 = 需要COA還沒確認的（不管在哪個生產步驟）；其他頁 = 目前在這一步的
+function isHereItem(it){ return currentTab === 'coa' ? itemBelongsToTab(it, 'coa') : it.status === currentTab; }
 // ---- 從規格判斷訂單數量的單位 ----
 // 例：「500包/箱」→ 訂單數量單位是「箱」，每箱 500 包；「1kg/包」→ 單位「包」，每包 1kg
 // 系統的成品庫存是用「訂單數量」同一個單位在加減（標籤印製完成加 item.qty、出貨扣 item.qty），所以顯示也要用同一個單位
@@ -5720,6 +5722,13 @@ function cancelledBoxHtml(order){
 
 // 拆分出來的同一組品項排在一起（上下相鄰），組內照原本在訂單裡的順序
 // 總表右邊的階段：還沒到這一步的用黃色大字「⏳ 還沒到・在○○」，已經過了的用灰綠「✅ 已過・在○○」
+// 品管COA頁的總表：右邊顯示 COA 狀態＋目前在哪個生產步驟
+function coaPillHtml(it, isHere){
+  const name = STATUS_LABEL[it.status];
+  if(isHere) return '<span class="stage-pill now sp-' + it.status + '"><small>👉 填寫COA</small><span class="sp-now">目前在</span><b>' + name + '</b></span>';
+  if(needsCoa(it)) return '<span class="stage-pill ahead sp-' + it.status + '"><small>✅ COA已確認</small><span class="sp-now">目前在</span><b>' + name + '</b></span>';
+  return '<span class="stage-pill behind sp-' + it.status + '"><small>不需要COA</small><span class="sp-now">目前在</span><b>' + name + '</b></span>';
+}
 function stagePillHtml(it){
   const rel = STATUS.indexOf(it.status) - STATUS.indexOf(currentTab);
   const name = STATUS_LABEL[it.status];
@@ -5752,10 +5761,10 @@ function splitTagHtml(order, it){
 function orderSummaryHtml(order){
   const items = (order.items || []).filter(it=> !it.deleted);
   if(!items.length) return ''; // 一個品項也顯示，比較清楚
-  const here = items.filter(it=> it.status === currentTab);
+  const here = items.filter(it=> isHereItem(it));
   const nCancelled = items.filter(it=> it.status === 'cancelled').length;
   const multiDue = new Set(items.filter(it=> it.status !== 'cancelled' && it.due).map(it=> it.due)).size > 1;
-  const sorted = groupSplitAdjacent(items, (a,b)=> (a.status === 'cancelled') - (b.status === 'cancelled') || (b.status === currentTab) - (a.status === currentTab) || STATUS.indexOf(a.status) - STATUS.indexOf(b.status));
+  const sorted = groupSplitAdjacent(items, (a,b)=> (a.status === 'cancelled') - (b.status === 'cancelled') || isHereItem(b) - isHereItem(a) || STATUS.indexOf(a.status) - STATUS.indexOf(b.status));
   const rows = sorted.map(it=>{
     if(it.status === 'cancelled'){
       return '<div class="os-row cancelled"><span class="os-caret"></span>' +
@@ -5763,7 +5772,7 @@ function orderSummaryHtml(order){
         '<span class="os-qty">' + escapeHtml(qtyWithUnit(it.qty, it)) + '</span>' +
         '<span class="badge stage st-cancelled">' + STATUS_LABEL.cancelled + '</span></div>';
     }
-    const isHere = it.status === currentTab;
+    const isHere = isHereItem(it);
     const open = isHere && labelingExpanded.has(it.id);
     const rel = STATUS.indexOf(it.status) - STATUS.indexOf(currentTab);
     return '<div class="os-row' + (isHere ? ' here' : rel < 0 ? ' behind' : ' ahead') + (open ? ' open' : '') + '"' + (isHere ? ' data-jump-item="' + it.id + '"' : '') + '>' +
@@ -5783,7 +5792,7 @@ function orderSummaryHtml(order){
             (need > 0 ? '還需要生產 <b style="color:var(--red);">' + escapeHtml(fmtStock(need, it.spec, u)) + '</b>' : '<b style="color:var(--green);">✅ 庫存足夠</b>') +
             '<br>生產線 ' + (ez.zones.length ? '<b>' + escapeHtml(ez.zones.join('、')) + '</b>' + (ez.isDefault ? '（上次）<button type="button" class="os-pickzone os-pickzone-soft" data-act="edit" data-scroll-to="sectionProductionZone" data-oid="' + order.id + '" data-iid="' + it.id + '">改</button>' : '') : '<button type="button" class="os-pickzone" data-act="edit" data-scroll-to="sectionProductionZone" data-oid="' + order.id + '" data-iid="' + it.id + '">⚠ 未選，點這裡選生產線</button>') + '</span>';
         })() : '') +
-        ((currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing' || currentTab === 'shipped') ? (function(){
+        ((currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing' || currentTab === 'shipped' || (currentTab === 'coa' && isHere)) ? (function(){
           const miss = '<i class="os-miss">未填</i>';
           const d = (v)=> v ? '<b>' + escapeHtml(String(v).replace(/-/g,'/')) + '</b>' : miss;
           return '<span class="os-batch">' + bi('批號') + ' ' + (it.productBatchNo ? '<b>' + escapeHtml(it.productBatchNo) + '</b>' : miss) + '　' + bi('製造') + ' ' + d(it.productMfgDate) + '　' + bi('有效') + ' ' + d(it.productExpDate) +
@@ -5802,7 +5811,7 @@ function orderSummaryHtml(order){
       '<span class="os-qty">' + escapeHtml(qtyWithUnit(it.qty, it)) + ((it.qtyHistory && it.qtyHistory.length && it.qtyHistory[0].from !== it.qty && !it.splitGroupId) ? '<small class="os-shipq" style="color:var(--blue);">原訂 ' + escapeHtml(String(it.qtyHistory[0].from)) + '</small>' : '') + (hasShipQtyDiff(it) ? '<small class="os-shipq">實出 ' + escapeHtml(String(shipQtyOf(it))) + '</small>' : '') + '</span>' +
       ((isHere && (currentTab === 'inprogress' || currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing' || currentTab === 'shipped'))
         ? '<button type="button" class="os-go" data-act="forward" data-oid="' + order.id + '" data-iid="' + it.id + '">' + (currentTab === 'inprogress' ? (it.vendorDirect ? '送標籤<br>印製' : '無庫存<br>請生產' + '<span class="id-sub">Produksi</span>') : bi('完成')) + '</button>'
-        : stagePillHtml(it)) +
+        : (currentTab === 'coa' ? coaPillHtml(it, isHere) : stagePillHtml(it))) +
     '</div>';
   }).join('');
   const allOpen = here.length && here.every(it=> labelingExpanded.has(it.id));
@@ -5813,7 +5822,7 @@ function orderSummaryHtml(order){
       (here.length ? '<button type="button" class="os-toggle-all" data-os-all="' + order.id + '" data-open="' + (allOpen ? '1' : '') + '">' + (allOpen ? '全部收合' : '全部展開') + '</button>' : '') + '</div>' +
     (((currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing') && here.length >= 2) ? '<button type="button" class="os-done os-group-done" data-os-donegroup="' + order.id + '" style="margin:2px 0 8px;">✅ 這張訂單 ' + here.length + ' 項一起' + STATUS_LABEL[currentTab] + '完成</button>' : '') +
     ((currentTab === 'inprogress' && here.length >= 2) ? '<button type="button" class="os-done os-group-done" data-os-donegroup="' + order.id + '" style="margin:2px 0 8px;">🏭 這張訂單 ' + here.length + ' 項一起「庫存確認無庫存請生產」</button>' : '') +
-    '<div style="font-size:13px; color:var(--ink-dim); margin:-2px 0 4px;">' + (currentTab === 'done' ? '點品項那一列可以展開，修改批號、日期、確認照射標籤' : currentTab === 'refill' ? '點品項那一列可以展開，修改包裝人員、包裝日期' : currentTab === 'boxing' ? '點品項那一列可以展開，修改出貨前檢查、放行人員' : currentTab === 'shipped' ? '出貨方式、倉管會計在上面一次選好，可以每項按「完成」或整張一起完成' : currentTab === 'inprogress' ? '生產線會自動帶上次的，一定要有生產線才能按「無庫存請生產」；點品項那一列展開，可以看庫存批號、用現有庫存出貨' : '點品項那一列可以展開，填批號、日期、按排程生產完成') + '</div>' +
+    '<div style="font-size:13px; color:var(--ink-dim); margin:-2px 0 4px;">' + (currentTab === 'coa' ? '點品項那一列可以展開，填寫品管數值、原料批號，按「品管COA確認完成」' : currentTab === 'done' ? '點品項那一列可以展開，修改批號、日期、確認照射標籤' : currentTab === 'refill' ? '點品項那一列可以展開，修改包裝人員、包裝日期' : currentTab === 'boxing' ? '點品項那一列可以展開，修改出貨前檢查、放行人員' : currentTab === 'shipped' ? '出貨方式、倉管會計在上面一次選好，可以每項按「完成」或整張一起完成' : currentTab === 'inprogress' ? '生產線會自動帶上次的，一定要有生產線才能按「無庫存請生產」；點品項那一列展開，可以看庫存批號、用現有庫存出貨' : '點品項那一列可以展開，填批號、日期、按排程生產完成') + '</div>' +
     '<div class="os-row os-headrow"><span class="os-caret"></span><span class="os-name">品項 / 規格</span><span class="os-qty">數量</span><span style="min-width:72px; text-align:center;">階段</span></div>' +
     rows + '</div>';
 }
@@ -6167,7 +6176,7 @@ function renderListInner(){
     if(!(ownOrder && allExpandedOrders.has(ownOrder.id))){
       orders.forEach(o=>{
         if(allExpandedOrders.has(o.id)) return;
-        (o.items || []).forEach(it=>{ if(it.status === currentTab && it.id !== id) labelingExpanded.delete(it.id); });
+        (o.items || []).forEach(it=>{ if(isHereItem(it) && it.id !== id) labelingExpanded.delete(it.id); });
       });
     }
     labelingExpanded.add(id);
@@ -6239,7 +6248,7 @@ function renderListInner(){
   });
   wrap.querySelectorAll('[data-os-all]').forEach(b=> b.onclick = ()=>{
     const o = orders.find(x=> x.id === b.dataset.osAll); if(!o) return;
-    const ids = (o.items || []).filter(it=> !it.deleted && it.status === currentTab).map(it=> it.id);
+    const ids = (o.items || []).filter(it=> !it.deleted && isHereItem(it)).map(it=> it.id);
     if(b.dataset.open){ ids.forEach(id=> labelingExpanded.delete(id)); allExpandedOrders.delete(o.id); }
     else { ids.forEach(id=> labelingExpanded.add(id)); allExpandedOrders.add(o.id); }
     renderList();
