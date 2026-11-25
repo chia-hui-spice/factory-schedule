@@ -2846,7 +2846,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.25-1';
+const APP_VERSION = '2026.11.25-2';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -4637,7 +4637,7 @@ function renderGlobalSearchResults(){
         '<div class="gs-main"><div class="gs-cust">' + escapeHtml(h.order.customer || '') + (h.order.orderNo ? ' <span style="color:var(--ink-dim); font-weight:600; font-size:13px;">' + escapeHtml(h.order.orderNo) + '</span>' : '') + '</div>' +
           '<div class="gs-prod">' + escapeHtml(it.product || '') + (it.spec ? ' <span class="os-spec">' + escapeHtml(it.spec) + '</span>' : '') + '　<b style="color:var(--amber);">x' + escapeHtml(String(it.qty ?? '')) + '</b>　<span style="color:var(--ink-dim); font-size:13.5px;">出貨日 ' + escapeHtml((it.due || '').replace(/-/g,'/')) + '</span></div></div>' +
         '<span class="badge stage st-' + it.status + '">' + STATUS_LABEL[it.status] + '</span>' +
-        (here ? '<button type="button" class="gs-go gs-here-go" data-gs-here="' + it.id + '">👇 在這頁，看這張</button>' : '<button type="button" class="gs-go" data-gs-oid="' + h.order.id + '" data-gs-iid="' + it.id + '">前往</button>') +
+        (here ? '<button type="button" class="gs-go gs-here-go" data-gs-here="' + it.id + '">' + (currentTab === 'coa' ? '👇 填寫COA' : '👇 在這頁，看這張') + '</button>' : '<button type="button" class="gs-go" data-gs-oid="' + h.order.id + '" data-gs-iid="' + it.id + '">前往</button>') +
       '</div>';
     }).join('') + (hits.length > 60 ? '<div style="font-size:13px; color:var(--ink-dim); padding:6px;">只列出前 60 項，請多打幾個字縮小範圍</div>' : '') + '</div>' : '') +
   '</div>';
