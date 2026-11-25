@@ -754,6 +754,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 .inv-cross-kind{ flex:0 0 auto; font-size:13px; font-weight:800; color:var(--amber); border:1px solid var(--amber); border-radius:6px; padding:1px 6px; }
 .inv-cross-name{ flex:1; min-width:0; }
 .inv-cross-stock{ flex:0 0 auto; font-weight:800; color:var(--teal); }
+.gs-here-go{ background:rgba(43,182,163,0.15)!important; border:1.5px solid var(--teal)!important; color:var(--teal)!important; }
 .qty-btn{ border-color:var(--orange); color:var(--orange); }
 .qty-changed{ display:inline-block; margin-left:6px; font-size:13px; font-weight:800; color:var(--orange); border:1px dashed var(--orange); border-radius:6px; padding:0 6px; }
 .code-line{ margin-top:4px; min-height:0; }
@@ -2845,7 +2846,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.24-7';
+const APP_VERSION = '2026.11.25-1';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -4631,16 +4632,30 @@ function renderGlobalSearchResults(){
     '<div class="gs-head" id="gsToggle"><b>🔎 所有步驟中符合的未完成品項：' + hits.length + ' 項</b> <span class="gs-caret">' + (globalSearchOpen ? '▾ 收起' : '▸ 展開') + '</span></div>' +
     (hits.length ? '<div class="gs-chips">' + chips + '</div>' : '<div style="font-size:14px; color:var(--ink-dim);">沒有符合的未完成品項</div>') +
     (globalSearchOpen && hits.length ? '<div class="gs-list">' + hits.slice(0, 60).map(h=>{
-      const it = h.item, here = it.status === currentTab;
+      const it = h.item, here = itemBelongsToTab(it, currentTab);   // 品管COA頁：需要COA還沒確認的，不管在哪個步驟都算「在這頁」
       return '<div class="gs-row' + (here ? ' here' : '') + '">' +
         '<div class="gs-main"><div class="gs-cust">' + escapeHtml(h.order.customer || '') + (h.order.orderNo ? ' <span style="color:var(--ink-dim); font-weight:600; font-size:13px;">' + escapeHtml(h.order.orderNo) + '</span>' : '') + '</div>' +
           '<div class="gs-prod">' + escapeHtml(it.product || '') + (it.spec ? ' <span class="os-spec">' + escapeHtml(it.spec) + '</span>' : '') + '　<b style="color:var(--amber);">x' + escapeHtml(String(it.qty ?? '')) + '</b>　<span style="color:var(--ink-dim); font-size:13.5px;">出貨日 ' + escapeHtml((it.due || '').replace(/-/g,'/')) + '</span></div></div>' +
         '<span class="badge stage st-' + it.status + '">' + STATUS_LABEL[it.status] + '</span>' +
-        (here ? '<span class="gs-here">在這頁</span>' : '<button type="button" class="gs-go" data-gs-oid="' + h.order.id + '" data-gs-iid="' + it.id + '">前往</button>') +
+        (here ? '<button type="button" class="gs-go gs-here-go" data-gs-here="' + it.id + '">👇 在這頁，看這張</button>' : '<button type="button" class="gs-go" data-gs-oid="' + h.order.id + '" data-gs-iid="' + it.id + '">前往</button>') +
       '</div>';
     }).join('') + (hits.length > 60 ? '<div style="font-size:13px; color:var(--ink-dim); padding:6px;">只列出前 60 項，請多打幾個字縮小範圍</div>' : '') + '</div>' : '') +
   '</div>';
   document.getElementById('gsToggle').onclick = ()=>{ globalSearchOpen = !globalSearchOpen; renderGlobalSearchResults(); };
+  // 「在這頁」：直接捲到這一頁裡的那張單（品管COA頁搜尋到還在排程生產的單，也是在品管COA頁打開）
+  box.querySelectorAll('[data-gs-here]').forEach(b=> b.onclick = ()=>{
+    const id = b.dataset.gsHere;
+    let changed = false;
+    if(currentZoneFilter){ currentZoneFilter = null; changed = true; }
+    if(typeof SUMMARY_TABS !== 'undefined' && SUMMARY_TABS.includes(currentTab) && !labelingExpanded.has(id)){ labelingExpanded.add(id); changed = true; }
+    if(changed) render();
+    setTimeout(()=>{
+      if(document.querySelector('#orderList [data-item-row="' + id + '"]')){ scrollToItemRow(id); return; }
+      const btn = document.querySelector('#orderList [data-iid="' + id + '"]');
+      const row = btn && (btn.closest('.item-row') || btn.closest('.order-card'));
+      if(row){ row.scrollIntoView({ behavior:'smooth', block:'center' }); row.classList.remove('si-flash'); void row.offsetWidth; row.classList.add('si-flash'); }
+    }, 80);
+  });
   box.querySelectorAll('[data-gs-iid]').forEach(b=> b.onclick = ()=>{
     const o = orders.find(x=> x.id === b.dataset.gsOid);
     const it = o && (o.items||[]).find(i=> i.id === b.dataset.gsIid);
