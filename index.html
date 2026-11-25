@@ -2891,7 +2891,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.26-3';
+const APP_VERSION = '2026.11.26-4';
 let latestAppVersion = '';
 // 版本號用「數字」比大小（不能用文字比：文字比的話 -10 會被當成比 -9 舊）
 function cmpVer(a, b){
@@ -5812,7 +5812,7 @@ function openBoxLabel(order){
   document.getElementById('blSub').innerHTML = '客戶 <b style="font-size:18px; color:var(--ink);">' + escapeHtml(order.customer || '') + '</b>　訂單 ' + escapeHtml(order.orderNo || '');
   const items = (order.items || []).filter(blEligible);
   document.getElementById('blItems').innerHTML = items.map(it=>{
-    const on = ['done','refill','boxing','shipped'].includes(it.status) || items.length === 1;
+    const on = true;   // 預設全選（2026.11.25）
     return '<div class="bl-item"><label><input type="checkbox" class="bl-chk" data-iid="' + it.id + '"' + (on ? ' checked' : '') + '> <b>' + escapeHtml(it.product) + '</b>' + (it.spec ? ' <span style="color:var(--ink-dim);">' + escapeHtml(it.spec) + '</span>' : '') +
       ' × ' + escapeHtml(qtyWithUnit(shipQtyOf(it), it)) + ' <span class="badge stage st-' + it.status + '" style="font-size:11px;">' + STATUS_LABEL[it.status] + '</span></label>' +
       '<span class="bl-cnt">印 <input type="number" class="bl-n" data-iid="' + it.id + '" min="1" max="200" step="1" inputmode="numeric" value="' + blDefaultCount(it) + '"> 張</span></div>';
