@@ -2462,6 +2462,7 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
     <div class="field"><label>要印的品項、張數</label><div id="blItems"></div></div>
     <div class="field"><label>標籤尺寸</label>
       <select id="blSize">
+        <option value="l100x75">標籤紙 10 × 7.5 公分（工廠標籤）</option>
         <option value="a4">A4 一張一張（一般印表機）</option>
         <option value="a4half">A4 一張印 2 張（剪一半）</option>
         <option value="l100x150">標籤紙 10 × 15 公分</option>
@@ -2888,7 +2889,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.25-9';
+const APP_VERSION = '2026.11.25-10';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -5765,12 +5766,14 @@ function coaPillHtml(it, isHere){
 }
 // ---- 🖨 列印箱貼：沒有紙本以後，裝箱時印客戶名稱貼在箱子上 ----
 // 印表機邊緣有印不到的地方，所以四周留 BL_MARGIN 公釐；標籤再比可印範圍小一點，才不會被擠到下一頁
-const BL_MARGIN = 5;
+const BL_MARGIN = 5;      // A4 一般印表機
+const BL_MARGIN_L = 3;    // 標籤機
 const BL_SIZES = {
-  a4:       { page:'A4 portrait', w:210 - BL_MARGIN*2 - 1, h:297 - BL_MARGIN*2 - 2 },
-  a4half:   { page:'A4 portrait', w:210 - BL_MARGIN*2 - 1, h:(297 - BL_MARGIN*2) / 2 - 2 },
-  l100x150: { page:'100mm 150mm', w:100 - BL_MARGIN*2 - 1, h:150 - BL_MARGIN*2 - 2 },
-  l100x100: { page:'100mm 100mm', w:100 - BL_MARGIN*2 - 1, h:100 - BL_MARGIN*2 - 2 }
+  l100x75:  { page:'100mm 75mm',  m:BL_MARGIN_L, w:100 - BL_MARGIN_L*2 - 1, h:75 - BL_MARGIN_L*2 - 2 },   // 工廠用的標籤 10 × 7.5 公分
+  a4:       { page:'A4 portrait', m:BL_MARGIN, w:210 - BL_MARGIN*2 - 1, h:297 - BL_MARGIN*2 - 2 },
+  a4half:   { page:'A4 portrait', m:BL_MARGIN, w:210 - BL_MARGIN*2 - 1, h:(297 - BL_MARGIN*2) / 2 - 2 },
+  l100x150: { page:'100mm 150mm', m:BL_MARGIN_L, w:100 - BL_MARGIN_L*2 - 1, h:150 - BL_MARGIN_L*2 - 2 },
+  l100x100: { page:'100mm 100mm', m:BL_MARGIN_L, w:100 - BL_MARGIN_L*2 - 1, h:100 - BL_MARGIN_L*2 - 2 }
 };
 // 字太多放不下時整張縮小（不會切到字）
 function blFitAll(root){
@@ -5794,7 +5797,7 @@ function blDefaultCount(it){
 function blEligible(it){ return !it.deleted && it.status !== 'cancelled'; }
 function openBoxLabel(order){
   blOrderId = order.id;
-  try{ const sv = localStorage.getItem('boxLabelSize'); if(sv && BL_SIZES[sv]) document.getElementById('blSize').value = sv; }catch(e){}
+  try{ const sv = localStorage.getItem('boxLabelSize2'); document.getElementById('blSize').value = (sv && BL_SIZES[sv]) ? sv : 'l100x75'; }catch(e){ document.getElementById('blSize').value = 'l100x75'; }
   document.getElementById('blSub').innerHTML = '客戶 <b style="font-size:18px; color:var(--ink);">' + escapeHtml(order.customer || '') + '</b>　訂單 ' + escapeHtml(order.orderNo || '');
   const items = (order.items || []).filter(blEligible);
   document.getElementById('blItems').innerHTML = items.map(it=>{
@@ -5834,7 +5837,7 @@ function blLabelsHtml(c){
   const custSize = (name)=>{   // 客戶名稱最大；名字長就分兩行，字才不會太小
     const len = Math.max(1, Array.from(String(name || '')).reduce((n, ch)=> n + (/[\x00-\xff]/.test(ch) ? 0.55 : 1), 0));
     const lines = len > 8 ? 2 : 1;
-    return Math.max(5, Math.min(H * 0.14, inner * 0.92 / Math.ceil(len / lines)));
+    return Math.max(5, Math.min(H * (W / H > 1.2 ? 0.2 : 0.14), inner * 0.92 / Math.ceil(len / lines)));   // 橫的標籤（10×7.5）客戶名稱可以再大一點
   };
   const out = [];
   const label = (body)=> '<div class="bl' + (c.size === 'a4half' ? ' bl-half' : '') + '" style="width:' + W + 'mm; height:' + H + 'mm; padding:' + pad + 'mm;"><div class="bl-in">' + body + '</div></div>';
@@ -5882,7 +5885,7 @@ const BL_CSS = '.bl{ box-sizing:border-box; overflow:hidden; background:#fff; co
   '.bl-list{ display:flex; flex-direction:column; gap:1.5mm; } .bl-li{ border-bottom:0.3mm solid #999; padding-bottom:1mm; } .bl-li-q{ float:right; font-weight:900; } .bl-li-sub{ font-size:0.75em; color:#333; }';
 function blRefresh(){
   const c = blCollect(); if(!c) return;
-  try{ localStorage.setItem('boxLabelSize', c.size); }catch(e){}
+  try{ localStorage.setItem('boxLabelSize2', c.size); }catch(e){}
   const labels = c.picked.length ? blLabelsHtml(c) : [];
   document.getElementById('blPrint').textContent = '🖨 列印（共 ' + labels.length + ' 張）';
   document.getElementById('blPrint').disabled = !labels.length;
@@ -5901,7 +5904,7 @@ document.getElementById('blPrint').onclick = ()=>{
   const labels = blLabelsHtml(c);
   const S = BL_SIZES[c.size];
   const html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' + escapeHtml(c.order.customer || '') + ' 箱貼</title><style>' +
-    '@page{ size:' + S.page + '; margin:' + BL_MARGIN + 'mm; } html,body{ margin:0; padding:0; background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }' + BL_CSS +
+    '@page{ size:' + S.page + '; margin:' + S.m + 'mm; } html,body{ margin:0; padding:0; background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }' + BL_CSS +
     '.btn{ margin:10px; padding:10px 18px; font-size:17px; } @media print{ .btn{ display:none; } .bl{ border:none; } }' +
     '</style></head><body><button class="btn" onclick="window.print()">🖨 列印</button>' + labels.join('') +
     '<script>' + blFitAll.toString() + ';window.onload=function(){ var go=function(){ blFitAll(document); setTimeout(function(){ window.print(); }, 300); }; if(document.fonts && document.fonts.ready){ document.fonts.ready.then(go); } else go(); };<\/script></body></html>';
