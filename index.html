@@ -755,6 +755,14 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 .inv-cross-name{ flex:1; min-width:0; }
 .inv-cross-stock{ flex:0 0 auto; font-weight:800; color:var(--teal); }
 .gs-here-go{ background:rgba(43,182,163,0.15)!important; border:1.5px solid var(--teal)!important; color:var(--teal)!important; }
+.cq-box{ margin:8px 0; padding:8px 10px; border:1.5px solid var(--amber); border-radius:12px; background:rgba(242,184,0,0.06); }
+.cq-title{ font-size:13.5px; font-weight:800; color:var(--ink-dim); margin-bottom:6px; }
+.cq-row{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.cq-cell{ display:flex; flex-direction:column; align-items:center; padding:6px 4px; border-radius:9px; background:var(--panel); }
+.cq-cell span{ font-size:13px; color:var(--ink-dim); font-weight:700; }
+.cq-cell b{ font-size:20px; font-weight:900; color:var(--ink); }
+.cq-cell small{ font-size:12px; color:var(--ink-dim); }
+.cq-cell.hl b{ color:var(--orange); }
 .qty-btn{ border-color:var(--orange); color:var(--orange); }
 .qty-changed{ display:inline-block; margin-left:6px; font-size:13px; font-weight:800; color:var(--orange); border:1px dashed var(--orange); border-radius:6px; padding:0 6px; }
 .code-line{ margin-top:4px; min-height:0; }
@@ -2846,7 +2854,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.25-2';
+const APP_VERSION = '2026.11.25-3';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -4733,6 +4741,21 @@ function warehouseConfirmNames(){
 function shipQtyOf(item){ const v = item.shipQty; return (v !== undefined && v !== null && v !== '' && !isNaN(Number(v))) ? Number(v) : Number(item.qty || 0); }
 function deductedQtyOf(item){ const v = item.shippedDeductedQty; return (v !== undefined && v !== null && v !== '') ? Number(v) : Number(item.qty || 0); }
 function hasShipQtyDiff(item){ return item.shipQty !== undefined && item.shipQty !== null && item.shipQty !== '' && Number(item.shipQty) !== Number(item.qty); }
+// 品管COA頁：只看不能改的數量（訂購／實際產出／實際出貨），品管填 COA 時參考
+function coaQtyInfoHtml(item){
+  if(currentTab !== 'coa') return '';
+  const u = escapeHtml(orderUnit(item) || '');
+  const q = Number(item.qty || 0);
+  const y = (item.actualYieldQty !== undefined && item.actualYieldQty !== null && item.actualYieldQty !== '') ? Number(item.actualYieldQty) : null;
+  const sqSet = item.shipQty !== undefined && item.shipQty !== null && item.shipQty !== '';
+  const sq = shipQtyOf(item);
+  const cell = (label, val, note, hl)=> '<div class="cq-cell' + (hl ? ' hl' : '') + '"><span>' + label + '</span><b>' + val + '</b>' + (note ? '<small>' + note + '</small>' : '') + '</div>';
+  return '<div class="cq-box"><div class="cq-title">📦 數量（只看；' + (['done','refill','boxing','shipped'].includes(item.status) ? '要改請到「' + STATUS_LABEL_RAW[item.status] + '」頁' : '還在生產，做好後在「標籤印製」頁填實際產出') + '）</div><div class="cq-row">' +
+    cell('訂購數量', q + ' ' + u, '', false) +
+    cell('實際產出', y !== null ? y + ' ' + u : '還沒填', '', y !== null && y !== q) +
+    cell('實際出貨', sq + ' ' + u, sqSet ? '' : '＝訂購', sq !== q) +
+  '</div></div>';
+}
 function shipQtyPanelHtml(order, item){
   if(!(['done','refill','boxing','shipped'].includes(item.status) && currentTab === item.status)) return '';
   const ids = 'data-sq-oid="' + order.id + '" data-sq-iid="' + item.id + '"';
@@ -6073,6 +6096,7 @@ function renderListInner(){
           ((currentTab === 'boxing' && item.status === 'boxing') ? '' : boxCodeTagHtml(item)) +
           irrConfirmHtml +
           (item.vendorDirect ? coaMaterialBatchHtml(order, item) + labelEditHtml : labelEditHtml) +
+          coaQtyInfoHtml(item) +
           coaValuesHtml(order, item) +
           (item.vendorDirect ? '' : coaMaterialBatchHtml(order, item)) +
           refillPanelHtml(order, item) +
@@ -6096,6 +6120,7 @@ function renderListInner(){
         ((currentTab === 'boxing' && item.status === 'boxing') ? '' : '<div class="checklist-row">' + chkHtml + '</div>') +
         (item.note ? '<div class="item-note">' + escapeHtml(item.note) + idNoteBlock(order, item) + '</div>' : '') +
         irrConfirmHtml +
+        coaQtyInfoHtml(item) +
         coaValuesHtml(order, item) +
         (item.vendorDirect ? '' : coaMaterialBatchHtml(order, item)) +
         refillPanelHtml(order, item) +
