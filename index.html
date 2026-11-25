@@ -2888,7 +2888,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.25-7';
+const APP_VERSION = '2026.11.25-8';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -5783,7 +5783,7 @@ function openBoxLabel(order){
   document.getElementById('blSub').innerHTML = '客戶 <b style="font-size:18px; color:var(--ink);">' + escapeHtml(order.customer || '') + '</b>　訂單 ' + escapeHtml(order.orderNo || '');
   const items = (order.items || []).filter(blEligible);
   document.getElementById('blItems').innerHTML = items.map(it=>{
-    const on = ['refill','boxing','shipped'].includes(it.status) || items.length === 1;
+    const on = ['done','refill','boxing','shipped'].includes(it.status) || items.length === 1;
     return '<div class="bl-item"><label><input type="checkbox" class="bl-chk" data-iid="' + it.id + '"' + (on ? ' checked' : '') + '> <b>' + escapeHtml(it.product) + '</b>' + (it.spec ? ' <span style="color:var(--ink-dim);">' + escapeHtml(it.spec) + '</span>' : '') +
       ' × ' + escapeHtml(qtyWithUnit(shipQtyOf(it), it)) + ' <span class="badge stage st-' + it.status + '" style="font-size:11px;">' + STATUS_LABEL[it.status] + '</span></label>' +
       '<span class="bl-cnt">印 <input type="number" class="bl-n" data-iid="' + it.id + '" min="1" max="200" step="1" inputmode="numeric" value="' + blDefaultCount(it) + '"> 張</span></div>';
@@ -5986,7 +5986,7 @@ function orderSummaryHtml(order){
     (((currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing') && here.length >= 2) ? '<button type="button" class="os-done os-group-done" data-os-donegroup="' + order.id + '" style="margin:2px 0 8px;">✅ 這張訂單 ' + here.length + ' 項一起' + STATUS_LABEL[currentTab] + '完成</button>' : '') +
     ((currentTab === 'inprogress' && here.length >= 2) ? '<button type="button" class="os-done os-group-done" data-os-donegroup="' + order.id + '" style="margin:2px 0 8px;">🏭 這張訂單 ' + here.length + ' 項一起「庫存確認無庫存請生產」</button>' : '') +
     '<div style="font-size:13px; color:var(--ink-dim); margin:-2px 0 4px;">' + (currentTab === 'coa' ? '點品項那一列可以展開，填寫品管數值、原料批號，按「品管COA確認完成」' : currentTab === 'done' ? '點品項那一列可以展開，修改批號、日期、確認照射標籤' : currentTab === 'refill' ? '點品項那一列可以展開，修改包裝人員、包裝日期' : currentTab === 'boxing' ? '點品項那一列可以展開，修改出貨前檢查、放行人員' : currentTab === 'shipped' ? '出貨方式、倉管會計在上面一次選好，可以每項按「完成」或整張一起完成' : currentTab === 'inprogress' ? '生產線會自動帶上次的，一定要有生產線才能按「無庫存請生產」；點品項那一列展開，可以看庫存批號、用現有庫存出貨' : '點品項那一列可以展開，填批號、日期、按排程生產完成') + '</div>' +
-    ((currentTab === 'refill' || currentTab === 'boxing' || currentTab === 'shipped') ? '<button type="button" class="bl-btn" data-boxlabel="' + order.id + '">🖨 ' + bi('列印箱貼（客戶名稱）', 'Cetak label kardus') + '</button>' : '') +
+    ((currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing' || currentTab === 'shipped') ? '<button type="button" class="bl-btn" data-boxlabel="' + order.id + '">🖨 ' + bi('列印箱貼（客戶名稱）', 'Cetak label kardus') + '</button>' : '') +
     '<div class="os-row os-headrow"><span class="os-caret"></span><span class="os-name">品項 / 規格</span><span class="os-qty">數量</span><span style="min-width:72px; text-align:center;">階段</span></div>' +
     rows + '</div>';
 }
