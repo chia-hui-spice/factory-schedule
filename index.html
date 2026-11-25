@@ -2888,7 +2888,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.25-8';
+const APP_VERSION = '2026.11.25-9';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -5764,12 +5764,27 @@ function coaPillHtml(it, isHere){
   return '<span class="stage-pill behind sp-' + it.status + '"><small>不需要COA</small><span class="sp-now">目前在</span><b>' + name + '</b></span>';
 }
 // ---- 🖨 列印箱貼：沒有紙本以後，裝箱時印客戶名稱貼在箱子上 ----
+// 印表機邊緣有印不到的地方，所以四周留 BL_MARGIN 公釐；標籤再比可印範圍小一點，才不會被擠到下一頁
+const BL_MARGIN = 5;
 const BL_SIZES = {
-  a4:       { page:'A4 portrait', w:210, h:297 },
-  a4half:   { page:'A4 portrait', w:210, h:148 },
-  l100x150: { page:'100mm 150mm', w:100, h:150 },
-  l100x100: { page:'100mm 100mm', w:100, h:100 }
+  a4:       { page:'A4 portrait', w:210 - BL_MARGIN*2 - 1, h:297 - BL_MARGIN*2 - 2 },
+  a4half:   { page:'A4 portrait', w:210 - BL_MARGIN*2 - 1, h:(297 - BL_MARGIN*2) / 2 - 2 },
+  l100x150: { page:'100mm 150mm', w:100 - BL_MARGIN*2 - 1, h:150 - BL_MARGIN*2 - 2 },
+  l100x100: { page:'100mm 100mm', w:100 - BL_MARGIN*2 - 1, h:100 - BL_MARGIN*2 - 2 }
 };
+// 字太多放不下時整張縮小（不會切到字）
+function blFitAll(root){
+  root.querySelectorAll('.bl').forEach(function(box){
+    var inn = box.querySelector('.bl-in'); if(!inn) return;
+    inn.style.transform = ''; inn.style.width = ''; inn.style.height = 'auto';
+    var cs = getComputedStyle(box);
+    var cw = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    var ch = box.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    var r = Math.min(cw / inn.scrollWidth, ch / inn.scrollHeight);
+    if(r < 1){ var sc = r * 0.98; inn.style.transformOrigin = '0 0'; inn.style.transform = 'scale(' + sc + ')'; inn.style.width = (cw / sc) + 'px'; inn.style.height = (ch / sc) + 'px'; }
+    else inn.style.height = '100%';
+  });
+}
 let blOrderId = null;
 function blDefaultCount(it){
   const u = orderUnit(it);
@@ -5812,7 +5827,7 @@ function blFit(text, maxMm, widthMm, ratio){
 }
 function blLabelsHtml(c){
   const S = BL_SIZES[c.size]; const W = S.w, H = S.h;
-  const pad = Math.round(Math.min(W, H) * 0.06);
+  const pad = Math.max(2, Math.round(Math.min(W, H) * 0.04));
   const inner = W - pad * 2;
   const esc = escapeHtml;
   const d = (v)=> v ? String(v).replace(/-/g, '/') : '';
@@ -5822,7 +5837,7 @@ function blLabelsHtml(c){
     return Math.max(5, Math.min(H * 0.14, inner * 0.92 / Math.ceil(len / lines)));
   };
   const out = [];
-  const label = (body)=> '<div class="bl" style="width:' + W + 'mm; height:' + H + 'mm; padding:' + pad + 'mm;">' + body + '</div>';
+  const label = (body)=> '<div class="bl' + (c.size === 'a4half' ? ' bl-half' : '') + '" style="width:' + W + 'mm; height:' + H + 'mm; padding:' + pad + 'mm;"><div class="bl-in">' + body + '</div></div>';
   const head = (o)=> '<div class="bl-top"><span>訂單 ' + esc(o.orderNo || '') + '</span><span>出貨日 ' + esc(d((c.picked[0] && c.picked[0].it.due) || '')) + '</span></div>' +
     '<div class="bl-cust" style="font-size:' + custSize(o.customer) + 'mm;">' + esc(o.customer || '') + '</div>';
   if(c.mode === 'perOrder'){
@@ -5855,7 +5870,9 @@ function blLabelsHtml(c){
   }
   return out;
 }
-const BL_CSS = '.bl{ box-sizing:border-box; display:flex; flex-direction:column; gap:2.5mm; overflow:hidden; background:#fff; color:#000; font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif; page-break-after:always; break-after:page; border:0.4mm dashed #bbb; }' +
+const BL_CSS = '.bl{ box-sizing:border-box; overflow:hidden; background:#fff; color:#000; font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif; page-break-after:always; break-after:page; page-break-inside:avoid; break-inside:avoid; border:0.4mm dashed #bbb; }' +
+  '.bl.bl-half{ page-break-after:auto; break-after:auto; } .bl.bl-half:nth-of-type(2n){ page-break-after:always; break-after:page; }' +
+  '.bl-in{ display:flex; flex-direction:column; gap:2.5mm; height:100%; box-sizing:border-box; }' +
   '.bl-top{ display:flex; justify-content:space-between; font-size:4mm; font-weight:700; border-bottom:0.5mm solid #000; padding-bottom:1.5mm; }' +
   '.bl-cust{ font-weight:900; line-height:1.15; word-break:break-all; text-align:center; padding:1mm 0 2mm; border-bottom:0.5mm solid #000; }' +
   '.bl-prod{ line-height:1.25; } .bl-prod b{ font-weight:900; }' +
@@ -5876,6 +5893,7 @@ function blRefresh(){
   const scale = box / (S.w * 3.78);
   wrap.innerHTML = '<style>' + BL_CSS + '</style><div style="width:' + (S.w * 3.78 * scale) + 'px; height:' + (S.h * 3.78 * scale) + 'px; overflow:hidden; border-radius:6px; box-shadow:0 0 0 1px #555;"><div style="transform:scale(' + scale + '); transform-origin:0 0;">' + labels[0].replace('page-break-after', 'x') + '</div></div>' +
     (labels.length > 1 ? '<div style="font-size:13px; color:var(--ink-dim); margin-top:4px;">（只顯示第 1 張，共 ' + labels.length + ' 張）</div>' : '');
+  blFitAll(wrap);
 }
 document.getElementById('blCancel').onclick = ()=> document.getElementById('boxLabelOverlay').classList.remove('show');
 document.getElementById('blPrint').onclick = ()=>{
@@ -5883,10 +5901,10 @@ document.getElementById('blPrint').onclick = ()=>{
   const labels = blLabelsHtml(c);
   const S = BL_SIZES[c.size];
   const html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' + escapeHtml(c.order.customer || '') + ' 箱貼</title><style>' +
-    '@page{ size:' + S.page + '; margin:0; } html,body{ margin:0; padding:0; background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }' + BL_CSS +
+    '@page{ size:' + S.page + '; margin:' + BL_MARGIN + 'mm; } html,body{ margin:0; padding:0; background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }' + BL_CSS +
     '.btn{ margin:10px; padding:10px 18px; font-size:17px; } @media print{ .btn{ display:none; } .bl{ border:none; } }' +
     '</style></head><body><button class="btn" onclick="window.print()">🖨 列印</button>' + labels.join('') +
-    '<script>window.onload=function(){ setTimeout(function(){ window.print(); }, 400); };<\/script></body></html>';
+    '<script>' + blFitAll.toString() + ';window.onload=function(){ var go=function(){ blFitAll(document); setTimeout(function(){ window.print(); }, 300); }; if(document.fonts && document.fonts.ready){ document.fonts.ready.then(go); } else go(); };<\/script></body></html>';
   const w = window.open('', '_blank');
   if(!w){ showToast('瀏覽器擋住了列印視窗，請允許彈出視窗後再試一次'); return; }
   w.document.open(); w.document.write(html); w.document.close();
