@@ -58,6 +58,8 @@
   .subtitle{ font-size:16.2px; color:var(--ink-dim); font-family:var(--mono); margin-top:1px; }
   .sync-dot{ width:8px; height:8px; border-radius:50%; background:var(--green); display:inline-block; margin-right:5px; box-shadow:0 0 0 3px rgba(76,168,114,0.15);}
   .bell-btn{ width:46px; height:46px; border-radius:12px; background:var(--panel); border:1.5px solid var(--line); font-size:23.8px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex:0 0 46px; color:var(--ink-dim); }
+  /* 🇮🇩 印尼文開關：做小一點、跟其他按鈕隔開，避免不小心按到 */
+  .bell-btn#idBtn, .header-top .bell-btn#idBtn{ width:30px; height:30px; flex:0 0 30px; font-size:15px; border-radius:8px; margin-left:10px; align-self:center; opacity:.85; }
   .new-order-pop{ position:fixed; left:50%; top:16px; transform:translateX(-50%); z-index:9999; background:#1f7a3a; color:#fff; border:3px solid #ffd54a; border-radius:16px; padding:16px 20px; font-size:20px; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,.45); max-width:min(92vw,560px); width:max-content; display:none; animation:nopPulse 1s ease-in-out 3; }
   .new-order-pop.show{ display:block; }
   .new-order-pop .nop-list{ font-size:16px; font-weight:500; margin-top:8px; line-height:1.5; max-height:40vh; overflow:auto; }
@@ -2854,7 +2856,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.25-3';
+const APP_VERSION = '2026.11.25-4';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
