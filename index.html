@@ -763,6 +763,12 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 .cq-cell b{ font-size:20px; font-weight:900; color:var(--ink); }
 .cq-cell small{ font-size:12px; color:var(--ink-dim); }
 .cq-cell.hl b{ color:var(--orange); }
+.bl-btn{ display:block; width:100%; margin:2px 0 8px; padding:10px; border-radius:10px; border:1.5px solid var(--blue, #5cc8ff); background:rgba(92,200,255,0.10); color:var(--blue, #5cc8ff); font-size:16px; font-weight:800; cursor:pointer; }
+.bl-modes{ display:flex; flex-direction:column; gap:6px; } .bl-modes label{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:15.5px; font-weight:700; }
+#boxLabelOverlay input[type=radio], #boxLabelOverlay input[type=checkbox]{ width:22px !important; height:22px !important; min-height:0 !important; flex:0 0 22px; margin:0; padding:0; accent-color:var(--teal); } .bl-modes small{ color:var(--ink-dim); font-weight:500; margin-left:4px; }
+.bl-item{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); font-size:15px; }
+.bl-item label{ flex:1; min-width:0; display:flex; align-items:center; gap:6px; flex-wrap:wrap; } .bl-cnt{ white-space:nowrap; display:flex; align-items:center; gap:4px; } #boxLabelOverlay .bl-n{ width:64px !important; padding:6px 4px !important; font-size:17px; font-weight:800; text-align:center; }
+.bl-preview-wrap{ display:block; }
 .qty-btn{ border-color:var(--orange); color:var(--orange); }
 .qty-changed{ display:inline-block; margin-left:6px; font-size:13px; font-weight:800; color:var(--orange); border:1px dashed var(--orange); border-radius:6px; padding:0 6px; }
 .code-line{ margin-top:4px; min-height:0; }
@@ -2442,6 +2448,34 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
   </div>
 </div>
 
+<div class="overlay" id="boxLabelOverlay" style="z-index:57;">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>🖨 列印箱貼（客戶名稱）</h2>
+    <div class="report-updated" id="blSub"></div>
+    <div class="field"><label>印法</label>
+      <div class="bl-modes">
+        <label><input type="radio" name="blMode" value="perBox" checked> 每箱一張<small>（照箱數印，貼在每一箱）</small></label>
+        <label><input type="radio" name="blMode" value="perOrder"> 整張訂單一張<small>（列出全部品項，例如多個品項裝同一箱）</small></label>
+      </div>
+    </div>
+    <div class="field"><label>要印的品項、張數</label><div id="blItems"></div></div>
+    <div class="field"><label>標籤尺寸</label>
+      <select id="blSize">
+        <option value="a4">A4 一張一張（一般印表機）</option>
+        <option value="a4half">A4 一張印 2 張（剪一半）</option>
+        <option value="l100x150">標籤紙 10 × 15 公分</option>
+        <option value="l100x100">標籤紙 10 × 10 公分</option>
+      </select>
+    </div>
+    <div class="field"><label>預覽</label><div id="blPreview" class="bl-preview-wrap"></div></div>
+    <div class="sheet-actions">
+      <button type="button" class="btn-secondary" id="blCancel">返回</button>
+      <button type="button" class="btn-primary" id="blPrint">🖨 列印</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="qtyChangeOverlay" style="z-index:56;">
   <div class="sheet">
     <div class="sheet-handle"></div>
@@ -2854,7 +2888,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.25-6';
+const APP_VERSION = '2026.11.25-7';
 let latestAppVersion = '';
 function isOutdated(){ return !!(latestAppVersion && latestAppVersion > APP_VERSION); }
 function deviceId(){
@@ -4096,7 +4130,7 @@ const ID_PHRASES = {
   '原料批號 / 日期':'No. batch bahan / Tanggal', '廠商直出（只貼標）':'Langsung dari pemasok (hanya label)', '廠商直出':'Langsung dari pemasok',
   '廠商批號':'No. batch pemasok', '廠商製造日期':'Tgl produksi pemasok', '廠商有效日期':'Tgl kedaluwarsa pemasok',
   '廠商製造日期（可不填）':'Tgl produksi pemasok (opsional)', '廠商有效日期（可不填）':'Tgl kedaluwarsa pemasok (opsional)', '產品製造日期（可不填）':'Tgl produksi produk (opsional)',
-  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '訂購數量':'Jumlah pesanan', '實際產出':'Hasil produksi', '實際出貨':'Jumlah dikirim', '只看清單':'Hanya daftar', '清除製造日期、有效日期、製造批號（打錯時用）':'Hapus tanggal & batch (jika salah)', '同品項合計':'Total per item', '批號日期':'Batch & tanggal', '未填':'Belum diisi', '已填':'Sudah diisi', '改數量':'Ubah jumlah', '取消照射':'Batal iradiasi', '已取消照射':'Iradiasi dibatalkan', '2年':'2 thn', '1年':'1 thn', '3年':'3 thn', '4年':'4 thn', '5年':'5 thn', '還沒到這步':'Belum sampai sini', '這一步要做':'Kerjakan di sini', '點這一列填寫':'Ketuk baris untuk isi', '已過這步':'Sudah lewat', '目前在':'Sekarang di', '已完成':'Selesai', '已出貨':'Sudah dikirim', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
+  '產品有效日期（可不填）':'Tgl kedaluwarsa produk (opsional)', '輸入廠商批號（可不填）':'Ketik no. batch pemasok (opsional)', '（預設＝出貨日）':'(default = tgl kirim)', '箱子 Code：':'Kode dus:', '箱子 Code':'Kode dus', '← 裝箱時請放這個 code':'← tempel kode ini di dus', '（客戶沒有要求就空白）':'(kosong jika tidak diminta)', '沒有就不用填':'Kosongkan jika tidak ada', '詳細':'Detail', '簡潔':'Ringkas', '訂購數量':'Jumlah pesanan', '實際產出':'Hasil produksi', '實際出貨':'Jumlah dikirim', '只看清單':'Hanya daftar', '清除製造日期、有效日期、製造批號（打錯時用）':'Hapus tanggal & batch (jika salah)', '同品項合計':'Total per item', '批號日期':'Batch & tanggal', '未填':'Belum diisi', '已填':'Sudah diisi', '改數量':'Ubah jumlah', '列印箱貼（客戶名稱）':'Cetak label kardus', '取消照射':'Batal iradiasi', '已取消照射':'Iradiasi dibatalkan', '2年':'2 thn', '1年':'1 thn', '3年':'3 thn', '4年':'4 thn', '5年':'5 thn', '還沒到這步':'Belum sampai sini', '這一步要做':'Kerjakan di sini', '點這一列填寫':'Ketuk baris untuk isi', '已過這步':'Sudah lewat', '目前在':'Sekarang di', '已完成':'Selesai', '已出貨':'Sudah dikirim', '🏷 送標籤印製（廠商直出）':'Kirim ke cetak label', '標籤印製完成 → 出貨確認':'Cetak label selesai → pengiriman', '送標籤':'Ke cetak', '印製':'label', '輸入批號':'Ketik no. batch', '貼標人員':'Petugas label', '貼標日期':'Tgl label',
   '設為廠商直出（只貼標）':'Set: langsung dari pemasok', '點一下取消':'ketuk untuk batal', '廠商批號 / 日期':'No. batch pemasok / Tanggal',
   '產品批號 / 日期（印在標籤上）':'No. batch produk / Tanggal (di label)', '輸入廠商批號':'Ketik no. batch pemasok',   '需要COA（隨貨附）　請(燕束)填寫原料批號':'Perlu COA (ikut barang) — (Yan Shu) isi no. batch bahan', '（預設今天）':'(default hari ini)', '（預設）':'(default)',
   '（隨貨附），出貨確認後將進入品管抽樣確認':'(ikut barang), setelah kirim akan dicek sampel QC', '今天':'Hari ini', '明天':'Besok',
@@ -5729,6 +5763,135 @@ function coaPillHtml(it, isHere){
   if(needsCoa(it)) return '<span class="stage-pill ahead sp-' + it.status + '"><small>✅ COA已確認</small><span class="sp-now">目前在</span><b>' + name + '</b></span>';
   return '<span class="stage-pill behind sp-' + it.status + '"><small>不需要COA</small><span class="sp-now">目前在</span><b>' + name + '</b></span>';
 }
+// ---- 🖨 列印箱貼：沒有紙本以後，裝箱時印客戶名稱貼在箱子上 ----
+const BL_SIZES = {
+  a4:       { page:'A4 portrait', w:210, h:297 },
+  a4half:   { page:'A4 portrait', w:210, h:148 },
+  l100x150: { page:'100mm 150mm', w:100, h:150 },
+  l100x100: { page:'100mm 100mm', w:100, h:100 }
+};
+let blOrderId = null;
+function blDefaultCount(it){
+  const u = orderUnit(it);
+  if(u === '箱') return Math.max(1, Math.ceil(shipQtyOf(it)));
+  return 1;
+}
+function blEligible(it){ return !it.deleted && it.status !== 'cancelled'; }
+function openBoxLabel(order){
+  blOrderId = order.id;
+  try{ const sv = localStorage.getItem('boxLabelSize'); if(sv && BL_SIZES[sv]) document.getElementById('blSize').value = sv; }catch(e){}
+  document.getElementById('blSub').innerHTML = '客戶 <b style="font-size:18px; color:var(--ink);">' + escapeHtml(order.customer || '') + '</b>　訂單 ' + escapeHtml(order.orderNo || '');
+  const items = (order.items || []).filter(blEligible);
+  document.getElementById('blItems').innerHTML = items.map(it=>{
+    const on = ['refill','boxing','shipped'].includes(it.status) || items.length === 1;
+    return '<div class="bl-item"><label><input type="checkbox" class="bl-chk" data-iid="' + it.id + '"' + (on ? ' checked' : '') + '> <b>' + escapeHtml(it.product) + '</b>' + (it.spec ? ' <span style="color:var(--ink-dim);">' + escapeHtml(it.spec) + '</span>' : '') +
+      ' × ' + escapeHtml(qtyWithUnit(shipQtyOf(it), it)) + ' <span class="badge stage st-' + it.status + '" style="font-size:11px;">' + STATUS_LABEL[it.status] + '</span></label>' +
+      '<span class="bl-cnt">印 <input type="number" class="bl-n" data-iid="' + it.id + '" min="1" max="200" step="1" inputmode="numeric" value="' + blDefaultCount(it) + '"> 張</span></div>';
+  }).join('') || '<div style="color:var(--ink-dim);">這張訂單沒有品項</div>';
+  document.querySelectorAll('#boxLabelOverlay input, #boxLabelOverlay select').forEach(el=> el.oninput = el.onchange = blRefresh);
+  blRefresh();
+  document.getElementById('boxLabelOverlay').classList.add('show');
+}
+function blCollect(){
+  const order = orders.find(o=> o.id === blOrderId); if(!order) return null;
+  const mode = (document.querySelector('input[name="blMode"]:checked') || {}).value || 'perBox';
+  const size = document.getElementById('blSize').value;
+  const picked = [];
+  document.querySelectorAll('#blItems .bl-chk').forEach(c=>{
+    if(!c.checked) return;
+    const it = order.items.find(i=> i.id === c.dataset.iid); if(!it) return;
+    const nEl = document.querySelector('#blItems .bl-n[data-iid="' + it.id + '"]');
+    picked.push({ it, n: Math.min(200, Math.max(1, parseInt(nEl && nEl.value, 10) || 1)) });
+  });
+  document.querySelectorAll('#blItems .bl-cnt').forEach(el=> el.style.visibility = mode === 'perBox' ? '' : 'hidden');
+  return { order, mode, size, picked };
+}
+function blFit(text, maxMm, widthMm, ratio){
+  const len = Math.max(1, Array.from(String(text || '')).reduce((n, ch)=> n + (/[\x00-\xff]/.test(ch) ? 0.55 : 1), 0));
+  return Math.max(4, Math.min(maxMm, widthMm * (ratio || 0.92) / len));
+}
+function blLabelsHtml(c){
+  const S = BL_SIZES[c.size]; const W = S.w, H = S.h;
+  const pad = Math.round(Math.min(W, H) * 0.06);
+  const inner = W - pad * 2;
+  const esc = escapeHtml;
+  const d = (v)=> v ? String(v).replace(/-/g, '/') : '';
+  const custSize = (name)=>{   // 客戶名稱最大；名字長就分兩行，字才不會太小
+    const len = Math.max(1, Array.from(String(name || '')).reduce((n, ch)=> n + (/[\x00-\xff]/.test(ch) ? 0.55 : 1), 0));
+    const lines = len > 8 ? 2 : 1;
+    return Math.max(5, Math.min(H * 0.14, inner * 0.92 / Math.ceil(len / lines)));
+  };
+  const out = [];
+  const label = (body)=> '<div class="bl" style="width:' + W + 'mm; height:' + H + 'mm; padding:' + pad + 'mm;">' + body + '</div>';
+  const head = (o)=> '<div class="bl-top"><span>訂單 ' + esc(o.orderNo || '') + '</span><span>出貨日 ' + esc(d((c.picked[0] && c.picked[0].it.due) || '')) + '</span></div>' +
+    '<div class="bl-cust" style="font-size:' + custSize(o.customer) + 'mm;">' + esc(o.customer || '') + '</div>';
+  if(c.mode === 'perOrder'){
+    const fs = Math.max(3.2, Math.min(H * 0.05, (H * 0.55) / Math.max(1, c.picked.length) / 1.6));
+    out.push(label(head(c.order) + '<div class="bl-list" style="font-size:' + fs + 'mm;">' + c.picked.map(p=>{
+      const it = p.it;
+      return '<div class="bl-li"><b>' + esc(it.product) + '</b> ' + esc(it.spec || '') + '<span class="bl-li-q">' + esc(qtyWithUnit(shipQtyOf(it), it)) + '</span>' +
+        ((it.productBatchNo || it.boxCode) ? '<div class="bl-li-sub">' + (it.productBatchNo ? '批號 ' + esc(it.productBatchNo) : '') + (it.productExpDate ? '　有效 ' + esc(d(it.productExpDate)) : '') + (it.boxCode ? '　箱子Code ' + esc(it.boxCode) : '') + '</div>' : '') + '</div>';
+    }).join('') + '</div>'));
+  }else{
+    c.picked.forEach(p=>{
+      const it = p.it;
+      const prodSize = blFit(it.product + (it.spec ? ' ' + it.spec : ''), H * 0.075, inner, 0.95);
+      for(let k = 1; k <= p.n; k++){
+        out.push(label(head(c.order) +
+          '<div class="bl-prod" style="font-size:' + prodSize + 'mm;"><b>' + esc(it.product) + '</b> ' + esc(it.spec || '') + '</div>' +
+          (it.boxCode ? '<div class="bl-boxcode" style="font-size:' + Math.min(H * 0.045, blFit('箱子Code ' + it.boxCode, H * 0.045, inner)) + 'mm;">箱子Code ' + esc(it.boxCode) + '</div>' : '') +
+          '<div class="bl-meta" style="font-size:' + Math.max(3.2, H * 0.04) + 'mm;">' +
+            (function(){   // 每一箱裝多少：規格是「10包/箱」就寫「每箱 10 包」
+              const bp = boxPack(it.spec);
+              if(p.n > 1 && bp && orderUnit(it) === bp.unit) return '<span>每箱 <b>' + bp.perQty + ' ' + esc(bp.perUnit) + '</b></span><span>共 <b>' + esc(qtyWithUnit(shipQtyOf(it), it)) + '</b></span>';
+              return '<span>' + (p.n > 1 ? '整批共 ' : '數量 ') + '<b>' + esc(qtyWithUnit(shipQtyOf(it), it)) + '</b></span>';
+            })() +
+            (it.productBatchNo ? '<span>批號 <b>' + esc(it.productBatchNo) + '</b></span>' : '') +
+            (it.productExpDate ? '<span>有效日期 <b>' + esc(d(it.productExpDate)) + '</b></span>' : '') +
+          '</div>' +
+          (p.n > 1 ? '<div class="bl-no" style="font-size:' + Math.max(5, H * 0.075) + 'mm;">第 ' + k + ' / ' + p.n + ' 箱</div>' : '')));
+      }
+    });
+  }
+  return out;
+}
+const BL_CSS = '.bl{ box-sizing:border-box; display:flex; flex-direction:column; gap:2.5mm; overflow:hidden; background:#fff; color:#000; font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif; page-break-after:always; break-after:page; border:0.4mm dashed #bbb; }' +
+  '.bl-top{ display:flex; justify-content:space-between; font-size:4mm; font-weight:700; border-bottom:0.5mm solid #000; padding-bottom:1.5mm; }' +
+  '.bl-cust{ font-weight:900; line-height:1.15; word-break:break-all; text-align:center; padding:1mm 0 2mm; border-bottom:0.5mm solid #000; }' +
+  '.bl-prod{ line-height:1.25; } .bl-prod b{ font-weight:900; }' +
+  '.bl-boxcode{ font-weight:900; border:0.6mm solid #000; border-radius:2mm; padding:1mm 2mm; align-self:flex-start; }' +
+  '.bl-meta{ display:flex; flex-wrap:wrap; gap:1mm 6mm; } .bl-meta b{ font-weight:900; }' +
+  '.bl-no{ margin-top:auto; text-align:right; font-weight:900; }' +
+  '.bl-list{ display:flex; flex-direction:column; gap:1.5mm; } .bl-li{ border-bottom:0.3mm solid #999; padding-bottom:1mm; } .bl-li-q{ float:right; font-weight:900; } .bl-li-sub{ font-size:0.75em; color:#333; }';
+function blRefresh(){
+  const c = blCollect(); if(!c) return;
+  try{ localStorage.setItem('boxLabelSize', c.size); }catch(e){}
+  const labels = c.picked.length ? blLabelsHtml(c) : [];
+  document.getElementById('blPrint').textContent = '🖨 列印（共 ' + labels.length + ' 張）';
+  document.getElementById('blPrint').disabled = !labels.length;
+  const wrap = document.getElementById('blPreview');
+  if(!labels.length){ wrap.innerHTML = '<div style="color:var(--ink-dim);">請勾選要印的品項</div>'; return; }
+  const S = BL_SIZES[c.size];
+  const box = Math.min(wrap.clientWidth || 300, 320);
+  const scale = box / (S.w * 3.78);
+  wrap.innerHTML = '<style>' + BL_CSS + '</style><div style="width:' + (S.w * 3.78 * scale) + 'px; height:' + (S.h * 3.78 * scale) + 'px; overflow:hidden; border-radius:6px; box-shadow:0 0 0 1px #555;"><div style="transform:scale(' + scale + '); transform-origin:0 0;">' + labels[0].replace('page-break-after', 'x') + '</div></div>' +
+    (labels.length > 1 ? '<div style="font-size:13px; color:var(--ink-dim); margin-top:4px;">（只顯示第 1 張，共 ' + labels.length + ' 張）</div>' : '');
+}
+document.getElementById('blCancel').onclick = ()=> document.getElementById('boxLabelOverlay').classList.remove('show');
+document.getElementById('blPrint').onclick = ()=>{
+  const c = blCollect(); if(!c || !c.picked.length) return;
+  const labels = blLabelsHtml(c);
+  const S = BL_SIZES[c.size];
+  const html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' + escapeHtml(c.order.customer || '') + ' 箱貼</title><style>' +
+    '@page{ size:' + S.page + '; margin:0; } html,body{ margin:0; padding:0; background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }' + BL_CSS +
+    '.btn{ margin:10px; padding:10px 18px; font-size:17px; } @media print{ .btn{ display:none; } .bl{ border:none; } }' +
+    '</style></head><body><button class="btn" onclick="window.print()">🖨 列印</button>' + labels.join('') +
+    '<script>window.onload=function(){ setTimeout(function(){ window.print(); }, 400); };<\/script></body></html>';
+  const w = window.open('', '_blank');
+  if(!w){ showToast('瀏覽器擋住了列印視窗，請允許彈出視窗後再試一次'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+  document.getElementById('boxLabelOverlay').classList.remove('show');
+};
 function stagePillHtml(it){
   const rel = STATUS.indexOf(it.status) - STATUS.indexOf(currentTab);
   const name = STATUS_LABEL[it.status];
@@ -5823,6 +5986,7 @@ function orderSummaryHtml(order){
     (((currentTab === 'done' || currentTab === 'refill' || currentTab === 'boxing') && here.length >= 2) ? '<button type="button" class="os-done os-group-done" data-os-donegroup="' + order.id + '" style="margin:2px 0 8px;">✅ 這張訂單 ' + here.length + ' 項一起' + STATUS_LABEL[currentTab] + '完成</button>' : '') +
     ((currentTab === 'inprogress' && here.length >= 2) ? '<button type="button" class="os-done os-group-done" data-os-donegroup="' + order.id + '" style="margin:2px 0 8px;">🏭 這張訂單 ' + here.length + ' 項一起「庫存確認無庫存請生產」</button>' : '') +
     '<div style="font-size:13px; color:var(--ink-dim); margin:-2px 0 4px;">' + (currentTab === 'coa' ? '點品項那一列可以展開，填寫品管數值、原料批號，按「品管COA確認完成」' : currentTab === 'done' ? '點品項那一列可以展開，修改批號、日期、確認照射標籤' : currentTab === 'refill' ? '點品項那一列可以展開，修改包裝人員、包裝日期' : currentTab === 'boxing' ? '點品項那一列可以展開，修改出貨前檢查、放行人員' : currentTab === 'shipped' ? '出貨方式、倉管會計在上面一次選好，可以每項按「完成」或整張一起完成' : currentTab === 'inprogress' ? '生產線會自動帶上次的，一定要有生產線才能按「無庫存請生產」；點品項那一列展開，可以看庫存批號、用現有庫存出貨' : '點品項那一列可以展開，填批號、日期、按排程生產完成') + '</div>' +
+    ((currentTab === 'refill' || currentTab === 'boxing' || currentTab === 'shipped') ? '<button type="button" class="bl-btn" data-boxlabel="' + order.id + '">🖨 ' + bi('列印箱貼（客戶名稱）', 'Cetak label kardus') + '</button>' : '') +
     '<div class="os-row os-headrow"><span class="os-caret"></span><span class="os-name">品項 / 規格</span><span class="os-qty">數量</span><span style="min-width:72px; text-align:center;">階段</span></div>' +
     rows + '</div>';
 }
@@ -6245,6 +6409,10 @@ function renderListInner(){
     if(tab === 'boxing'){ for(const it of ready){ if(!it.stockPreDeducted) await deductFinishedGoodStock(it, false, o); } }
     if(tab === 'done'){ for(const it of ready){ if(it.vendorDirect && it.status === 'shipped' && !it.stockPreDeducted) await deductFinishedGoodStock(it, false, o); } }
     showToast('已完成 ' + ready.length + ' 項，移至「' + STATUS_LABEL[next] + '」' + (blocked.length ? '；' + blocked.length + ' 項' + why : ''));
+  });
+  wrap.querySelectorAll('[data-boxlabel]').forEach(b=> b.onclick = (e)=>{
+    e.stopPropagation();
+    const o = orders.find(x=> x.id === b.dataset.boxlabel); if(o) openBoxLabel(o);
   });
   wrap.querySelectorAll('[data-os-all]').forEach(b=> b.onclick = ()=>{
     const o = orders.find(x=> x.id === b.dataset.osAll); if(!o) return;
