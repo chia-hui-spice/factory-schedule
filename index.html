@@ -775,6 +775,10 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
 .zov-chip b{ color:var(--amber); margin-left:2px; } .zov-chip.empty{ opacity:.45; }
 .zov-chip.on{ border-color:var(--teal); background:rgba(63,184,175,0.18); color:var(--teal); }
 .zov-sum{ font-size:15px; margin-bottom:8px; line-height:1.9; } .zov-sum .badge{ font-size:12.5px; }
+.zov-past-n{ margin-left:4px; font-size:11.5px; color:var(--ink-dim); font-weight:600; }
+.zov-past-head{ margin:14px 0 4px; padding-top:10px; border-top:1.5px dashed var(--line); font-size:15px; font-weight:800; color:var(--ink-dim); }
+.zov-table .zl-row.zov-past{ opacity:.5; }
+.zl-due.zov-done{ color:var(--green); }
 .zov-table .zl-row{ cursor:pointer; grid-template-columns:70px minmax(80px,1fr) minmax(110px,2fr) 76px 96px; }
 .zov-table .zl-st .badge{ white-space:nowrap; font-size:12.5px; }
 .qty-btn{ border-color:var(--orange); color:var(--orange); }
@@ -2909,7 +2913,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.26-10';
+const APP_VERSION = '2026.11.26-11';
 let latestAppVersion = '';
 // 版本號用「數字」比大小（不能用文字比：文字比的話 -10 會被當成比 -9 舊）
 function cmpVer(a, b){
@@ -5990,30 +5994,36 @@ function zovItems(){
 function renderZoneOverview(){
   const all = zovItems();
   const zones = PRODUCTION_ZONES.concat([ZOV_NONE]);
-  const cnt = {}; all.forEach(r=> cnt[r.z] = (cnt[r.z] || 0) + 1);
+  // 裝箱確認、出貨確認＝已經過產線這一站：還看得到，但放到最下面、變淡
+  const ZOV_PAST = ['boxing', 'shipped'];
+  const isPast = (it)=> ZOV_PAST.includes(it.status);
+  const cnt = {}, cntPast = {}; all.forEach(r=>{ if(isPast(r.it)) cntPast[r.z] = (cntPast[r.z] || 0) + 1; else cnt[r.z] = (cnt[r.z] || 0) + 1; });
   if(!zovZone || !zones.includes(zovZone)) zovZone = zones.find(z=> cnt[z]) || zones[0];
   document.getElementById('zovChips').innerHTML = zones.map(z=>
-    '<button type="button" class="zov-chip' + (z === zovZone ? ' on' : '') + (cnt[z] ? '' : ' empty') + '" data-zov="' + escapeHtml(z) + '">' + escapeHtml(z) + ' <b>' + (cnt[z] || 0) + '</b></button>').join('');
+    '<button type="button" class="zov-chip' + (z === zovZone ? ' on' : '') + ((cnt[z] || cntPast[z]) ? '' : ' empty') + '" data-zov="' + escapeHtml(z) + '">' + escapeHtml(z) + ' <b>' + (cnt[z] || 0) + '</b>' + (cntPast[z] ? '<small class="zov-past-n">＋' + cntPast[z] + ' 已過</small>' : '') + '</button>').join('');
   const rows = all.filter(r=> r.z === zovZone);
   rows.sort((a, b)=> String(a.it.due || '9999').localeCompare(String(b.it.due || '9999')) || STATUS.indexOf(a.it.status) - STATUS.indexOf(b.it.status) || String(a.o.customer || '').localeCompare(String(b.o.customer || ''), 'zh-Hant'));
-  const byStage = {}; rows.forEach(r=> byStage[r.it.status] = (byStage[r.it.status] || 0) + 1);
+  const rowsNow = rows.filter(r=> !isPast(r.it)), rowsPast = rows.filter(r=> isPast(r.it));
+  const byStage = {}; rowsNow.forEach(r=> byStage[r.it.status] = (byStage[r.it.status] || 0) + 1);
   const stageSummary = STATUS.filter(st=> byStage[st]).map(st=> '<span class="badge stage st-' + st + '">' + STATUS_LABEL[st] + ' ' + byStage[st] + '</span>').join(' ');
   const dueCell = (d)=>{
     if(!d) return '<span class="zl-due">－</span>';
     const n = dueDiffDays(d);
     return '<span class="zl-due ' + (n <= 0 ? 'late' : n === 1 ? 'soon' : '') + '">' + escapeHtml(fmtDueShort(d)) + '<small>' + (n < 0 ? '逾' + (-n) + '天' : n === 0 ? '今天' : n === 1 ? '明天' : n + '天後') + '</small></span>';
   };
-  const nOrders = new Set(rows.map(r=> r.o.id)).size;
-  document.getElementById('zovBody').innerHTML = rows.length ?
-    '<div class="zov-sum">全部 <b>' + rows.length + '</b> 項・<b>' + nOrders + '</b> 張單　' + stageSummary + '</div>' +
-    '<div class="zl-table zov-table"><div class="zl-row zl-th"><span>出貨日</span><span>客戶</span><span>品項 / 規格</span><span class="zl-q">數量</span><span class="zl-st">目前步驟</span></div>' +
-    rows.map(({ o, it })=>
-      '<div class="zl-row" data-zov-oid="' + o.id + '" data-zov-iid="' + it.id + '">' + dueCell(it.due) +
+  const nOrders = new Set(rowsNow.map(r=> r.o.id)).size;
+  const rowHtml = ({ o, it }, past)=>
+      '<div class="zl-row' + (past ? ' zov-past' : '') + '" data-zov-oid="' + o.id + '" data-zov-iid="' + it.id + '">' + (past ? '<span class="zl-due zov-done">✓<small>已過這站</small></span>' : dueCell(it.due)) +
         '<span class="zl-cust">' + escapeHtml(o.customer || '') + '<small style="display:block; color:var(--ink-dim);">' + escapeHtml(o.orderNo || '') + '</small></span>' +
         '<span class="zl-prod"><b>' + escapeHtml(it.product || '') + '</b>' + (it.spec ? '<small>' + escapeHtml(it.spec) + '</small>' : '') + (itemCodeText(it) ? '<small class="zl-code">' + escapeHtml(itemCodeText(it)) + '</small>' : '') + '</span>' +
         '<span class="zl-q">' + escapeHtml(qtyWithUnit(it.qty, it)) + '</span>' +
         '<span class="zl-st"><span class="badge stage st-' + it.status + '">' + STATUS_LABEL[it.status] + '</span></span>' +
-      '</div>').join('') + '</div>' +
+      '</div>';
+  const th = '<div class="zl-row zl-th"><span>出貨日</span><span>客戶</span><span>品項 / 規格</span><span class="zl-q">數量</span><span class="zl-st">目前步驟</span></div>';
+  document.getElementById('zovBody').innerHTML = rows.length ?
+    '<div class="zov-sum">⏳ 還要處理 <b>' + rowsNow.length + '</b> 項・<b>' + nOrders + '</b> 張單　' + stageSummary + '</div>' +
+    (rowsNow.length ? '<div class="zl-table zov-table">' + th + rowsNow.map(r=> rowHtml(r, false)).join('') + '</div>' : '<div style="padding:12px; text-align:center; color:var(--green); font-weight:800;">✅ 這條產線的單都已經過這站了</div>') +
+    (rowsPast.length ? '<div class="zov-past-head">✅ 已經過這站（在裝箱確認、出貨確認）<b>' + rowsPast.length + '</b> 項</div><div class="zl-table zov-table">' + rowsPast.map(r=> rowHtml(r, true)).join('') + '</div>' : '') +
     '<div class="zl-hint">點一列會跳到那個步驟，並展開那個品項</div>'
     : '<div style="padding:20px; text-align:center; color:var(--ink-dim);">這條產線目前沒有還沒出貨的品項</div>';
   document.querySelectorAll('#zovChips [data-zov]').forEach(b=> b.onclick = ()=>{ zovZone = b.dataset.zov; try{ localStorage.setItem('zovZone', zovZone); }catch(e){} renderZoneOverview(); });
