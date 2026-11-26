@@ -2909,7 +2909,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.26-9';
+const APP_VERSION = '2026.11.26-10';
 let latestAppVersion = '';
 // 版本號用「數字」比大小（不能用文字比：文字比的話 -10 會被當成比 -9 舊）
 function cmpVer(a, b){
@@ -7723,7 +7723,7 @@ function openSheetInner(order, item){
   document.getElementById('fQty').value = item ? item.qty : '';
   document.getElementById('fQty').placeholder = '0';
   document.getElementById('fActualYieldQty').value = item ? ((item.actualYieldQty !== undefined && item.actualYieldQty !== null && item.actualYieldQty !== '') ? item.actualYieldQty : item.qty) : '';
-  setFlexDateValue('fDue', item ? item.due : (firstItem ? firstItem.due : todayStr()));
+  setFlexDateValue('fDue', item ? item.due : '');   // 新訂單、新增品項都不預設出貨日，要自己填
   setPickerValue('fOrigin', 'fOriginCustom', item ? (item.origin || '') : '');
   setFlexDateValue('fProductExpDate', item ? (item.productExpDate || '') : '');
   document.getElementById('fProductExpDate').dataset.autoValue = (item && item.productMfgDate && item.productExpDate === itemAutoExp(item, item.productMfgDate)) ? item.productExpDate : '';
@@ -7970,7 +7970,7 @@ function openQuickOrder(){
   document.getElementById('qoCustomerList').innerHTML = custs.map(c=>'<option value="'+escapeHtml(c)+'">').join('');
   document.getElementById('qoCustomer').value = '';
   document.getElementById('qoCustomerNew').checked = false;
-  document.getElementById('qoDue').value = todayStr();
+  document.getElementById('qoDue').value = '';   // 預計需求出貨日期不預設，一定要填寫人員自己填（2026.11.26）
   // 填寫人員：固定名單 + 以前訂單用「自訂」填過的名字 + 「自訂」
   {
     const base = Array.from(document.getElementById('fFilledBy').options).map(o=>o.value).filter(v=>v && v!=='自訂');
@@ -8331,7 +8331,8 @@ async function qoSaveOrder(){
   const rows = qoRows.filter(r=>r.product || r.qty);
   const problems = [];
   if(!customer) problems.push('客戶名稱');
-  if(!due) problems.push('出貨日期');
+  if(!due) problems.push('預計需求出貨日期');
+  (function(){ const w = document.getElementById('qoDue').closest('.dual-date'); const t = w ? w.querySelector('.dual-date-text') : document.getElementById('qoDue'); if(t) t.style.borderColor = due ? '' : 'var(--red)'; })();
   const filledByMissing = !qoGetFilledBy();
   const coaMissing = !document.getElementById('qoCoa').value;
   if(filledByMissing) problems.push(document.getElementById('qoFilledBy').value === '自訂' ? '填寫人員姓名' : '填寫人員');
