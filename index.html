@@ -2456,8 +2456,8 @@ body.show-id .id-note.pending{ font-weight:600; opacity:.75; }
     <div class="report-updated" id="blSub"></div>
     <div class="field"><label>印法</label>
       <div class="bl-modes">
-        <label><input type="radio" name="blMode" value="perBox" checked> 每箱一張<small>（照箱數印，貼在每一箱）</small></label>
-        <label><input type="radio" name="blMode" value="perOrder"> 整張訂單一張<small>（列出全部品項，例如多個品項裝同一箱）</small></label>
+        <label><input type="radio" name="blMode" value="perOrder" checked> 整張訂單一張<small>（列出全部品項，例如多個品項裝同一箱）</small></label>
+        <label><input type="radio" name="blMode" value="perBox"> 每箱一張<small>（照箱數印，貼在每一箱）</small></label>
       </div>
     </div>
     <div class="field"><label>要印的品項、張數</label><div id="blItems"></div></div>
@@ -2891,7 +2891,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.26-4';
+const APP_VERSION = '2026.11.26-7';
 let latestAppVersion = '';
 // 版本號用「數字」比大小（不能用文字比：文字比的話 -10 會被當成比 -9 舊）
 function cmpVer(a, b){
@@ -4578,7 +4578,7 @@ function renderTabs(){
 let zoneListOpen = true;
 let zoneListOnly = false; // 只看清單（把下面的訂單卡藏起來）
 try{ zoneListOnly = localStorage.getItem('zoneListOnly') === '1'; }catch(e){}
-function zoneListActive(){ return (currentTab === 'labeling' || currentTab === 'refill') && !!currentZoneFilter; }
+function zoneListActive(){ return ((currentTab === 'labeling' || currentTab === 'refill') && !!currentZoneFilter) || currentTab === 'boxing' || currentTab === 'shipped'; }   // 裝箱確認、出貨確認：不用選產線，直接有整頁清單
 function zoneListOnlyActive(){ return zoneListActive() && zoneListOnly; }
 function zoneListHtml(matchingOrders){
   if(!zoneListActive()) return '';
@@ -4591,7 +4591,7 @@ function zoneListHtml(matchingOrders){
   rows.forEach(({ it })=>{
     const k = it.product + '｜' + (it.spec || '');
     if(!sums.has(k)) sums.set(k, { product: it.product, spec: it.spec || '', qty: 0, n: 0, it });
-    const x = sums.get(k); x.qty += Number(it.qty) || 0; x.n++;
+    const x = sums.get(k); x.qty += Number((currentTab === 'boxing' || currentTab === 'shipped') ? shipQtyOf(it) : it.qty) || 0; x.n++;
   });
   const dueCell = (d)=>{
     if(!d) return '<span class="zl-due">－</span>';
@@ -4599,17 +4599,25 @@ function zoneListHtml(matchingOrders){
     return '<span class="zl-due ' + (n <= 0 ? 'late' : n === 1 ? 'soon' : '') + '">' + escapeHtml(fmtDueShort(d)) + '<small>' + (n < 0 ? '逾' + (-n) + '天' : n === 0 ? '今天' : n === 1 ? '明天' : n + '天後') + '</small></span>';
   };
   const done = (it)=> currentTab === 'labeling' ? !!(it.productMfgDate && it.productBatchNo) : !!it.packagingStaff;
+  const isBS = currentTab === 'boxing' || currentTab === 'shipped';
+  const stHead = currentTab === 'labeling' ? '批號日期' : currentTab === 'boxing' ? '出貨前檢查' : currentTab === 'shipped' ? '出貨方式' : '包裝人員';
+  const stCell = (it)=>{
+    if(currentTab === 'boxing'){ const c = effectiveChecklist(it); const n = ['c1','c2','c3','c4'].filter(k=> c[k]).length; return n === 4 ? '<span class="zl-ok">✓ 4/4</span>' : '<span class="zl-no">' + n + '/4</span>'; }
+    if(currentTab === 'shipped'){ const sm = { today:'🚚 寄貨', tomorrow:'📦 送貨', pickup:'🙋 自取' }[it.shipMethod]; return sm ? '<span class="zl-ok">' + sm + '</span>' : '<span class="zl-no">未選</span>'; }
+    return done(it) ? '<span class="zl-ok">✓ 已填</span>' : '<span class="zl-no">未填</span>';
+  };
+  const listTitle = isBS ? ('📦 ' + STATUS_LABEL[currentTab]) : ('🏭 ' + escapeHtml(currentZoneFilter));
   return '<div class="zone-list' + (zoneListOpen ? ' open' : '') + '">' +
-    '<div class="zl-head"><button type="button" class="zl-toggle">' + (zoneListOpen ? '▾' : '▸') + ' 🏭 ' + escapeHtml(currentZoneFilter) + '　全部品項 <b>' + rows.length + '</b> 項・<b>' + matchingOrders.length + '</b> 張單</button>' +
+    '<div class="zl-head"><button type="button" class="zl-toggle">' + (zoneListOpen ? '▾' : '▸') + ' ' + listTitle + '　全部品項 <b>' + rows.length + '</b> 項・<b>' + matchingOrders.length + '</b> 張單</button>' +
       '<label class="zl-only"><input type="checkbox" class="zl-only-cb"' + (zoneListOnly ? ' checked' : '') + '> 只看清單</label></div>' +
     (zoneListOpen ?
-      '<div class="zl-table"><div class="zl-row zl-th"><span>出貨日</span><span>客戶</span><span>品項 / 規格</span><span class="zl-q">數量</span><span class="zl-st">' + (currentTab === 'labeling' ? '批號日期' : '包裝人員') + '</span></div>' +
+      '<div class="zl-table"><div class="zl-row zl-th"><span>出貨日</span><span>客戶</span><span>品項 / 規格</span><span class="zl-q">數量</span><span class="zl-st">' + stHead + '</span></div>' +
       rows.map(({ o, it })=>
         '<div class="zl-row" data-zl-iid="' + it.id + '">' + dueCell(it.due) +
           '<span class="zl-cust">' + escapeHtml(o.customer || '') + '</span>' +
           '<span class="zl-prod"><b>' + escapeHtml(it.product || '') + '</b>' + idNameLine(it.product) + (it.spec ? '<small>' + escapeHtml(it.spec) + '</small>' : '') + (itemCodeText(it) ? '<small class="zl-code">' + escapeHtml(itemCodeText(it)) + '</small>' : '') + (it.vendorDirect ? '<small style="color:#a98bff;">🏭 廠商直出</small>' : '') + '</span>' +
-          '<span class="zl-q">' + escapeHtml(qtyWithUnit(it.qty, it)) + '</span>' +
-          '<span class="zl-st">' + (done(it) ? '<span class="zl-ok">✓ 已填</span>' : '<span class="zl-no">未填</span>') + '</span>' +
+          '<span class="zl-q">' + escapeHtml(qtyWithUnit(isBS ? shipQtyOf(it) : it.qty, it)) + '</span>' +
+          '<span class="zl-st">' + stCell(it) + '</span>' +
         '</div>').join('') + '</div>' +
       (sums.size ? '<div class="zl-sum"><b>📦 同品項合計</b>' + Array.from(sums.values()).sort((a,b)=> b.qty - a.qty).map(x=>
         '<div class="zl-sum-row"><span>' + escapeHtml(x.product) + (x.spec ? '　<small>' + escapeHtml(x.spec) + '</small>' : '') + '</span><b>' + escapeHtml(qtyWithUnit(Math.round(x.qty * 1000) / 1000, x.it)) + '</b><small>' + x.n + ' 張單</small></div>').join('') + '</div>' : '') +
@@ -5807,6 +5815,7 @@ function blDefaultCount(it){
 function blEligible(it){ return !it.deleted && it.status !== 'cancelled'; }
 function openBoxLabel(order){
   blOrderId = order.id;
+  document.querySelector('input[name="blMode"][value="perOrder"]').checked = true;   // 預設：整張訂單一張
   try{ document.getElementById('blRotate').checked = localStorage.getItem('boxLabelRotate') === '1'; }catch(e){}
   try{ const sv = localStorage.getItem('boxLabelSize2'); document.getElementById('blSize').value = (sv && BL_SIZES[sv]) ? sv : 'l100x75'; }catch(e){ document.getElementById('blSize').value = 'l100x75'; }
   document.getElementById('blSub').innerHTML = '客戶 <b style="font-size:18px; color:var(--ink);">' + escapeHtml(order.customer || '') + '</b>　訂單 ' + escapeHtml(order.orderNo || '');
@@ -5865,15 +5874,22 @@ function blLabelsHtml(c){
     '<div class="bl-cust" style="font-size:' + custSize(o.customer) + 'mm;">' + esc(o.customer || '') + '</div>';
   if(c.mode === 'perOrder'){
     // 品項字放大：品項少（3 項以內）批號放第二行；品項多就跟品名放同一行，比較省高度
-    const n = Math.max(1, c.picked.length), few = true;
+    // 品項太多自動分成好幾張（每張最多幾項看標籤大小），平均分配，每張都印客戶名稱和「第幾張」
+    const MAX_PER = { l100x75:5, l100x100:7, l100x150:10, a4half:8, a4:16 }[c.size] || 6;
+    const pages = Math.max(1, Math.ceil(c.picked.length / MAX_PER));
+    const per = Math.ceil(c.picked.length / pages);
+    const n = Math.max(1, per), few = true;
     const emLen = (t)=> Array.from(String(t || '')).reduce((k, ch)=> k + (/[\x00-\xff]/.test(ch) ? 0.55 : 1), 0);
     const longest = Math.max(...c.picked.map(p=> emLen(p.it.product + ' ' + (p.it.spec || '') + '  ' + qtyWithUnit(shipQtyOf(p.it), p.it))));
     const fs = Math.max(3.2, Math.min(H * 0.12, inner * 0.98 / longest, (H * 0.72 / n - 0.5) / 1.75));   // 2026.11.25 品項字再放大
-    out.push(label(head(c.order) + '<div class="bl-list" style="font-size:' + fs + 'mm;">' + c.picked.map(p=>{
+    for(let pg = 0; pg < pages; pg++){
+    const chunk = c.picked.slice(pg * per, (pg + 1) * per);
+    out.push(label(head(c.order) + '<div class="bl-list" style="font-size:' + fs + 'mm;">' + chunk.map(p=>{
       const it = p.it;
       const sub = (it.productBatchNo || it.productExpDate || it.boxCode) ? '<span class="bl-li-sub' + (few ? ' blk' : '') + '">' + (it.productBatchNo ? '批號 ' + esc(it.productBatchNo) : '') + (it.productExpDate ? '　有效 ' + esc(d(it.productExpDate)) : '') + (it.boxCode ? '　箱子Code ' + esc(it.boxCode) : '') + '</span>' : '';
       return '<div class="bl-li"><div class="bl-li-main"><b>' + esc(it.product) + '</b> ' + esc(it.spec || '') + ' ' + sub + '</div><span class="bl-li-q">' + esc(qtyWithUnit(shipQtyOf(it), it)) + '</span></div>';
-    }).join('') + '</div>'));
+    }).join('') + '</div>' + (pages > 1 ? '<div class="bl-no" style="font-size:' + Math.max(3.5, H * 0.06) + 'mm;">第 ' + (pg + 1) + ' / ' + pages + ' 張（共 ' + c.picked.length + ' 項）</div>' : '')));
+    }
   }else{
     c.picked.forEach(p=>{
       const it = p.it;
