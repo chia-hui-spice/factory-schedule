@@ -2913,7 +2913,7 @@ function shipMethodFullLabel(item){
 const ADMIN_EMAILS = ['mhsieh@chia-hui.com.tw', 'ktt@chia-hui.com.tw', 'chia-hui@chia-hui.com.tw'];
 // 刪除訂單／品項的權限：管理者一定可以；其他帳號要在「權限管理」勾「可以刪除訂單」才可以
  // ---- 📱 版本檢查：每台裝置回報自己的版本；比雲端記錄的最新版舊，就顯示紅色提醒，而且不能刪除 ----
-const APP_VERSION = '2026.11.26-11';
+const APP_VERSION = '2026.11.27-1';
 let latestAppVersion = '';
 // 版本號用「數字」比大小（不能用文字比：文字比的話 -10 會被當成比 -9 舊）
 function cmpVer(a, b){
@@ -8015,12 +8015,14 @@ function renderQoRecent(){
   const list = cust ? qoCustomerOrders(cust).slice(0, 3) : [];
   if(list.length === 0){ el.innerHTML = cust ? '<div style="font-size:14px; color:var(--ink-dim); margin:-4px 0 10px;">這位客戶還沒有訂單紀錄，請在下方直接輸入品項</div>' : ''; return; }
   const histCount = qoCustomerHistory(cust).length;
+  if(!histCount){ el.innerHTML = '<div style="font-size:14px; color:var(--ink-dim); margin:-4px 0 10px;">這位客戶訂過的品項都還沒有料號，請在下方直接輸入品項（或先到 📦 進銷存 → 成品 建料號）</div>'; return; }
   // 「複製上一張訂單」已拿掉，改用從訂過的品項挑選
-  el.innerHTML = '<button type="button" class="btn-primary" id="qoOpenPick" style="width:100%; margin-bottom:10px; background:var(--amber);">🛒 從「' + escapeHtml(cust) + '」訂過的 ' + histCount + ' 種品項中挑選</button>';
+  el.innerHTML = '<button type="button" class="btn-primary" id="qoOpenPick" style="width:100%; margin-bottom:10px; background:var(--amber);">🛒 從「' + escapeHtml(cust) + '」訂過的 ' + histCount + ' 種有料號品項中挑選</button>';
   const pb = document.getElementById('qoOpenPick'); if(pb) pb.onclick = ()=> openQoPick('quick');
 }
 // ---- 從客戶訂過的品項挑選：列出這位客戶所有訂過的「產品＋規格」，勾選後加入，再逐項確認數量 ----
-function qoCustomerHistory(cust){
+// 只列出有料號的品項（2026.11.27）；withNoCode=true 時連沒有料號的也一起回傳（算數量用）
+function qoCustomerHistory(cust, withNoCode){
   const map = new Map();
   qoCustomerOrders(cust).forEach(o=>{ // 已經是新到舊
     const when = orderCreatedDate(o) || 0;
@@ -8033,7 +8035,9 @@ function qoCustomerHistory(cust){
       h.count++;
     });
   });
-  return Array.from(map.values());
+  const all = Array.from(map.values());
+  all.forEach(h=> h.code = itemCodeText({ product: h.product, spec: h.spec }));
+  return withNoCode ? all : all.filter(h=> h.code);
 }
 let qoPickHist = [], qoPickSel = new Set(), qoPickMode = 'quick';
 // 新增訂單（單一品項表單）也可以從客戶訂過的品項挑選
@@ -8044,7 +8048,7 @@ function renderFPick(){
   const n = (fPickEnabled && cust) ? qoCustomerHistory(cust).length : 0;
   if(!n){ wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
   wrap.style.display = '';
-  wrap.innerHTML = '<button type="button" class="btn-primary" id="fOpenPick" style="width:100%; background:var(--amber);">🛒 從「' + escapeHtml(cust) + '」訂過的 ' + n + ' 種品項中挑選</button>' +
+  wrap.innerHTML = '<button type="button" class="btn-primary" id="fOpenPick" style="width:100%; background:var(--amber);">🛒 從「' + escapeHtml(cust) + '」訂過的 ' + n + ' 種有料號品項中挑選</button>' +
     '<div style="font-size:13.5px; color:var(--ink-dim); margin-top:4px;">勾一項會直接填到下面；勾很多項會自動換到「多品項下單」一次建立。</div>';
   document.getElementById('fOpenPick').onclick = ()=> openQoPick('single');
 }
@@ -8055,7 +8059,8 @@ function openQoPick(mode){
   qoPickHist = qoCustomerHistory(cust);
   const already = qoPickMode === 'single' ? new Set() : new Set(qoRows.filter(r=>r.product).map(r=> r.product + '||' + (r.spec || '')));
   qoPickSel = new Set();
-  document.getElementById('qoPickSub').textContent = cust + '　共訂過 ' + qoPickHist.length + ' 種品項（產品＋規格）' + (already.size ? '，下單畫面已有的會標「已加入」' : '');
+  const noCode = qoCustomerHistory(cust, true).length - qoPickHist.length;
+  document.getElementById('qoPickSub').textContent = cust + '　有料號的品項 ' + qoPickHist.length + ' 種（產品＋規格）' + (noCode > 0 ? '，另有 ' + noCode + ' 種還沒有料號沒有列出' : '') + (already.size ? '，下單畫面已有的會標「已加入」' : '');
   document.getElementById('qoPickSearch').value = '';
   renderQoPick();
   document.getElementById('qoPickOverlay').classList.add('show');
@@ -8080,7 +8085,7 @@ function renderQoPick(){
     return '<label class="qo-pick-row' + (on ? ' on' : '') + (h.discontinued ? ' discontinued' : '') + '" data-key="' + escapeHtml(h.key) + '">' +
       '<input type="checkbox"' + (on ? ' checked' : '') + '><span class="qo-pick-no"></span>' +
       '<div style="flex:1; min-width:0;"><div style="font-size:16.5px; font-weight:800;">' + escapeHtml(h.product) + (h.spec ? '<span class="item-spec"> ・ ' + escapeHtml(h.spec) + '</span>' : '') +
-        (function(){ const f = (finishedGoods || []).find(x=> x.product === h.product && (x.spec || '') === (h.spec || '')); const c = f ? fgCodesOf(f).join('／') : ''; return c ? ' <span class="code-tag"><b>' + escapeHtml(c) + '</b></span>' : ''; })() + (has ? ' <span style="font-size:12.5px; color:var(--teal); border:1px solid var(--teal); border-radius:6px; padding:0 5px;">已加入</span>' : '') + discTag + '</div>' +
+        (h.code ? ' <span class="code-tag"><b>' + escapeHtml(h.code) + '</b></span>' : '') + (has ? ' <span style="font-size:12.5px; color:var(--teal); border:1px solid var(--teal); border-radius:6px; padding:0 5px;">已加入</span>' : '') + discTag + '</div>' +
       '<div style="font-size:13.5px; color:var(--ink-dim);">訂過 ' + h.count + ' 次　上次 ' + escapeHtml(String(h.lastQty ?? '')) + (dTxt ? '（' + dTxt + '）' : '') + '</div></div></label>';
   }).join('') : '<div class="ship-list-empty">沒有符合的品項</div>';
   el.querySelectorAll('.qo-pick-row').forEach(row=>{
